@@ -1,0 +1,19 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copiar-decodificadores.mjs",
+    "dev": "vite --host",
+    "prebuild": "node scripts/copiar-decodificadores.mjs",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}

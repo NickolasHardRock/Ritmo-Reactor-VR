@@ -1,0 +1,69 @@
+/* Interface 2D — visível apenas FORA do VR.
+   Dentro do headset nada disto aparece; a UI de VR são placas 3D
+   desenhadas em canvas (ver src/cena.js -> placa()). */
+:root{--bg:#0a0e16;--panel:#111826;--line:#22304a;--ink:#e8eef8;--muted:#8c9bb5;
+        --cyan:#00d9ff;--ok:#3ddc97;--warn:#ffb84d;--bad:#ff4d6d;--gold:#ffd34d}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  canvas{display:block}
+  .layer{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    padding:22px;z-index:10;overflow-y:auto}
+  .hidden{display:none!important}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 28px;
+    max-width:660px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  h1{margin:0 0 2px;font-size:clamp(21px,4vw,30px);letter-spacing:-.01em}
+  .tag{color:var(--cyan);font:600 11.5px/1 system-ui;letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+  .sub{color:var(--muted);margin:0 0 16px;font-size:14.5px;line-height:1.55}
+  h2{margin:20px 0 8px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  ul{margin:0;padding-left:19px;font-size:14.5px;line-height:1.7}
+  ul li::marker{color:var(--cyan)}
+  .row{display:flex;gap:11px;flex-wrap:wrap;margin-top:22px;align-items:center}
+  button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:13px 24px;cursor:pointer;
+    background:var(--cyan);color:#04141c;transition:filter .15s}
+  button:hover{filter:brightness(1.12)}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button[disabled]{opacity:.4;cursor:not-allowed}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;padding:7px 13px;
+    border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--ok)}.dot.no{background:var(--warn)}
+  .credits{margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;
+    color:var(--muted);line-height:1.6}
+  .kbd{font-family:ui-monospace,monospace;background:#070b12;border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;font-size:11.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  td{padding:5px 0;border-top:1px solid var(--line)}
+  td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  /* HUD navegador */
+  #hud{position:fixed;top:12px;left:12px;right:12px;z-index:5;display:flex;gap:9px;
+    justify-content:space-between;pointer-events:none;font-size:13px}
+  #hud .g{display:flex;gap:9px}
+  #hud b{font-variant-numeric:tabular-nums}
+  #hud div.box{background:rgba(17,24,38,.9);border:1px solid var(--line);border-radius:9px;
+    padding:7px 12px;backdrop-filter:blur(6px)}
+  #julg{position:fixed;top:44%;left:50%;transform:translateX(-50%);z-index:6;font-weight:800;
+    font-size:34px;letter-spacing:.04em;opacity:0;transition:opacity .12s;pointer-events:none;
+    text-shadow:0 3px 20px rgba(0,0,0,.8)}
+  #msg{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);z-index:6;
+    background:rgba(17,24,38,.95);border:1px solid var(--line);border-left:3px solid var(--cyan);
+    border-radius:9px;padding:11px 18px;font-size:14px;opacity:0;transition:opacity .22s;max-width:80vw}
+  #msg.show{opacity:1}#msg.bad{border-left-color:var(--bad)}#msg.ok{border-left-color:var(--ok)}
+  #vr-slot{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:7}
+  #vr-slot button{position:static!important;transform:none!important;width:auto!important;
+    left:auto!important;bottom:auto!important;background:var(--ok)!important;color:#04140d!important;
+    border:0!important;font:600 15px system-ui!important;padding:13px 26px!important;
+    border-radius:10px!important;opacity:1!important;letter-spacing:0!important}
+  #teclas{position:fixed;bottom:16px;right:14px;z-index:5;font-size:11.5px;color:var(--muted);
+    background:rgba(17,24,38,.86);border:1px solid var(--line);border-radius:9px;padding:9px 12px;
+    line-height:1.75;text-align:right}
+  #carga{position:fixed;bottom:0;left:0;right:0;height:3px;background:#0c1220;z-index:5}
+  #carga i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--ok));
+    transition:width .3s}
+  #load{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:var(--bg)}
+  #load .bar{width:240px;height:5px;background:#131b2a;border-radius:3px;overflow:hidden}
+  #load .bar i{display:block;height:100%;width:0;background:var(--cyan);transition:width .18s}
+  .big{font-size:40px;font-weight:700;line-height:1;margin:5px 0 2px}
+  .stats{display:flex;gap:26px;flex-wrap:wrap;margin:16px 0 2px}
+  .stats span{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}

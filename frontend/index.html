@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drum Reactivate — Missão WebXR</title>
+<meta name="description" content="Jogo musical em WebXR: toque bateria para religar o reator da estação.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0e16'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%2300d9ff' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./src/estilo.css">
+</head>
+<body>
+
+
+<div id="load">
+  <div class="tag">carregando</div>
+  <div class="bar"><i id="load-bar"></i></div>
+  <div id="load-txt" style="color:#8c9bb5;font-size:13px">modelos/bateria.glb</div>
+</div>
+
+<!-- ---------------- RF01 TELA INICIAL ---------------- -->
+<div class="layer hidden" id="tela-inicio">
+  <div class="card">
+    <div class="tag">Missão WebXR</div>
+    <h1>Drum Reactivate</h1>
+    <p class="sub">O reator da estação parou. O núcleo só volta a oscilar se receber um pulso rítmico
+      preciso — e o único emissor a bordo é uma bateria. Toque para religar.</p>
+
+    <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
+
+    <h2>Três desafios</h2>
+    <ul>
+      <li><strong>Calibração</strong> — acerte cada peça indicada para mapear o emissor.</li>
+      <li><strong>Eco</strong> — o reator toca um padrão, você repete. Três rodadas.</li>
+      <li><strong>Ritmo</strong> — acerte as notas no tempo. Combo multiplica os pontos.</li>
+    </ul>
+
+    <h2>Modo navegador</h2>
+    <ul>
+      <li>Teclas <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span>
+          <span class="kbd">F</span> <span class="kbd">J</span> <span class="kbd">K</span>
+          <span class="kbd">L</span> — uma por peça (o nome aparece sobre cada tambor).</li>
+      <li>Ou clique diretamente na peça. Arraste para olhar.</li>
+    </ul>
+
+    <h2>Modo VR</h2>
+    <ul>
+      <li>Seus controles viram <strong>baquetas</strong>. Bata de verdade — a força conta.</li>
+      <li>Alavanca direita <strong>↑ ↓</strong> ajusta a altura da bateria ao seu corpo.</li>
+    </ul>
+
+    <div class="row">
+      <button id="btn-jogar">Iniciar missão</button>
+      <button class="ghost" id="btn-livre">Modo livre</button>
+    </div>
+    <div class="credits">
+      <strong>Equipe:</strong> [preencher nomes]<br>ADS — Senac Joinville · Profª Claudia Werlich
+    </div>
+  </div>
+</div>
+
+<!-- ---------------- RF10 RESULTADO ---------------- -->
+<div class="layer hidden" id="tela-fim">
+  <div class="card">
+    <div class="tag" id="fim-tag">reator religado</div>
+    <h1 id="fim-titulo">Missão concluída</h1>
+    <p class="sub" id="fim-sub"></p>
+    <div class="stats">
+      <div><span>Pontuação</span><div class="big" id="f-pontos">0</div></div>
+      <div><span>Precisão</span><div class="big" id="f-prec">0%</div></div>
+      <div><span>Combo máx.</span><div class="big" id="f-combo">0</div></div>
+      <div><span>Tempo</span><div class="big" id="f-tempo">0s</div></div>
+    </div>
+    <table>
+      <tr><td>Perfeitas</td><td id="f-perf">0</td></tr>
+      <tr><td>Boas</td><td id="f-bom">0</td></tr>
+      <tr><td>Erradas / perdidas</td><td id="f-erro">0</td></tr>
+      <tr><td>Persistência (RF11/RF12)</td><td id="f-api">API não configurada</td></tr>
+    </table>
+    <div class="row">
+      <button id="btn-again">Jogar novamente</button>
+      <button class="ghost" id="btn-menu">Menu</button>
+    </div>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div class="g">
+    <div class="box">Pontos <b id="h-pontos">0</b></div>
+    <div class="box">Combo <b id="h-combo">0</b>x</div>
+    <div class="box">Reator <b id="h-reator">0</b>%</div>
+  </div>
+  <div class="g">
+    <div class="box" id="h-fase">Fase 1/3 — Calibração</div>
+  </div>
+</div>
+
+<div id="julg"></div>
+<div id="msg"></div>
+<div id="vr-slot"></div>
+<div id="carga"><i id="carga-i"></i></div>
+<div id="teclas" class="hidden"></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

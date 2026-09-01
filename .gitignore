@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.local
+.vercel
+*.log
+npm-debug.log*
+
+# Modelos-fonte NÃO versionados: são pesados e não são o que o jogo carrega.
+# O que vai para o repositório é o resultado do ferramentas/otimizar-cenario.mjs,
+# em frontend/public/modelos/. Guardem os originais fora do Git (Drive da equipe).
+ferramentas/fonte/
+*.blend
+*.fbx
+sci-fi_lab.glb
+drum_kit.glb
+
+.DS_Store
+Thumbs.db
+frontend/public/libs/

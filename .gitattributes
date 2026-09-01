@@ -1,0 +1,5 @@
+# Modelos são binários: o Git não sabe fazer diff nem merge neles.
+# Marcar como binary evita que ele tente, e evita corrupção por fim de linha.
+*.glb  binary
+*.gltf binary
+*.ktx2 binary

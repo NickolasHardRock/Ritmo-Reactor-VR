@@ -1,0 +1,28 @@
+{
+  "name": "ritmo-reactor-vr",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Drum Reactivate — jogo WebXR de ritmo. ADS Senac Joinville.",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace frontend",
+    "dev:api": "npm run dev --workspace backend",
+    "build": "npm run build --workspace frontend",
+    "preview": "npm run preview --workspace frontend",
+    "test": "node ferramentas/teste-jogo.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
+  }
+}
