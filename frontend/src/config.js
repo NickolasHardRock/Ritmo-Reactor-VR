@@ -48,7 +48,7 @@ export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
 export const LAB = {
   url:          'modelos/lab.glb',
   escala:       5,              // 2 m × 5 = sala de ~10 m
-  postoJogador: [ 0, 0.1 ],    // centro do modelo (x, z em coords do lab)
+  postoJogador: [ 0, 0.22 ],   // centro do palco em coords do lab (x, z)
   alturaPiso:   -0.50,         // Y do chão em coords do modelo (antes da escala)
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
