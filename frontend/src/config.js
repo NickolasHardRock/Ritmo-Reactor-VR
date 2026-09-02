@@ -4,39 +4,75 @@
    ========================================================================== */
 
 /* --------------------------------------------------------- AS PEÇAS ------
-   Posições medidas no próprio bateria.glb (o modelo foi analisado peça por
-   peça) e já convertidas para METROS, com a bateria virada de frente para o
-   jogador. `r` é o raio da zona de acerto — um pouco maior que a pele real,
-   porque em VR o jogador não tem retorno tátil e precisa de margem.
+   Medidas no próprio bateria.glb. Este modelo é um scan de fotogrametria —
+   malha ÚNICA fundida, sem nomes de peça — então as posições NÃO puderam
+   ser lidas da estrutura do arquivo. Foram obtidas pela GEOMETRIA: filtrando
+   os triângulos cuja normal aponta para cima (é onde se bate) e agrupando-os
+   por proximidade. Ver docs/tecnica.md.
 
-   Se depois do teste no headset alguma peça estiver difícil de acertar,
-   é uma linha aqui: aumente o `r` dela.                                    */
+   Valores já em METROS. Este modelo NÃO é girado (ver kit.js): ele já vem com
+   o lado do baterista em +Z, que é onde o jogador fica. Por isso x e z aqui
+   são os do próprio arquivo, sem inversão.
+
+   Confere com um kit destro de verdade, visto de quem toca: chimbal na ponta
+   esquerda, ride na direita, caixa à frente e um pouco à esquerda, surdo à
+   direita. É essa a ordem das teclas A S D F J K L.
+
+   O Y é medido a partir do PÉ do kit, e o pé é fixado por `APOIO_KIT` logo
+   abaixo — não pelo bounding box. Isso é de propósito: enquanto o apoio saía
+   do bbox, qualquer mexida na malha (cortar a base do scan, por exemplo)
+   deslocava as sete alturas de uma vez, em silêncio.
+
+   `r` é o raio da zona de acerto, 8% maior que a peça real: em VR o jogador
+   não tem retorno tátil e precisa de margem. Se alguma peça ficar difícil de
+   acertar no headset, é uma linha aqui.
+
+   Ordem: da esquerda para a direita, casando com as teclas e com as faixas
+   da pista de notas da fase 3.                                            */
 export const PECAS = [
-  { id:'chimbal', nome:'Chimbal', x:-0.697, y:1.157, z: 0.106, r:0.21, tecla:'KeyA', cor:0xc17dff, som:'chimbal' },
-  { id:'crash',   nome:'Crash',   x:-0.449, y:1.333, z:-0.054, r:0.34, tecla:'KeyS', cor:0x66e0ff, som:'crash'   },
-  { id:'caixa',   nome:'Caixa',   x:-0.366, y:0.966, z: 0.255, r:0.20, tecla:'KeyD', cor:0xffa64d, som:'caixa'   },
-  { id:'tom2',    nome:'Tom 2',   x:-0.152, y:1.116, z: 0.044, r:0.20, tecla:'KeyF', cor:0x3ddc97, som:'tom2'    },
-  { id:'tom1',    nome:'Tom 1',   x: 0.160, y:1.116, z: 0.053, r:0.17, tecla:'KeyJ', cor:0x4da3ff, som:'tom1'    },
-  { id:'surdo',   nome:'Surdo',   x: 0.450, y:0.934, z: 0.200, r:0.19, tecla:'KeyK', cor:0xff5d6c, som:'surdo'   },
-  { id:'ride',    nome:'Ride',    x: 0.658, y:1.264, z: 0.011, r:0.40, tecla:'KeyL', cor:0xffd34d, som:'ride'    },
+  { id:'chimbal', nome:'Chimbal', x:-0.719, y:0.721, z: 0.078, r:0.194, tecla:'KeyA', cor:0xc17dff, som:'chimbal' },
+  { id:'crash',   nome:'Crash',   x:-0.405, y:0.773, z:-0.101, r:0.286, tecla:'KeyS', cor:0x66e0ff, som:'crash'   },
+  { id:'caixa',   nome:'Caixa',   x:-0.375, y:0.575, z: 0.242, r:0.189, tecla:'KeyD', cor:0xffa64d, som:'caixa'   },
+  { id:'tom2',    nome:'Tom 2',   x:-0.159, y:0.681, z:-0.081, r:0.157, tecla:'KeyF', cor:0x3ddc97, som:'tom2'    },
+  { id:'tom1',    nome:'Tom 1',   x: 0.161, y:0.683, z:-0.080, r:0.162, tecla:'KeyJ', cor:0x4da3ff, som:'tom1'    },
+  { id:'surdo',   nome:'Surdo',   x: 0.401, y:0.576, z: 0.184, r:0.189, tecla:'KeyK', cor:0xff5d6c, som:'surdo'   },
+  { id:'ride',    nome:'Ride',    x: 0.676, y:0.799, z:-0.127, r:0.293, tecla:'KeyL', cor:0xffd34d, som:'ride'    },
 ];
 export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
 
 /* ------------------------------------------------------- O CENÁRIO -------
-   O laboratório veio do Sketchfab em coordenadas próprias. Em vez de
-   reescrever o jogo para elas, giramos e deslocamos o LAB para que estes
-   dois pontos caiam onde o jogo já espera o jogador e o reator.
-   Ver cena.js → encaixarLab().                                            */
+   O cenário é uma malha única centrada na origem (~2 m de extensão).
+   `escala` amplia para tamanho de sala; `postoJogador` indica, em coords
+   do modelo (ANTES da escala), onde o baterista fica. Ver cena.js →
+   encaixarLab().                                                          */
 export const LAB = {
   url:          'modelos/lab.glb',
-  postoJogador: [ 4.5, -1.0 ],  // onde o baterista fica, em coords do lab
-                                // (deste lado da divisória de vidro o tanque
-                                //  aparece inteiro, sem nada na frente)
-  tanque:       [ 3.0, -5.0 ],  // o cilindro luminoso = nosso reator
-  alturaPiso:   0.07,           // topo da malha de chão
+  escala:       5,              // 2 m × 5 = sala de ~10 m
+  postoJogador: [ 0, 0.1 ],    // centro do modelo (x, z em coords do lab)
+  alturaPiso:   -0.50,         // Y do chão em coords do modelo (antes da escala)
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
-export const ESCALA_KIT  = 0.591;   // bumbo -> 0,56 m (22 pol)
+/* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
+   ride de 54 cm (21") — medidas de bateria de verdade, conferidas em três
+   referências independentes. Por isso escala 1.
+   (A bateria anterior vinha em outra unidade e precisava de 0,591; aplicar
+   aquele valor aqui encolhia o kit para 62 cm de altura.)                */
+export const ESCALA_KIT = 1.0;
+
+/* Onde ficam os PÉS do kit, em coordenadas do próprio arquivo (com o sinal
+   trocado). O scan trazia um pedaço de chão digitalizado junto; ele foi
+   cortado em y = −0,494, que é exatamente onde as sapatas dos suportes
+   encostavam. Fixar o apoio aqui, em vez de deduzi-lo do bounding box,
+   garante que as alturas das peças acima não se mexam sozinhas se a malha
+   for otimizada de novo — o corte deixa franjas irregulares alguns
+   centímetros abaixo, e o bbox obedeceria a elas.                         */
+export const APOIO_KIT = 0.494;
+
+/* Este kit é montado BAIXO: mesmo em tamanho real, as peles ficam entre 0,58
+   e 0,80 m — desconfortável para quem joga EM PÉ. Sobre o estrado, as
+   alturas ficam quase iguais às da versão já validada no headset.
+   O jogador ainda ajusta ±45 cm a partir daqui (alavanca direita / [ ]).  */
+export const ALTURA_INICIAL_KIT = 0.35;
 
 /* ------------------------------------------------------- QUALIDADE -------
    Se o Quest engasgar, estes três são os primeiros a mexer.               */

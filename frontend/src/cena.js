@@ -102,23 +102,15 @@ export function afinarTexturas(raiz){
 }
 
 /* ==================================================== O LABORATÓRIO ======
-   O cenário tem coordenadas próprias. Em vez de reescrever o jogo para
-   elas, giro e desloco o LAB para que o posto do baterista e o tanque caiam
-   exatamente onde o jogo já espera o jogador e o reator. Assim toda a
-   lógica de posições da bateria continua valendo sem tocar em uma linha.  */
-const EIXO_Y = new THREE.Vector3(0,1,0);
-export let distReator = 4.0;   // recalculado ao encaixar
+   O cenário é uma malha centrada na origem. Escala, posiciona o posto do
+   baterista em POSTO e ajusta o chão para Y=0.                            */
 
 function encaixarLab(m){
-  const aLab  = Math.atan2(LAB.tanque[0] - LAB.postoJogador[0],
-                           LAB.tanque[1] - LAB.postoJogador[1]);
-  const aJogo = Math.atan2(0, -1);              // no jogo o reator fica em -Z
-  m.rotation.y = aJogo - aLab;
-  const p = new THREE.Vector3(LAB.postoJogador[0], 0, LAB.postoJogador[1])
-              .applyAxisAngle(EIXO_Y, m.rotation.y);
-  m.position.set(-p.x, -LAB.alturaPiso, POSTO.z - p.z);
-  distReator = Math.hypot(LAB.tanque[0] - LAB.postoJogador[0],
-                          LAB.tanque[1] - LAB.postoJogador[1]);
+  const s = LAB.escala || 1;
+  m.scale.setScalar(s);
+  const px = LAB.postoJogador[0] * s;
+  const pz = LAB.postoJogador[1] * s;
+  m.position.set(-px, -LAB.alturaPiso * s, POSTO.z - pz);
 }
 
 /* O modelo do Sketchfab foi feito para ser olhado de FORA: falta parede em
@@ -163,7 +155,7 @@ export function carregarLab(){
       const t = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
       abrigo.scale.set(t.x + .3, t.y + .3, t.z + .3);
       abrigo.position.copy(c);
-      reator.position.set(0, 1.55, POSTO.z - distReator);
+      reator.visible = false;
     },
     undefined,
     (err) => console.warn('[cena] cenário não carregou — seguindo sem ele', err),
