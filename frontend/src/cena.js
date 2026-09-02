@@ -106,10 +106,15 @@ export function afinarTexturas(raiz){
    baterista em POSTO e ajusta o chão para Y=0.                            */
 
 function encaixarLab(m){
-  const s = LAB.escala || 1;
+  const s   = LAB.escala  || 1;
+  const rot = LAB.rotacao || 0;
   m.scale.setScalar(s);
-  const px = LAB.postoJogador[0] * s;
-  const pz = LAB.postoJogador[1] * s;
+  m.rotation.y = rot;
+  /* postoJogador é em coords do modelo (antes da rotação). Aplicar a
+     mesma rotação para descobrir onde ele cai no mundo.                */
+  const c = Math.cos(rot), sn = Math.sin(rot);
+  const px = ( LAB.postoJogador[0]*c + LAB.postoJogador[1]*sn) * s;
+  const pz = (-LAB.postoJogador[0]*sn + LAB.postoJogador[1]*c) * s;
   m.position.set(-px, -LAB.alturaPiso * s, POSTO.z - pz);
 }
 
