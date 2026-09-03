@@ -22,7 +22,7 @@ import { synth } from './synth.js';
 import { pistaG, relogio } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo, statusApi,
-         telaJogando, telaResultado } from './ui.js';
+         telaJogando, telaResultado, mostrarCreditos } from './ui.js';
 import { enviarResultado } from './api.js';
 
 /* --------------------------------------------------------- pontuação ----- */
@@ -216,6 +216,7 @@ export async function ritmoIniciar(){
     const quais = nivel.jogaveis
       ? nivel.jogaveis.map(id => (PORID[id]?.nome || id).toUpperCase()).join(' e ')
       : null;
+    mostrarCreditos();
     objetivo((carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo')
              + (quais ? ` — toque só a ${quais}` : ` — ${nivel.nome}`), '#00d9ff');
   } catch (e){

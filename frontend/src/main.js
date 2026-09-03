@@ -26,7 +26,7 @@ import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.
 import { musica, Musica } from './musica.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem } from './calibragem.js';
-import { NIVEIS, nivelAtual, definirNivel } from './config.js';
+import { NIVEIS, nivelAtual, definirNivel, CARTA_URL } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento } from './ui.js';
 
@@ -271,6 +271,18 @@ $('cal-comecar').onclick = () => {
     });
 };
 pintarNivel();
+
+/* Crédito da faixa já na abertura, sem esperar a fase de ritmo carregar: quem
+   emprestou a música merece aparecer antes de o jogo começar, não só depois.
+   Falha em silêncio — carta ausente é caso normal (ver `CARTA_URL`). */
+fetch(CARTA_URL)
+  .then(r => r.ok ? r.json() : null)
+  .then(c => {
+    if (!c || !c.creditos) return;
+    const el = $('inicio-creditos');
+    if (el) el.textContent = c.titulo ? `♪ ${c.titulo} — ${c.creditos}` : c.creditos;
+  })
+  .catch(() => {});
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;

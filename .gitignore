@@ -39,11 +39,12 @@ frontend/public/sounds/som.mp3
 # A carta dela tambem fica fora: descreve o arranjo nota por nota.
 frontend/public/cartas/money*.json
 
-# Diesel13 'Colour Me Red': multipista da biblioteca do Cambridge-MT.
-# O Readme do pacote diz "educational purposes only" e proibe uso
-# comercial sem permissao do detentor. Fica na maquina de cada um.
-frontend/public/sounds/colour-me-red.mp3
-frontend/public/cartas/colour-me-red.json
+# Diesel13 'Colour Me Red' ENTRA no repositorio, por decisao do Diego.
+# O Readme do pacote diz "educational purposes only" e veta uso comercial
+# sem permissao -- e este trabalho e academico e nao comercial. O que sobe
+# e a MIXAGEM (obra derivada), que e para isso que a biblioteca existe;
+# a multipista crua de 478 MB nao sobe. O credito aparece na abertura e no
+# resultado, e o robots.txt mantem o deploy fora dos buscadores.
 
 # Backups de cenario e intermediarios do otimizador (12 MB cada)
 frontend/public/modelos/lab_antes_*.glb

@@ -1,0 +1,5 @@
+# Trabalho academico, nao um site publico. A faixa da fase de ritmo e usada
+# sob licenca de uso didatico: o endereco existe para a turma testar, nao
+# para ser distribuido. Fora dos buscadores.
+User-agent: *
+Disallow: /

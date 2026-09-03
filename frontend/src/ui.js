@@ -14,6 +14,7 @@ import { jogo, FASES, precisao } from './estado.js';
 import { painelHUD, painelObj, flash, flashEstado,
          atualizarAroCarga, renderer } from './cena.js';
 import { CARGA_MINIMA } from './config.js';
+import { musica } from './musica.js';
 
 export const $ = id => document.getElementById(id);
 const mostrar = (id, v) => $(id).classList.toggle('hidden', !v);
@@ -85,6 +86,18 @@ export function telaCarregada(){
 }
 
 /** RF10 — pontuação, resultado, tempo e opção de jogar de novo. */
+/** Escreve o crédito da faixa nas duas telas onde alguém pode lê-lo: a de
+ *  abertura (antes de jogar) e a de resultado (depois). Silencioso quando a
+ *  carta não declara crédito — caso das faixas que são nossas. */
+export function mostrarCreditos(){
+  const c = musica.carta && musica.carta.creditos;
+  const t = musica.carta && musica.carta.titulo;
+  const txt = c ? (t ? `♪ ${t} — ${c}` : c) : '';
+  for (const id of ['fim-creditos', 'inicio-creditos']){
+    const el = $(id); if (el) el.textContent = txt;
+  }
+}
+
 export function telaResultado(){
   const religou = jogo.reator >= CARGA_MINIMA;
   $('f-pontos').textContent = jogo.pontos;
@@ -98,6 +111,11 @@ export function telaResultado(){
   $('fim-tag').textContent  = religou ? 'reator religado' : 'energia insuficiente';
   $('fim-tag').style.color  = religou ? 'var(--ok)' : 'var(--warn)';
   $('fim-titulo').textContent = religou ? 'Missão concluída' : 'Missão incompleta';
+  /* Crédito da faixa. A carta traz o campo desde sempre e nada o mostrava —
+     e crédito que não aparece não é crédito. Quando a faixa é de outra
+     pessoa, é isto que sustenta o direito de usá-la. */
+  mostrarCreditos();
+
   $('fim-sub').textContent = `O núcleo chegou a ${Math.floor(jogo.reator)}% de carga.` +
     (religou ? ' A estação volta a operar.'
              : ` Precisa de ${CARGA_MINIMA}% para religar.`);
