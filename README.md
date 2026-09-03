@@ -178,6 +178,15 @@ ritmo-reactor-vr/
 A partir daí, **todo push na branch principal republica automaticamente** —
 que é o que permite testar no Quest a cada mudança.
 
+> **O que NÃO vai junto.** As faixas de terceiros usadas em sala (e as cartas
+> que descrevem o arranjo delas nota por nota) estão no `.gitignore`: a
+> licença é de uso didático e publicar seria distribuir. No deploy, portanto,
+> a fase de ritmo roda com `cartas/teste.json`, que é material nosso. Para
+> tocar as outras dentro do Quest sem publicar nada, ligue o headset por USB
+> e use `adb reverse tcp:5173 tcp:5173`; no navegador do Quest, abra
+> `http://localhost:5173`. Sendo `localhost`, o WebXR reconhece contexto
+> seguro e o áudio não sai da sua máquina.
+
 Confira o deploy abrindo `/api/saude`: ele responde qual banco está em uso.
 
 ---
