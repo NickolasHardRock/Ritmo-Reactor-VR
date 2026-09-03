@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, URL_BATERIA, ESCALA_KIT } from './config.js';
+import { PECAS, URL_BATERIA, ESCALA_KIT, ALTURA_INICIAL_KIT, APOIO_KIT } from './config.js';
 import { scene, loader, afinarTexturas, placa, renderer, player,
          pistaG, ALTURA_PISTA } from './cena.js';
 
@@ -27,7 +27,7 @@ const mancha = (() => {
   g.addColorStop(.55,'rgba(0,0,0,.28)');
   g.addColorStop(1,'rgba(0,0,0,0)');
   c.fillStyle = g; c.fillRect(0,0,256,256);
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.4),
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.95),
     new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(cv),
                                   transparent:true, depthWrite:false }));
   m.rotation.x = -Math.PI/2; m.position.set(0, .012, -.05);
@@ -88,14 +88,69 @@ export function animarZonas(dt, t){
   }
 }
 
-/* ----------------------------------------------------- altura do kit ----- */
-let alturaKit = 0;
+/* ------------------------------------------------------- O ESTRADO ------
+   O kit fica erguido para chegar à cintura de quem joga EM PÉ, e um kit
+   erguido sem nada embaixo boia. O estrado sobe do piso do laboratório até
+   a sapata dos suportes e lê como plataforma da estação. Acompanha o kit
+   quando o jogador ajusta a altura.
+
+   A PROFUNDIDADE é o número delicado: em VR o jogador fica em z = 0,62
+   (POSTO, em cena.js) e os pés dele estão no piso do laboratório, não aqui
+   em cima. Se o estrado alcançasse esse ponto, ele apareceria enterrado até
+   o joelho na plataforma. Daí 1,02 m de profundidade — a borda para em
+   z = 0,51, uns 11 cm antes dele. Mexer nisto exige conferir POSTO.     */
+const LARG_ESTRADO = 2.00, PROF_ESTRADO = 1.02, ESP_TAMPO = .07;
+
+const matTampo = new THREE.MeshStandardMaterial({
+  color:0x39424f, roughness:.62, metalness:.55 });
+const matSaia  = new THREE.MeshStandardMaterial({
+  color:0x232a34, roughness:.85, metalness:.35 });
+
+const estrado = new THREE.Group(); scene.add(estrado);
+
+const tampo = new THREE.Mesh(
+  new THREE.BoxGeometry(LARG_ESTRADO, ESP_TAMPO, PROF_ESTRADO), matTampo);
+estrado.add(tampo);
+
+/* A saia fecha o vão entre o piso e o tampo. Geometria de altura 1 com
+   âncora na base: escalar em Y basta para acompanhar qualquer altura. */
+const saiaG = new THREE.BoxGeometry(LARG_ESTRADO - .10, 1, PROF_ESTRADO - .10);
+saiaG.translate(0, .5, 0);
+const saia = new THREE.Mesh(saiaG, matSaia);
+estrado.add(saia);
+
+/* Friso aceso na borda, na mesma cor do reator: amarra a plataforma ao
+   cenário e marca o limite do espaço de quem toca. */
+const friso = new THREE.Mesh(
+  new THREE.BoxGeometry(LARG_ESTRADO + .015, .012, PROF_ESTRADO + .015),
+  new THREE.MeshBasicMaterial({ color:0x00d9ff, transparent:true, opacity:.55 }));
+estrado.add(friso);
+
+function posicionarEstrado(h){
+  const topo = Math.max(h, ESP_TAMPO);      // nunca afunda no piso
+  tampo.position.y = topo - ESP_TAMPO/2;
+  friso.position.y = topo - ESP_TAMPO + .004;
+  saia.scale.y     = Math.max(topo - ESP_TAMPO, .001);
+}
+
+/* ----------------------------------------------------- altura do kit -----
+   O modelo vem montado baixo; ALTURA_INICIAL_KIT o coloca na altura de quem
+   joga em pé. O ajuste do jogador acontece a partir daí, não do chão.     */
+let alturaKit = ALTURA_INICIAL_KIT;
+kit.position.y = alturaKit;
+pistaG.position.y = ALTURA_PISTA + alturaKit;
+mancha.position.y = alturaKit + .012;
+posicionarEstrado(alturaKit);
+
 /** Pessoas têm alturas diferentes e a bateria precisa cair na altura da
  *  cintura de quem joga. Alavanca direita ↑↓ em VR, `[` `]` no teclado. */
 export function ajustarAltura(d, aoMudar){
-  alturaKit = THREE.MathUtils.clamp(alturaKit + d, -.45, .45);
+  alturaKit = THREE.MathUtils.clamp(alturaKit + d,
+    ALTURA_INICIAL_KIT - .45, ALTURA_INICIAL_KIT + .45);
   kit.position.y = alturaKit;
   pistaG.position.y = ALTURA_PISTA + alturaKit;
+  mancha.position.y = alturaKit + .012;    // a sombra mora no tampo, não no piso
+  posicionarEstrado(alturaKit);
   if (aoMudar) aoMudar(alturaKit);
   return alturaKit;
 }
@@ -107,10 +162,16 @@ export function carregarBateria(aoTerminar, aoProgredir){
     (gltf) => {
       const m = gltf.scene;
       m.scale.setScalar(ESCALA_KIT);
-      m.rotation.y = Math.PI;              // vira o lado do baterista pro jogador
-      m.updateWorldMatrix(true, true);
-      const b = new THREE.Box3().setFromObject(m);
-      m.position.y = -b.min.y;             // apoia no chão
+      /* SEM rotação: este modelo já vem com o lado do baterista em +Z, que é
+         onde o jogador fica (POSTO, em cena.js). O modelo anterior vinha ao
+         contrário e exigia 180° — herdar aquele giro aqui colocava o jogador
+         ATRÁS da bateria, olhando para os cascos, com o bumbo entre ele e as
+         peles e o kit espelhado (chimbal à direita, ride à esquerda).     */
+      /* Apoio por CONSTANTE, não pelo bounding box. O corte da base do scan
+         deixa franjas alguns centímetros abaixo das sapatas; obedecer ao
+         bbox faria o kit inteiro pairar sobre elas — e deslocaria em
+         silêncio as sete alturas medidas em config.js.                   */
+      m.position.y = APOIO_KIT * ESCALA_KIT;
       m.traverse(o => { if (o.isMesh){
         o.castShadow = false; o.receiveShadow = true; o.userData.kit = true; } });
       afinarTexturas(m);
