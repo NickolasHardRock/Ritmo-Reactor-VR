@@ -29,3 +29,15 @@ frontend/public/modelos/world_of_metal.glb
 # Sessões Claude e lixo temporário
 .claude/
 _to_delete/
+
+# Faixa de audio da fase de ritmo: uso didatico em sala, NAO distribuir.
+# Cada um guarda a copia local; commitar aqui seria publicar.
+frontend/public/sounds/som.mp3
+
+# Backups de cenario e intermediarios do otimizador (12 MB cada)
+frontend/public/modelos/lab_antes_*.glb
+frontend/public/modelos/lab_com_*.glb
+frontend/public/modelos/world_of_metal_*.glb
+
+# Saidas de sessao do assistente
+Claude outputs/
