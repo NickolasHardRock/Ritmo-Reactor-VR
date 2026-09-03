@@ -17,7 +17,7 @@ import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
 import { pistaG } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
-import { msg, julgamento, atualizarHUD, objetivo,
+import { msg, julgamento, atualizarHUD, objetivo, statusApi,
          telaJogando, telaResultado } from './ui.js';
 import { enviarResultado } from './api.js';
 
@@ -164,9 +164,16 @@ const JANELA_PERFEITO = .09, JANELA_BOM = .24, JANELA_PERDA = .26;
    quando a música começa. Sem isto a primeira nota nasce em cima da linha. */
 const ESPERA_INICIAL = ANTECEDENCIA + 0.8;
 
-/* Quanto agendar de trilha automática por vez. Precisa ser maior que um
-   quadro ruim e menor que qualquer pausa — 300 ms cobre os dois. */
-const OLHAR_ADIANTE = 0.30;
+/* A trilha automática é agendada TODA DE UMA VEZ, no início da fase, e não
+   quadro a quadro.
+
+   Agendar por quadro parece mais econômico e está errado: `requestAnimationFrame`
+   congela quando a aba sai de foco ou o jogador tira o headset, e aí o bumbo
+   simplesmente para e não volta. Já o relógio do áudio continua andando — a
+   música seguiria sem a levada.
+
+   São umas dezenas de notas por música; o Web Audio agenda isso sem suar. O
+   preço é ter de guardar as fontes para poder cancelar se a fase reiniciar. */
 
 function montarPista(){
   if (ritmo.construido) return;
@@ -186,6 +193,7 @@ function montarPista(){
 }
 
 function limparNotas(){
+  pararAuto();
   for (const n of ritmo.notas){
     if (!n.mesh) continue;
     n.mesh.geometry.dispose(); n.mesh.material.dispose(); pistaG.remove(n.mesh);
@@ -230,16 +238,26 @@ export async function ritmoIniciar(){
   }
 
   musica.tocar(recorte.inicio, ESPERA_INICIAL);
+  agendarAuto();
   ritmo.ativo = true;
 }
 
-/** Agenda no relógio do áudio as notas automáticas que estão por vir. */
-function agendarAuto(agora){
-  const lista = ritmo.auto;
-  while (ritmo.iAuto < lista.length && lista[ritmo.iAuto].t <= agora + OLHAR_ADIANTE){
-    const a = lista[ritmo.iAuto++];
-    synth.tocar(a.som || 'bumbo', a.forca ?? .9, musica.quandoNoAudio(a.t));
+/** Agenda a trilha automática inteira e guarda as fontes para cancelamento. */
+function agendarAuto(){
+  pararAuto();
+  for (const a of ritmo.auto){
+    const f = synth.tocar(a.som || 'bumbo', a.forca ?? .9, musica.quandoNoAudio(a.t));
+    if (f) ritmo.fontesAuto.push(f);
   }
+  ritmo.iAuto = ritmo.auto.length;
+}
+
+/** Cancela o que ainda não soou. Sem isto, reiniciar a fase deixa a trilha
+ *  antiga tocando por cima da nova. */
+function pararAuto(){
+  for (const f of ritmo.fontesAuto){ try { f.stop(); } catch { /* já soou */ } }
+  ritmo.fontesAuto = [];
+  ritmo.iAuto = 0;
 }
 
 function ritmoBatida(p){
@@ -269,8 +287,6 @@ function ritmoBatida(p){
 export function ritmoAtualizar(){
   if (!ritmo.ativo) return;
   const agora = musica.tempo;
-  agendarAuto(agora);
-
   let restantes = 0;
   for (const n of ritmo.notas){
     if (n.julgada) continue;
@@ -291,6 +307,7 @@ export function ritmoAtualizar(){
   // segunda condição a música seria cortada no meio do último compasso.
   if (!restantes && agora >= ritmo.fim){
     ritmo.ativo = false;
+    pararAuto();
     musica.parar();
     setTimeout(concluir, 900);
   }
@@ -307,17 +324,30 @@ function proximaFase(){
   setTimeout(() => { jogo.fase === 1 ? ecoIniciar() : ritmoIniciar(); }, 1600);
 }
 
-/** RF02 — inicia uma nova partida. `livre` = modo treino, sem pontuar. */
-export function iniciar(livre = false){
-  reiniciarEstado(livre);
+/** RF02 — inicia uma nova partida.
+ *  @param livre  modo treino: toca à vontade, sem pontuar
+ *  @param direto pula calibração e eco e cai na fase de ritmo. Serve para
+ *         testar a música sem jogar 40 segundos antes, e para demonstrar em
+ *         sala. Uma partida assim NÃO vai para o ranking: ela pulou dois
+ *         terços do jogo e a pontuação não é comparável com as completas. */
+export function iniciar(livre = false, direto = false){
+  reiniciarEstado(livre, direto);
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
   mostrarRotulos(true);
   telaJogando();
   synth.ligar();
   atualizarHUD();
-  if (livre) objetivo('Modo livre — toque à vontade', '#8c9bb5');
-  else { objetivo('Fase 1 — Calibração', '#00d9ff'); calibracaoIniciar(); }
+  if (livre){ objetivo('Modo livre — toque à vontade', '#8c9bb5'); return; }
+  if (direto){
+    jogo.fase = 2;
+    mostrarRotulos(false);          // quem vem direto não está aprendendo o kit
+    atualizarHUD();
+    ritmoIniciar();
+    return;
+  }
+  objetivo('Fase 1 — Calibração', '#00d9ff');
+  calibracaoIniciar();
 }
 
 /** RF09/RF10 — fecha a partida, mostra o placar e só ENTÃO registra (RN07). */
@@ -328,5 +358,8 @@ export function concluir(){
   telaResultado();
   synth.tocar('nivel');
   setTimeout(() => synth.tocar('ok'), 240);
-  enviarResultado();          // RN07: só depois de concluída
+  // RN07: só depois de concluída — e só partida completa. Atalho não entra
+  // no ranking, senão as pontuações deixam de ser comparáveis entre si.
+  if (jogo.atalho) statusApi('atalho de teste — não registrado no ranking', 'var(--warn)');
+  else enviarResultado();
 }

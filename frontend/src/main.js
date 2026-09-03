@@ -176,6 +176,7 @@ renderer.setAnimationLoop(() => {
 /* ------------------------------------------------------------ botões ----- */
 $('btn-jogar').onclick = () => iniciar(false);
 $('btn-livre').onclick = () => iniciar(true);
+$('btn-musica').onclick = () => iniciar(false, true);   // direto na fase de ritmo
 $('btn-again').onclick = () => iniciar(false);
 $('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
 

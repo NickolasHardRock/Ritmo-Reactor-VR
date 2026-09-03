@@ -68,6 +68,8 @@ export class Synth {
   }
 
   /* ---- reprodução de sample ---- */
+  /** @returns {AudioBufferSourceNode|undefined} a fonte criada, para quem
+   *  agendou poder cancelar depois (ver a trilha automática em fases.js). */
   _sample(id, força, quando){
     const buf = this.buffers[id];
     if (!buf) return;  // ainda não carregou — silêncio em vez de erro
@@ -81,6 +83,7 @@ export class Synth {
     src.connect(g);
     g.connect(this.master);
     src.start(quando);
+    return src;
   }
 
   /**
@@ -95,8 +98,7 @@ export class Synth {
 
     // Sons de bateria → sample
     if (this.buffers[som] !== undefined || SONS_BATERIA.includes(som)) {
-      this._sample(som, força, t);
-      return;
+      return this._sample(som, força, t);
     }
 
     // Sons de feedback → sintetizados

@@ -10,6 +10,7 @@ import { ECO_RODADAS } from './config.js';
 export const jogo = {
   ativo: false,
   livre: false,      // modo livre: toca à vontade, sem pontuar
+  atalho: false,     // pulou calibração e eco: não entra no ranking
   fase: 0,
   pontos: 0,
   combo: 0,
@@ -38,13 +39,13 @@ export const eco = {
 };
 
 /** Fase 3 — as notas da pista e o instante zero no relógio do áudio. */
-export const ritmo = { notas: [], auto: [], iAuto: 0, fim: 0,
+export const ritmo = { notas: [], auto: [], iAuto: 0, fim: 0, fontesAuto: [],
                        t0: 0, ativo: false, construido: false };
 
 /** Zera tudo para uma nova partida (RF02). */
-export function reiniciarEstado(livre = false){
+export function reiniciarEstado(livre = false, atalho = false){
   Object.assign(jogo, {
-    ativo: true, livre, fase: 0, pontos: 0, combo: 0, comboMax: 0,
+    ativo: true, livre, atalho, fase: 0, pontos: 0, combo: 0, comboMax: 0,
     perfeitas: 0, boas: 0, erros: 0, t0: performance.now(),
     duracao: 0, reator: 0,
   });
