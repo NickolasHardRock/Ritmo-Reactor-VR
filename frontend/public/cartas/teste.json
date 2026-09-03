@@ -1,0 +1,880 @@
+{
+ "titulo": "Levada de teste",
+ "creditos": "Base instrumental sintetizada no proprio projeto — livre",
+ "faixa": "sounds/base-teste.mp3",
+ "bpm": 100.0,
+ "ancora": 0,
+ "recorte": [
+  0,
+  39.4
+ ],
+ "notas": [
+  {
+   "t": 0.0,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 0.0,
+   "peca": "crash",
+   "forca": 1.0
+  },
+  {
+   "t": 0.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 0.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 0.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 1.2,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 1.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 1.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 2.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 2.4,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 2.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 3.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 3.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 3.6,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 3.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 4.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 4.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 4.8,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 5.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 5.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 5.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 6.0,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 6.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 6.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 6.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 7.2,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 7.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 7.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 8.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 8.4,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 8.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 9.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 9.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 9.6,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 9.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 10.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 10.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 10.8,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 11.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 11.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 11.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 12.0,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 12.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 12.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 12.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 13.2,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 13.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 13.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 14.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 14.4,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 14.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 15.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 15.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 15.6,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 15.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 16.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 16.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 16.8,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 17.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 17.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 18.0,
+   "peca": "tom1",
+   "forca": 0.9
+  },
+  {
+   "t": 18.3,
+   "peca": "tom1",
+   "forca": 0.9
+  },
+  {
+   "t": 18.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 18.6,
+   "peca": "tom2",
+   "forca": 0.9
+  },
+  {
+   "t": 18.9,
+   "peca": "tom2",
+   "forca": 0.9
+  },
+  {
+   "t": 19.2,
+   "peca": "surdo",
+   "forca": 0.9
+  },
+  {
+   "t": 19.2,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 19.2,
+   "peca": "crash",
+   "forca": 1.0
+  },
+  {
+   "t": 19.5,
+   "peca": "surdo",
+   "forca": 0.9
+  },
+  {
+   "t": 19.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 19.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 20.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 20.4,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 20.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 21.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 21.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 21.6,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 21.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 22.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 22.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 22.8,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 23.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 23.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 23.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 24.0,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 24.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 24.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 24.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 25.2,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 25.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 25.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 26.1,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 26.4,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 26.7,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 27.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 27.3,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 27.6,
+   "peca": "chimbal",
+   "forca": 0.8
+  },
+  {
+   "t": 27.9,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 28.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 28.5,
+   "peca": "chimbal",
+   "forca": 0.6
+  },
+  {
+   "t": 28.8,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 29.1,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 29.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 29.7,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 30.0,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 30.3,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 30.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 30.9,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 31.2,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 31.5,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 31.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 32.1,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 32.4,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 32.7,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 33.0,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 33.3,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 33.6,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 33.9,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 34.2,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 34.5,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 34.8,
+   "peca": "ride",
+   "forca": 0.8
+  },
+  {
+   "t": 35.1,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 35.4,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 35.7,
+   "peca": "ride",
+   "forca": 0.6
+  },
+  {
+   "t": 36.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 36.6,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 37.2,
+   "peca": "tom1",
+   "forca": 0.9
+  },
+  {
+   "t": 37.5,
+   "peca": "tom1",
+   "forca": 0.9
+  },
+  {
+   "t": 37.8,
+   "peca": "caixa",
+   "forca": 0.85
+  },
+  {
+   "t": 37.8,
+   "peca": "tom2",
+   "forca": 0.9
+  },
+  {
+   "t": 38.1,
+   "peca": "tom2",
+   "forca": 0.9
+  },
+  {
+   "t": 38.4,
+   "peca": "surdo",
+   "forca": 0.9
+  },
+  {
+   "t": 38.7,
+   "peca": "surdo",
+   "forca": 0.9
+  }
+ ],
+ "auto": [
+  {
+   "t": 0.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 1.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 2.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 3.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 3.9,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 4.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 6.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 7.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 8.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 8.7,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 9.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 10.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 12.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 13.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 13.5,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 14.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 15.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 16.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 18.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 18.3,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 19.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 20.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 21.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 22.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 23.1,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 24.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 25.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 26.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 27.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 27.9,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 28.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 30.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 31.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 32.4,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 32.7,
+   "som": "bumbo",
+   "forca": 0.7
+  },
+  {
+   "t": 33.6,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 34.8,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 36.0,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 37.2,
+   "som": "bumbo",
+   "forca": 0.9
+  },
+  {
+   "t": 37.5,
+   "som": "bumbo",
+   "forca": 0.7
+  }
+ ]
+}
