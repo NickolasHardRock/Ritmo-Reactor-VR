@@ -118,35 +118,6 @@ function encaixarLab(m){
   m.position.set(-px, -LAB.alturaPiso * s, POSTO.z - pz);
 }
 
-/* O modelo do Sketchfab foi feito para ser olhado de FORA: falta parede em
-   alguns lados, e em VR virar a cabeça 90° revelava o vazio.
-   Solução: uma casca ajustada ao CONTORNO da sala. Onde há parede do
-   modelo ela fica escondida atrás; onde falta, ela vira a parede.
-   Custa 12 triângulos e uma textura de 256px.                             */
-const texAbrigo = (() => {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#39445a'; c.fillRect(0,0,256,256);
-  c.fillStyle = '#323c50';
-  for (let y=0; y<256; y+=64) for (let x=0; x<256; x+=128) c.fillRect(x+3, y+3, 122, 58);
-  c.strokeStyle = '#2b3446'; c.lineWidth = 3;
-  for (let y=0; y<=256; y+=64){ c.beginPath(); c.moveTo(0,y); c.lineTo(256,y); c.stroke(); }
-  for (let x=0; x<=256; x+=128){ c.beginPath(); c.moveTo(x,0); c.lineTo(x,256); c.stroke(); }
-  c.fillStyle = '#454f66';
-  for (let y=16; y<256; y+=64) for (let x=16; x<256; x+=128){
-    c.beginPath(); c.arc(x, y, 3, 0, 7); c.fill();
-    c.beginPath(); c.arc(x+96, y+32, 3, 0, 7); c.fill();
-  }
-  const t = new THREE.CanvasTexture(cv);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6,3); t.anisotropy = 4;
-  return t;
-})();
-const abrigo = new THREE.Mesh(
-  new THREE.BoxGeometry(1,1,1),
-  new THREE.MeshStandardMaterial({ map:texAbrigo, color:0x8a95ac,
-                                   roughness:.92, metalness:.08, side:THREE.BackSide }));
-scene.add(abrigo);
-
 /** Carrega o cenário. Falha não é fatal: o jogo roda sem ele. */
 export function carregarLab(){
   loader.load(LAB.url,
@@ -156,10 +127,6 @@ export function carregarLab(){
       m.traverse(o => { if (o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
       afinarTexturas(m);
       scene.add(m);
-      const b = new THREE.Box3().setFromObject(m);
-      const t = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
-      abrigo.scale.set(t.x + .3, t.y + .3, t.z + .3);
-      abrigo.position.copy(c);
       reator.visible = false;
     },
     undefined,

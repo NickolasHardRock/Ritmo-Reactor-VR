@@ -48,9 +48,9 @@ export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
 export const LAB = {
   url:          'modelos/lab.glb',
   escala:       1,              // modelo já em metros (~42 m de extensão)
-  rotacao:      0,              // ajustar se o palco não ficar de frente
-  postoJogador: [ -0.9, 3.0 ], // centro do palco em coords do modelo (x, z)
-  alturaPiso:   3.0,            // Y do palco em coords do modelo
+  rotacao:      0,              // ajustar conforme orientação desejada
+  postoJogador: [ 0, 0 ],      // centro da cena em coords do modelo (x, z)
+  alturaPiso:   -4.0,           // Y do chão central em coords do modelo
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
