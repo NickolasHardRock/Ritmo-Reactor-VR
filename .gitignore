@@ -18,3 +18,14 @@ drum_kit.glb
 .DS_Store
 Thumbs.db
 frontend/public/libs/
+
+# Modelos de trabalho (pesados, não otimizados)
+frontend/public/modelos/cenario2.glb
+frontend/public/modelos/flame_test*.glb
+frontend/public/modelos/lab_old.glb
+frontend/public/modelos/lab_old2.glb
+frontend/public/modelos/world_of_metal.glb
+
+# Sessões Claude e lixo temporário
+.claude/
+_to_delete/

@@ -1,3 +1,10 @@
+# Fim de linha: normaliza TUDO que é texto para LF no repositório.
+# Sem isto, quem edita no Windows commita o arquivo inteiro reescrito com
+# CRLF — o Git marca 51 arquivos como modificados com zero linha de
+# diferença e ninguém enxerga a mudança de verdade no meio do ruído.
+# Na área de trabalho cada um continua com o fim de linha do seu sistema.
+* text=auto eol=lf
+
 # Modelos são binários: o Git não sabe fazer diff nem merge neles.
 # Marcar como binary evita que ele tente, e evita corrupção por fim de linha.
 *.glb  binary

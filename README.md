@@ -229,5 +229,7 @@ Ver [docs/tecnica.md](docs/tecnica.md).
 - **Sem modo canhoto.** O kit é destro: chimbal à esquerda, ride à direita.
 - **A pista de notas fica acima da bateria.** Alternar o olhar entre as duas
   cansa em sessões longas.
-- **Custo por quadro alto:** cerca de 280 mil triângulos, que dobram em VR.
-  Se o Quest engasgar, mexer em `QUALIDADE` no `src/config.js`.
+- **Custo por quadro alto:** cerca de 400 mil triângulos, que dobram em VR.
+  A bateria atual é um scan de fotogrametria e sozinha responde por 213 mil
+  deles, com 64 MB de VRAM em texturas. Se o Quest engasgar, mexer em
+  `QUALIDADE` no `src/config.js` — e ver "Sobre os modelos 3D" acima.

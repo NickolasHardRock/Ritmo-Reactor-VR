@@ -33,8 +33,10 @@ for (const pasta of ['draco', 'basis']){
     console.error(`[decodificadores] faltando ${de}`);
     process.exit(1);
   }
-  fs.rmSync(para, { recursive: true, force: true });
-  fs.cpSync(de, para, { recursive: true });
+  // Copiar POR CIMA em vez de apagar e recriar: apagar exige permissão que
+  // nem todo ambiente concede (a ponte com a máquina do usuário, por
+  // exemplo), e não há ganho — os arquivos têm sempre os mesmos nomes.
+  fs.cpSync(de, para, { recursive: true, force: true });
   n += fs.readdirSync(para, { recursive: true }).length;
 }
 console.log(`[decodificadores] ${n} arquivos copiados para public/libs/`);
