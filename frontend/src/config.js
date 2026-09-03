@@ -50,7 +50,7 @@ export const LAB = {
   escala:       1,              // modelo já em metros (~42 m de extensão)
   rotacao:      0,              // ajustar conforme orientação desejada
   postoJogador: [ 0, 0 ],      // centro da cena em coords do modelo (x, z)
-  alturaPiso:   -4.0,           // Y do chão central em coords do modelo
+  alturaPiso:   0,              // Y das plataformas rochosas centrais
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
