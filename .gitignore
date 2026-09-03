@@ -37,7 +37,7 @@ _to_delete/
 # Cada um guarda a copia local; commitar aqui seria publicar.
 frontend/public/sounds/som.mp3
 # A carta dela tambem fica fora: descreve o arranjo nota por nota.
-frontend/public/cartas/money-*.json
+frontend/public/cartas/money*.json
 
 # Backups de cenario e intermediarios do otimizador (12 MB cada)
 frontend/public/modelos/lab_antes_*.glb
