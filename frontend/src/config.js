@@ -105,8 +105,9 @@ export const CARTA_URL = (() => {
    `janela` multiplica a tolerância de tempo. No fácil a de PERFEITO passa de
    90 para 162 ms, que perdoa falta de prática sem virar automático.       */
 export const NIVEIS = {
-  facil:  { nome:'Fácil',  jogaveis:['caixa'], janela:1.8 },
-  normal: { nome:'Normal', jogaveis:null,      janela:1.0 },   // null = todas
+  facil:  { nome:'Fácil',  jogaveis:['caixa'],            janela:1.8 },
+  medio:  { nome:'Médio',  jogaveis:['caixa','chimbal'],  janela:1.4 },
+  normal: { nome:'Normal', jogaveis:null,                 janela:1.0 },   // null = todas
 };
 const CHAVE_NIVEL = 'rrvr.nivel';
 export function nivelAtual(){
