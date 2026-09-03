@@ -25,6 +25,9 @@ frontend/public/modelos/flame_test*.glb
 frontend/public/modelos/lab_old.glb
 frontend/public/modelos/lab_old2.glb
 frontend/public/modelos/world_of_metal.glb
+# Fonte do bicho, direto do Meshy: 7,3 MB e 116 mil triangulos.
+# O que vai para o repositorio e o bicho.glb dizimado, de 0,25 MB.
+frontend/public/modelos/Meshy_*.glb
 
 # Sessões Claude e lixo temporário
 .claude/

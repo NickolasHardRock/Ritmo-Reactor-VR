@@ -18,6 +18,7 @@ import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit,
          carregarLab, animarReator,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
+import { carregarBichos } from './bichos.js';
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
          ajustarAltura, mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
@@ -31,6 +32,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
 
 /* ------------------------------------------------------ carregamento ----- */
 carregarLab();
+carregarBichos(kit);
 carregarBateria(
   (ok) => {
     if (ok){ telaCarregada(); }
@@ -251,7 +253,7 @@ objetivo('Aguardando início', '#8c9bb5');
 window.__jogo = {
   jogo, cal, eco, ritmo, zonas, PECAS, kit, scene, camera, player, renderer, orbit, baquetas, THREE,
   bater, iniciar, concluir, mostrarRotulos, destacar, processarPonta,
-  ritmoIniciar, musica,
+  ritmoIniciar, ritmoAtualizar, musica,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };

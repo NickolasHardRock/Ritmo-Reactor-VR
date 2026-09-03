@@ -15,9 +15,11 @@ import { PECAS, PORID, PONTOS_ALVO, CARTA_URL,
          NIVEIS, nivelAtual } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
 import { registrarBatida } from './calibragem.js';
+import { carregarBichos, desenharBichos, limparBichos,
+         ANTECEDENCIA_BICHO } from './bichos.js';
 import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
-import { pistaG } from './cena.js';
+import { pistaG, relogio } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo, statusApi,
          telaJogando, telaResultado } from './ui.js';
@@ -161,15 +163,13 @@ function ecoBatida(p){
    antecedência no relógio do áudio, nunca disparada no quadro — agendar é o
    que garante que caia no lugar mesmo se o render engasgar.               */
 
-const Z_ALVO = 0.15, Z_NASC = -2.9, VEL_PISTA = 1.35;      // m/s
-const ANTECEDENCIA = (Z_ALVO - Z_NASC) / VEL_PISTA;        // ~2,3 s de pista
 const JANELA_PERFEITO = .09, JANELA_BOM = .24, JANELA_PERDA = .26;
 /* Multiplicadas pelo nível escolhido — ver NIVEIS em config.js. */
 let JP = JANELA_PERFEITO, JB = JANELA_BOM, JX = JANELA_PERDA;
 
 /* Espera antes de o som entrar, para as primeiras notas já estarem descendo
    quando a música começa. Sem isto a primeira nota nasce em cima da linha. */
-const ESPERA_INICIAL = ANTECEDENCIA + 0.8;
+const ESPERA_INICIAL = ANTECEDENCIA_BICHO + 0.8;
 
 /* A trilha automática é agendada TODA DE UMA VEZ, no início da fase, e não
    quadro a quadro.
@@ -182,29 +182,18 @@ const ESPERA_INICIAL = ANTECEDENCIA + 0.8;
    São umas dezenas de notas por música; o Web Audio agenda isso sem suar. O
    preço é ter de guardar as fontes para poder cancelar se a fase reiniciar. */
 
+/* A pista distante deixou de ser usada: quem indica a nota agora é o bicho
+   que desce sobre a própria peça (ver bichos.js). O grupo continua existindo
+   porque as placas de VR moram nele — só as faixas e a linha de alvo saíram. */
 function montarPista(){
   if (ritmo.construido) return;
-  const linha = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, .012, .02),
-    new THREE.MeshBasicMaterial({ color:0x00d9ff }));
-  linha.position.set(0, 0, Z_ALVO); pistaG.add(linha);
-  for (let i = 0; i < PECAS.length; i++){
-    const x = -0.9 + i * (1.8 / (PECAS.length - 1));
-    const faixa = new THREE.Mesh(
-      new THREE.BoxGeometry(.012, .008, 3.1),
-      new THREE.MeshBasicMaterial({ color:PECAS[i].cor, transparent:true, opacity:.16 }));
-    faixa.position.set(x, 0, (Z_ALVO + Z_NASC) / 2); pistaG.add(faixa);
-    PECAS[i]._faixaX = x;
-  }
+  for (let i = 0; i < PECAS.length; i++) PECAS[i]._faixaX = 0;
   ritmo.construido = true;
 }
 
 function limparNotas(){
   pararAuto();
-  for (const n of ritmo.notas){
-    if (!n.mesh) continue;
-    n.mesh.geometry.dispose(); n.mesh.material.dispose(); pistaG.remove(n.mesh);
-  }
+  limparBichos();          // uma malha só para todos: nada a descartar
   ritmo.notas = [];
 }
 
@@ -250,23 +239,15 @@ export async function ritmoIniciar(){
     else extras.push({ t:n.t, som:n.peca, forca:(n.forca ?? .7) * .8 });
   }
 
-  ritmo.notas = escolhidas.map(n => ({
-    t: n.t, id: n.peca, forca: n.forca ?? .85, mesh: null, julgada: false,
+  ritmo.notas = escolhidas.map((n, i) => ({
+    t: n.t, id: n.peca, forca: n.forca ?? .85, julgada: false,
+    /* Semente por nota: sem ela todos os bichos flutuariam em uníssono,
+       o que lê como enfeite em vez de bicho. */
+    semente: (i * 2.399963) % 6.283,
   }));
   ritmo.auto  = recorte.auto.concat(extras).sort((a,b) => a.t - b.t);
   ritmo.iAuto = 0;
   ritmo.fim   = recorte.fim;
-
-  for (const n of ritmo.notas){
-    const p = PORID[n.id];
-    if (!p) continue;                  // carta pede peça que não existe: ignora
-    const m = new THREE.Mesh(
-      new THREE.BoxGeometry(.15, .05, .09),
-      new THREE.MeshStandardMaterial({ color:p.cor, emissive:p.cor,
-        emissiveIntensity:.7, roughness:.3, transparent:true }));
-    m.position.set(p._faixaX, 0, Z_NASC); m.visible = false;
-    pistaG.add(m); n.mesh = m;
-  }
 
   musica.tocar(recorte.inicio, ESPERA_INICIAL);
   agendarAuto();
@@ -304,7 +285,6 @@ function ritmoBatida(p){
     erro(); julgamento('FORA', '#ff4d6d'); atualizarHUD(); return;
   }
   alvo.julgada = true;                             // RN03
-  alvo.mesh.visible = false;
   acerto();
   const mult = 1 + Math.min(jogo.combo, 20) * .05;
   if (menorDist < JP){
@@ -318,27 +298,34 @@ function ritmoBatida(p){
 export function ritmoAtualizar(){
   if (!ritmo.ativo) return;
   const agora = musica.tempo;
+  const t = relogio.elapsedTime;
   let restantes = 0;
+  const visiveis = [];
+
   for (const n of ritmo.notas){
     if (n.julgada) continue;
     const dt = n.t - agora;
-    if (dt > ANTECEDENCIA){ restantes++; continue; }   // ainda não nasceu
-    if (dt < -JX){                           // passou batido
-      n.julgada = true; n.mesh.visible = false;
+    if (dt > ANTECEDENCIA_BICHO){ restantes++; continue; }   // ainda não nasceu
+    if (dt < -JX){                                           // passou batido
+      n.julgada = true;
       erro(); julgamento('PERDEU', '#ff4d6d'); atualizarHUD();
       continue;
     }
     restantes++;
-    n.mesh.visible = true;
-    n.mesh.position.z = Z_ALVO - dt * VEL_PISTA;
-    n.mesh.material.opacity = THREE.MathUtils.clamp(1 - (dt - ANTECEDENCIA + .6) / .6, .15, 1);
+    const p = PORID[n.id];
+    if (p) visiveis.push({ x:p.x, y:p.y, z:p.z, dt, semente:n.semente });
   }
+  /* Mais perto primeiro: se passar do teto de instâncias, quem cai fora é o
+     bicho mais distante, que é o que menos importa agora. */
+  visiveis.sort((a, b) => a.dt - b.dt);
+  desenharBichos(visiveis, t);
 
   // Acaba quando não há mais nota E a faixa passou do fim do recorte: sem a
   // segunda condição a música seria cortada no meio do último compasso.
   if (!restantes && agora >= ritmo.fim){
     ritmo.ativo = false;
     pararAuto();
+    limparBichos();
     musica.parar();
     setTimeout(concluir, 900);
   }
