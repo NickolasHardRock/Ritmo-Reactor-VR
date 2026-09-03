@@ -197,10 +197,29 @@ function pintarNivel(){
   }
   const c = Musica.calibragem;
   const m = $('nivel-msg');
-  if (m) m.textContent = c === null
-    ? 'atraso ainda não calibrado'
-    : `atraso calibrado: ${Math.round(c*1000)} ms`;
+  if (m){
+    /* Antes do primeiro toque não existe AudioContext, então o navegador ainda
+       não tem número nenhum para dar — dizer "0 ms" ali seria inventar. */
+    const auto = musica.latencia;
+    m.textContent = c !== null
+      ? `atraso: ${Math.round(c*1000)} ms`
+      : (auto > 0 ? `atraso não calibrado — usando ${Math.round(auto*1000)} ms do navegador`
+                  : 'atraso ainda não calibrado');
+  }
 }
+/* AJUSTE FINO. Calibração medida é a base; o resto é gosto e reflexo de cada
+   um, e ninguém acerta isso por cálculo — acerta jogando. Dez em dez
+   milissegundos é o passo em que a diferença dá para sentir sem se perder. */
+function nudge(ms){
+  const atual = Musica.calibragem;
+  const base = atual !== null ? atual : (musica.latencia || 0);
+  const novo = Math.max(0, Math.min(base + ms/1000, 0.5));
+  Musica.calibragem = novo;
+  pintarNivel();
+}
+$('btn-atraso-menos').onclick = () => nudge(-10);
+$('btn-atraso-mais').onclick  = () => nudge(+10);
+
 $('btn-nivel-facil').onclick  = () => { definirNivel('facil');  pintarNivel(); };
 $('btn-nivel-normal').onclick = () => { definirNivel('normal'); pintarNivel(); };
 
@@ -210,6 +229,10 @@ $('btn-calibrar').onclick = () => {
   document.getElementById('tela-cal').classList.remove('hidden');
 };
 $('cal-fechar').onclick = () => {
+  /* Fechar no meio da medição não pode jogar fora o que já foi medido: se
+     houver amostras suficientes, conclui antes de cancelar. Antes daqui, dez
+     batidas boas e um clique no X davam em nada — sem aviso. */
+  concluirCalibragem();
   pararCalibragem();
   document.getElementById('tela-cal').classList.add('hidden');
   pintarNivel();
@@ -219,11 +242,21 @@ $('cal-comecar').onclick = () => {
   $('cal-comecar').disabled = true;
   iniciarCalibragem(
     (n, total) => { $('cal-progresso').textContent = `${n} de ${total} batidas`; },
-    (ms, disp) => {
+    (ms, disp, det) => {
       $('cal-comecar').disabled = false;
       if (ms === null){
         $('cal-resultado').innerHTML =
-          '<span style="color:var(--warn)">Poucas batidas para medir. Tente de novo.</span>';
+          '<span style="color:var(--warn)">Poucas batidas para medir — <strong>nada foi '
+        + 'salvo</strong>. Tente de novo e bata junto com todos os cliques.</span>';
+        return;
+      }
+      if (det && det.usouPiso){
+        $('cal-resultado').innerHTML =
+          `<span style="color:var(--warn)">Sua medida deu ${Math.round(det.medida)} ms, `
+        + `abaixo do que o navegador já declara (${Math.round(det.piso)} ms) — `
+        + `guardei <strong>${Math.round(ms)} ms</strong>. `
+        + `Se ainda parecer adiantado, use o ajuste fino.</span>`;
+        pintarNivel();
         return;
       }
       // Dispersão alta quer dizer batida irregular: a mediana existe mas não

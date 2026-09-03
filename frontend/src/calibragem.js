@@ -21,10 +21,15 @@
 import { synth } from './synth.js';
 import { Musica } from './musica.js';
 
-const INTERVALO = 0.6;      // segundos entre cliques — 100 BPM, confortável
-const CLIQUES   = 16;       // dá para errar alguns e ainda sobrar amostra
+/* O ESPAÇAMENTO DOS CLIQUES É O TETO DA MEDIDA. Com cliques de 0,6 s, uma
+   batida 0,4 s atrasada fica mais perto do clique SEGUINTE e é medida como
+   0,2 s adiantada — e adiantado vira zero no fim desta função. Ou seja: quem
+   mais precisa de correção era justamente quem não conseguia medir. Com 1,0 s
+   a medida vai até meio segundo sem ambiguidade, que cobre Bluetooth. */
+const INTERVALO = 1.0;      // segundos entre cliques — 60 BPM
+const CLIQUES   = 12;       // 12 s de medição; dá para errar alguns
 const MINIMO    = 6;        // abaixo disto a mediana não vale nada
-const TOLERANCIA = 0.35;    // acima disto o jogador bateu em outro clique
+const TOLERANCIA = 0.45;    // metade do intervalo, menos uma folga
 
 export const calibragem = {
   ativa: false,
@@ -96,11 +101,24 @@ function concluir(){
   const disp = q3 - q1;
 
   /* Atraso negativo não existe fisicamente — o som não chega antes de ser
-     agendado. Um valor negativo quer dizer que o jogador antecipa por hábito,
-     e nesse caso compensar zero é mais honesto que compensar ao contrário. */
-  const valor = Math.max(0, Math.min(mediana, 0.5));
+     agendado. Um valor negativo quer dizer que o jogador antecipa por hábito.
+
+     E aqui está o segundo cuidado: o `outputLatency` do navegador é um PISO,
+     não um palpite solto — é a parte da cadeia que ele realmente conhece. Se
+     a medida do jogador ficar abaixo dele, quem errou foi a medida (antecipação
+     ou batidas perdidas), não o navegador. Guardar o menor dos dois deixaria o
+     jogo PIOR calibrado do que estava antes de calibrar, que é exatamente o
+     tipo de conserto que ninguém desconfia. Então fica o maior. */
+  const ctx = synth.ctx;
+  const piso = ctx ? (ctx.outputLatency || ctx.baseLatency || 0) : 0;
+  const medida = Math.max(0, Math.min(mediana, 0.5));
+  const valor  = Math.max(medida, piso);
   Musica.calibragem = valor;
-  if (calibragem.aoTerminar) calibragem.aoTerminar(valor * 1000, disp * 1000);
+  if (calibragem.aoTerminar)
+    calibragem.aoTerminar(valor * 1000, disp * 1000, {
+      medida: medida * 1000, piso: piso * 1000, usouPiso: valor > medida,
+      amostras: d.length,
+    });
 }
 
 /** Cancela e cala os cliques que ainda não soaram. */
