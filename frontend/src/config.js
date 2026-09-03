@@ -47,10 +47,10 @@ export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
    encaixarLab().                                                          */
 export const LAB = {
   url:          'modelos/lab.glb',
-  escala:       5,              // 2 m × 5 = sala de ~10 m
-  rotacao:      Math.PI,        // gira 180° para o jogador ficar do lado do baterista
-  postoJogador: [ 0, 0 ],      // posição do jogador em coords do modelo (antes de rotação)
-  alturaPiso:   -0.50,         // Y do chão em coords do modelo (antes da escala)
+  escala:       1,              // modelo já em metros (~42 m de extensão)
+  rotacao:      0,              // ajustar se o palco não ficar de frente
+  postoJogador: [ -0.9, 3.0 ], // centro do palco em coords do modelo (x, z)
+  alturaPiso:   3.0,            // Y do palco em coords do modelo
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
