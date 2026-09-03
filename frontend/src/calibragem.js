@@ -54,7 +54,13 @@ export async function iniciarCalibragem(aoAtualizar, aoTerminar){
   for (let i = 0; i < CLIQUES; i++){
     const t = t0 + i * INTERVALO;
     calibragem.agendados.push(t);
-    const f = synth.tocar('ok', 0.9, t);
+    /* O som de referência é a CAIXA, não o bipe de interface. Dois motivos:
+       ele passa pelo mesmo caminho das amostras que o jogo toca de verdade
+       (o bipe é oscilador, e ataque de oscilador não é ataque de tambor), e
+       o ouvido marca o tempo de um tambor num instante um pouco diferente do
+       de um tom puro. Medir com o som que se vai tocar tira essa diferença
+       da conta em vez de deixá-la sobrando para o ajuste fino. */
+    const f = synth.tocar('caixa', 0.9, t);
     if (f) calibragem.fontes.push(f);
   }
   calibragem.ativa = true;
