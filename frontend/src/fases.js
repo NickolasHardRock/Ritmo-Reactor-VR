@@ -11,7 +11,8 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, PORID, PONTOS_ALVO, BPM, PADRAO_RITMO } from './config.js';
+import { PECAS, PORID, PONTOS_ALVO, CARTA_URL } from './config.js';
+import { musica, notasDoRecorte } from './musica.js';
 import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
 import { pistaG } from './cena.js';
@@ -141,38 +142,85 @@ function ecoBatida(p){
 }
 
 /* =========================== FASE 3 — RITMO ===============================
-   As notas descem por faixas até a linha do alvo. Precisão temporal, com
-   combo multiplicando os pontos.                                          */
-const BAT = 60 / BPM;
-const Z_ALVO = 0.15, Z_NASC = -2.9, VEL_PISTA = 1.35;   // m/s
+   As notas descem por faixas até a linha do alvo. O que manda aqui é o
+   relógio da MÚSICA (musica.tempo), não o de render nem `setTimeout`: os
+   dois derrapam dezenas de milissegundos e o jogador ouve a diferença.
+
+   Todos os tempos — das notas e do relógio — são segundos ABSOLUTOS da
+   faixa. Ter uma escala de tempo só, em vez de converter para "tempo de
+   recorte", elimina uma classe inteira de bug de meio compasso.
+
+   A trilha AUTOMÁTICA é o bumbo. O Quest não rastreia os pés, então ele não
+   é tocável; mas numa levada de rock o bumbo é metade da música, e sem ele
+   a coisa fica irreconhecível. Então o jogo toca. Ela é agendada com
+   antecedência no relógio do áudio, nunca disparada no quadro — agendar é o
+   que garante que caia no lugar mesmo se o render engasgar.               */
+
+const Z_ALVO = 0.15, Z_NASC = -2.9, VEL_PISTA = 1.35;      // m/s
+const ANTECEDENCIA = (Z_ALVO - Z_NASC) / VEL_PISTA;        // ~2,3 s de pista
 const JANELA_PERFEITO = .09, JANELA_BOM = .24, JANELA_PERDA = .26;
 
-function ritmoIniciar(){
-  // limpa as notas da partida anterior (senão vazam malhas a cada replay)
-  ritmo.notas.forEach(n => {
-    if (n.mesh){ n.mesh.geometry.dispose(); n.mesh.material.dispose(); pistaG.remove(n.mesh); }
-  });
-  ritmo.notas = PADRAO_RITMO
-    .map(([id, passo]) => ({ id, t: 2.2 + passo*BAT*0.5, mesh:null, julgada:false }))
-    .sort((a, b) => a.t - b.t);
+/* Espera antes de o som entrar, para as primeiras notas já estarem descendo
+   quando a música começa. Sem isto a primeira nota nasce em cima da linha. */
+const ESPERA_INICIAL = ANTECEDENCIA + 0.8;
 
-  if (!ritmo.construido){                         // a pista é montada uma vez só
-    const linha = new THREE.Mesh(
-      new THREE.BoxGeometry(2.0, .012, .02),
-      new THREE.MeshBasicMaterial({ color:0x00d9ff }));
-    linha.position.set(0, 0, Z_ALVO); pistaG.add(linha);
-    for (let i = 0; i < PECAS.length; i++){
-      const x = -0.9 + i * (1.8 / (PECAS.length - 1));
-      const faixa = new THREE.Mesh(
-        new THREE.BoxGeometry(.012, .008, 3.1),
-        new THREE.MeshBasicMaterial({ color:PECAS[i].cor, transparent:true, opacity:.16 }));
-      faixa.position.set(x, 0, (Z_ALVO + Z_NASC) / 2); pistaG.add(faixa);
-      PECAS[i]._faixaX = x;
-    }
-    ritmo.construido = true;
+/* Quanto agendar de trilha automática por vez. Precisa ser maior que um
+   quadro ruim e menor que qualquer pausa — 300 ms cobre os dois. */
+const OLHAR_ADIANTE = 0.30;
+
+function montarPista(){
+  if (ritmo.construido) return;
+  const linha = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, .012, .02),
+    new THREE.MeshBasicMaterial({ color:0x00d9ff }));
+  linha.position.set(0, 0, Z_ALVO); pistaG.add(linha);
+  for (let i = 0; i < PECAS.length; i++){
+    const x = -0.9 + i * (1.8 / (PECAS.length - 1));
+    const faixa = new THREE.Mesh(
+      new THREE.BoxGeometry(.012, .008, 3.1),
+      new THREE.MeshBasicMaterial({ color:PECAS[i].cor, transparent:true, opacity:.16 }));
+    faixa.position.set(x, 0, (Z_ALVO + Z_NASC) / 2); pistaG.add(faixa);
+    PECAS[i]._faixaX = x;
   }
+  ritmo.construido = true;
+}
+
+function limparNotas(){
+  for (const n of ritmo.notas){
+    if (!n.mesh) continue;
+    n.mesh.geometry.dispose(); n.mesh.material.dispose(); pistaG.remove(n.mesh);
+  }
+  ritmo.notas = [];
+}
+
+export async function ritmoIniciar(){
+  limparNotas();                       // senão vazam malhas a cada replay
+  montarPista();
+
+  let recorte;
+  try {
+    const carta = await musica.carregarCarta(CARTA_URL);
+    recorte = notasDoRecorte(carta);
+    objetivo(carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo', '#00d9ff');
+  } catch (e){
+    // Carta ou faixa faltando não pode derrubar a partida: sem a fase 3 o
+    // jogador ainda tem calibração e eco, e o resultado é registrado.
+    console.warn('[ritmo] carta não carregou:', e);
+    msg('A fase de ritmo não pôde carregar', '#ff4d6d', 2.4);
+    setTimeout(concluir, 1200);
+    return;
+  }
+
+  ritmo.notas = recorte.notas.map(n => ({
+    t: n.t, id: n.peca, forca: n.forca ?? .85, mesh: null, julgada: false,
+  }));
+  ritmo.auto  = recorte.auto.slice();
+  ritmo.iAuto = 0;
+  ritmo.fim   = recorte.fim;
+
   for (const n of ritmo.notas){
     const p = PORID[n.id];
+    if (!p) continue;                  // carta pede peça que não existe: ignora
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(.15, .05, .09),
       new THREE.MeshStandardMaterial({ color:p.cor, emissive:p.cor,
@@ -180,15 +228,23 @@ function ritmoIniciar(){
     m.position.set(p._faixaX, 0, Z_NASC); m.visible = false;
     pistaG.add(m); n.mesh = m;
   }
-  synth.ligar();
-  ritmo.t0 = synth.agora;
+
+  musica.tocar(recorte.inicio, ESPERA_INICIAL);
   ritmo.ativo = true;
-  objetivo('Acerte no tempo — combo multiplica', '#00d9ff');
+}
+
+/** Agenda no relógio do áudio as notas automáticas que estão por vir. */
+function agendarAuto(agora){
+  const lista = ritmo.auto;
+  while (ritmo.iAuto < lista.length && lista[ritmo.iAuto].t <= agora + OLHAR_ADIANTE){
+    const a = lista[ritmo.iAuto++];
+    synth.tocar(a.som || 'bumbo', a.forca ?? .9, musica.quandoNoAudio(a.t));
+  }
 }
 
 function ritmoBatida(p){
   if (!ritmo.ativo) return;
-  const agora = synth.agora - ritmo.t0;
+  const agora = musica.tempo;
   let alvo = null, menorDist = JANELA_BOM;
   for (const n of ritmo.notas){
     if (n.julgada || n.id !== p.id) continue;
@@ -212,13 +268,15 @@ function ritmoBatida(p){
 /** Move as notas e detecta as que passaram batido. Roda a cada quadro. */
 export function ritmoAtualizar(){
   if (!ritmo.ativo) return;
-  const agora = synth.agora - ritmo.t0;
+  const agora = musica.tempo;
+  agendarAuto(agora);
+
   let restantes = 0;
   for (const n of ritmo.notas){
     if (n.julgada) continue;
     const dt = n.t - agora;
-    if (dt > 2.6){ restantes++; continue; }        // ainda não nasceu
-    if (dt < -JANELA_PERDA){                       // passou batido
+    if (dt > ANTECEDENCIA){ restantes++; continue; }   // ainda não nasceu
+    if (dt < -JANELA_PERDA){                           // passou batido
       n.julgada = true; n.mesh.visible = false;
       erro(); julgamento('PERDEU', '#ff4d6d'); atualizarHUD();
       continue;
@@ -226,9 +284,16 @@ export function ritmoAtualizar(){
     restantes++;
     n.mesh.visible = true;
     n.mesh.position.z = Z_ALVO - dt * VEL_PISTA;
-    n.mesh.material.opacity = THREE.MathUtils.clamp(1 - (dt - 2) / .6, .15, 1);
+    n.mesh.material.opacity = THREE.MathUtils.clamp(1 - (dt - ANTECEDENCIA + .6) / .6, .15, 1);
   }
-  if (!restantes){ ritmo.ativo = false; setTimeout(concluir, 900); }
+
+  // Acaba quando não há mais nota E a faixa passou do fim do recorte: sem a
+  // segunda condição a música seria cortada no meio do último compasso.
+  if (!restantes && agora >= ritmo.fim){
+    ritmo.ativo = false;
+    musica.parar();
+    setTimeout(concluir, 900);
+  }
 }
 
 /* ======================== FLUXO DA PARTIDA ================================ */

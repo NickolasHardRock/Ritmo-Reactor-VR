@@ -75,6 +75,13 @@ export const APOIO_KIT = 0.494;
    O jogador ainda ajusta ±45 cm a partir daqui (alavanca direita / [ ]).  */
 export const ALTURA_INICIAL_KIT = 0.35;
 
+/* --------------------------------------------------------- A CARTA -------
+   A fase de ritmo lê uma "carta": um JSON com os tempos de cada nota, em
+   segundos da faixa. Trocar de música é trocar este caminho — nada no
+   código do jogo sabe qual faixa está tocando.
+   Ver ferramentas/midi-para-carta.mjs e frontend/public/cartas/.        */
+export const CARTA_URL = 'cartas/teste.json';
+
 /* ------------------------------------------------------- QUALIDADE -------
    Se o Quest engasgar, estes três são os primeiros a mexer.               */
 export const QUALIDADE = {

@@ -38,7 +38,8 @@ export const eco = {
 };
 
 /** Fase 3 — as notas da pista e o instante zero no relógio do áudio. */
-export const ritmo = { notas: [], t0: 0, ativo: false, construido: false };
+export const ritmo = { notas: [], auto: [], iAuto: 0, fim: 0,
+                       t0: 0, ativo: false, construido: false };
 
 /** Zera tudo para uma nova partida (RF02). */
 export function reiniciarEstado(livre = false){
@@ -49,7 +50,7 @@ export function reiniciarEstado(livre = false){
   });
   cal.fila = []; cal.atual = null;
   eco.rodada = 0; eco.padrao = []; eco.entrada = []; eco.tocando = false;
-  ritmo.ativo = false;
+  ritmo.ativo = false; ritmo.auto = []; ritmo.iAuto = 0;
 }
 
 /** Precisão em %, usada na tela de resultado e enviada à API. */

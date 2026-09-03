@@ -21,7 +21,8 @@ import { scene, camera, renderer, relogio, player,
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
          ajustarAltura, mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
-import { bater, iniciar, concluir, ritmoAtualizar } from './fases.js';
+import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.js';
+import { musica } from './musica.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento } from './ui.js';
 
@@ -192,6 +193,7 @@ objetivo('Aguardando início', '#8c9bb5');
 window.__jogo = {
   jogo, cal, eco, ritmo, zonas, PECAS, kit, scene, camera, player, renderer, orbit, baquetas, THREE,
   bater, iniciar, concluir, mostrarRotulos, destacar, processarPonta,
+  ritmoIniciar, musica,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };
