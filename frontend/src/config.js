@@ -80,7 +80,41 @@ export const ALTURA_INICIAL_KIT = 0.35;
    segundos da faixa. Trocar de música é trocar este caminho — nada no
    código do jogo sabe qual faixa está tocando.
    Ver ferramentas/midi-para-carta.mjs e frontend/public/cartas/.        */
-export const CARTA_URL = 'cartas/teste.json';
+export const CARTA_URL = (() => {
+  /* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
+     Serve para comparar cartas e para testar faixa que nao vai para o
+     repositorio. O sanitize evita montar caminho a partir da URL.        */
+  const p = new URLSearchParams(location.search).get('carta');
+  const nome = (p || 'teste').replace(/[^\w-]/g, '');
+  return `cartas/${nome || 'teste'}.json`;
+})();
+
+
+/* ------------------------------------------------------ DIFICULDADE ------
+   Uma levada de rock toca chimbal em toda colcheia. Isso dá 4 notas por
+   segundo e exige mão de baterista — não é o público do trabalho.
+
+   `ostinato` mantém 1 de cada N notas das peças de marcação (chimbal e ride),
+   que são as que repetem rápido. Caixa, tons e pratos de ataque ficam sempre:
+   são eles que dão a forma da música, e tirá-los descaracteriza a levada.
+
+   `janela` multiplica a tolerância de tempo. No fácil a janela de PERFEITO
+   passa de 90 para 162 ms, que perdoa quem não tem prática sem virar
+   automático.                                                             */
+export const NIVEIS = {
+  /* No fácil o chimbal e o ride SAEM. Não é só questão de quantidade: com
+     eles o jogador tem de mirar sete alvos diferentes, e mirar é o que mais
+     custa para quem não toca. Sem eles sobra a caixa e as viradas — a forma
+     da música, num alvo só na maior parte do tempo. O bumbo continua tocando
+     sozinho, então a levada segue reconhecível. */
+  facil:  { nome:'Fácil',  semOstinato:true,  ostinato:1, janela:1.8 },
+  normal: { nome:'Normal', semOstinato:false, ostinato:1, janela:1.0 },
+};
+const CHAVE_NIVEL = 'rrvr.nivel';
+export function nivelAtual(){
+  return NIVEIS[localStorage.getItem(CHAVE_NIVEL)] ? localStorage.getItem(CHAVE_NIVEL) : 'facil';
+}
+export function definirNivel(k){ if (NIVEIS[k]) localStorage.setItem(CHAVE_NIVEL, k); }
 
 /* ------------------------------------------------------- QUALIDADE -------
    Se o Quest engasgar, estes três são os primeiros a mexer.               */

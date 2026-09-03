@@ -33,6 +33,8 @@ _to_delete/
 # Faixa de audio da fase de ritmo: uso didatico em sala, NAO distribuir.
 # Cada um guarda a copia local; commitar aqui seria publicar.
 frontend/public/sounds/som.mp3
+# A carta dela tambem fica fora: descreve o arranjo nota por nota.
+frontend/public/cartas/money-teste.json
 
 # Backups de cenario e intermediarios do otimizador (12 MB cada)
 frontend/public/modelos/lab_antes_*.glb

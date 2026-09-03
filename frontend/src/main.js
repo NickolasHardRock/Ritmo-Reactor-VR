@@ -22,7 +22,10 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
          ajustarAltura, mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.js';
-import { musica } from './musica.js';
+import { musica, Musica } from './musica.js';
+import { iniciarCalibragem, pararCalibragem, registrarBatida,
+         concluirCalibragem } from './calibragem.js';
+import { NIVEIS, nivelAtual, definirNivel } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento } from './ui.js';
 
@@ -65,6 +68,7 @@ function alturaMudou(a){
 }
 
 addEventListener('keydown', e => {
+  if (registrarBatida()) return;   // calibragem em curso
   if (e.repeat) return;
   if (e.code === 'BracketLeft'){  ajustarAltura(-.03, alturaMudou); return; }
   if (e.code === 'BracketRight'){ ajustarAltura(+.03, alturaMudou); return; }
@@ -179,6 +183,59 @@ $('btn-livre').onclick = () => iniciar(true);
 $('btn-musica').onclick = () => iniciar(false, true);   // direto na fase de ritmo
 $('btn-again').onclick = () => iniciar(false);
 $('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
+
+
+/* ------------------------------------------------- nível e calibragem ----- */
+function pintarNivel(){
+  const k = nivelAtual();
+  for (const [id, chave] of [['btn-nivel-facil','facil'], ['btn-nivel-normal','normal']]){
+    const b = $(id); if (!b) continue;
+    b.style.borderColor = chave === k ? 'var(--cyan)' : 'var(--line)';
+    b.style.color       = chave === k ? 'var(--cyan)' : 'var(--ink)';
+  }
+  const c = Musica.calibragem;
+  const m = $('nivel-msg');
+  if (m) m.textContent = c === null
+    ? 'atraso ainda não calibrado'
+    : `atraso calibrado: ${Math.round(c*1000)} ms`;
+}
+$('btn-nivel-facil').onclick  = () => { definirNivel('facil');  pintarNivel(); };
+$('btn-nivel-normal').onclick = () => { definirNivel('normal'); pintarNivel(); };
+
+$('btn-calibrar').onclick = () => {
+  $('cal-progresso').textContent = '—';
+  $('cal-resultado').textContent = '';
+  document.getElementById('tela-cal').classList.remove('hidden');
+};
+$('cal-fechar').onclick = () => {
+  pararCalibragem();
+  document.getElementById('tela-cal').classList.add('hidden');
+  pintarNivel();
+};
+$('cal-comecar').onclick = () => {
+  $('cal-resultado').textContent = '';
+  $('cal-comecar').disabled = true;
+  iniciarCalibragem(
+    (n, total) => { $('cal-progresso').textContent = `${n} de ${total} batidas`; },
+    (ms, disp) => {
+      $('cal-comecar').disabled = false;
+      if (ms === null){
+        $('cal-resultado').innerHTML =
+          '<span style="color:var(--warn)">Poucas batidas para medir. Tente de novo.</span>';
+        return;
+      }
+      // Dispersão alta quer dizer batida irregular: a mediana existe mas não
+      // merece confiança, e é melhor avisar que fingir precisão.
+      const confia = disp < 60;
+      $('cal-resultado').innerHTML =
+        `<span style="color:var(--${confia ? 'ok' : 'warn'})">` +
+        `Atraso medido: <strong>${Math.round(ms)} ms</strong>` +
+        ` (dispersão ${Math.round(disp)} ms)</span>` +
+        (confia ? ' — salvo.' : ' — salvo, mas irregular. Vale repetir.');
+      pintarNivel();
+    });
+};
+pintarNivel();
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;

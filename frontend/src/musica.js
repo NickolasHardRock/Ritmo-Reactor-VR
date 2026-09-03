@@ -40,7 +40,7 @@ export class Musica {
    *  depois do esperado, que é o caso normal. */
   static get calibragem(){
     const v = parseFloat(localStorage.getItem(CHAVE_CALIBRAGEM));
-    return Number.isFinite(v) ? v : 0;
+    return Number.isFinite(v) ? v : null;      // null = ainda não calibrado
   }
   static set calibragem(s){
     localStorage.setItem(CHAVE_CALIBRAGEM, String(s));
@@ -50,10 +50,17 @@ export class Musica {
    *  consegue medir sozinho; `baseLatency` é o piso quando ele não informa
    *  o resto. Alguns navegadores não expõem nenhum dos dois — daí o 0. */
   get latencia(){
+    /* A medida do jogador SUBSTITUI o palpite do navegador, não soma: ela já
+       inclui a saída de áudio inteira. Somar contaria duas vezes.
+
+       Sem calibragem sobra `outputLatency`, que no Windows costuma declarar
+       uns 40 ms quando o real passa de 150 — daí o jogo parecer que atrasa
+       antes de calibrar. */
+    const c = Musica.calibragem;
+    if (c !== null) return c;
     const ctx = synth.ctx;
     if (!ctx) return 0;
-    const auto = ctx.outputLatency || ctx.baseLatency || 0;
-    return auto + Musica.calibragem;
+    return ctx.outputLatency || ctx.baseLatency || 0;
   }
 
   /* ---------------------------------------------------------- carregar ---- */

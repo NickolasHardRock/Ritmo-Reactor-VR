@@ -11,8 +11,10 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, PORID, PONTOS_ALVO, CARTA_URL } from './config.js';
+import { PECAS, PORID, PONTOS_ALVO, CARTA_URL,
+         NIVEIS, nivelAtual } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
+import { registrarBatida } from './calibragem.js';
 import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
 import { pistaG } from './cena.js';
@@ -40,6 +42,9 @@ function erro(){ jogo.combo = 0; jogo.erros++; }
 export function bater(zona, força = .8){
   const p = zona.p;
   synth.tocar(p.som, força);
+  /* Durante a calibragem a batida é a amostra, não jogada. Aceitar baqueta
+     importa: a latência dentro do headset é outra, e é lá que se joga. */
+  if (registrarBatida()) return;
   zona.brilho = 1;                       // RN05 — retorno visual
   zona.disco.material.opacity = .55;
 
@@ -159,6 +164,8 @@ function ecoBatida(p){
 const Z_ALVO = 0.15, Z_NASC = -2.9, VEL_PISTA = 1.35;      // m/s
 const ANTECEDENCIA = (Z_ALVO - Z_NASC) / VEL_PISTA;        // ~2,3 s de pista
 const JANELA_PERFEITO = .09, JANELA_BOM = .24, JANELA_PERDA = .26;
+/* Multiplicadas pelo nível escolhido — ver NIVEIS em config.js. */
+let JP = JANELA_PERFEITO, JB = JANELA_BOM, JX = JANELA_PERDA;
 
 /* Espera antes de o som entrar, para as primeiras notas já estarem descendo
    quando a música começa. Sem isto a primeira nota nasce em cima da linha. */
@@ -205,11 +212,20 @@ export async function ritmoIniciar(){
   limparNotas();                       // senão vazam malhas a cada replay
   montarPista();
 
+  /* Dificuldade: rala as peças de marcação e alarga as janelas. Feito aqui,
+     na hora de tocar, e não na carta — assim a mesma carta serve para os dois
+     níveis e trocar de nível não exige reconverter nada. */
+  const nivel = NIVEIS[nivelAtual()] || NIVEIS.normal;
+  JP = JANELA_PERFEITO * nivel.janela;
+  JB = JANELA_BOM      * nivel.janela;
+  JX = JANELA_PERDA    * nivel.janela;
+
   let recorte;
   try {
     const carta = await musica.carregarCarta(CARTA_URL);
     recorte = notasDoRecorte(carta);
-    objetivo(carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo', '#00d9ff');
+    objetivo((carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo')
+             + ` — ${nivel.nome}`, '#00d9ff');
   } catch (e){
     // Carta ou faixa faltando não pode derrubar a partida: sem a fase 3 o
     // jogador ainda tem calibração e eco, e o resultado é registrado.
@@ -219,7 +235,15 @@ export async function ritmoIniciar(){
     return;
   }
 
-  ritmo.notas = recorte.notas.map(n => ({
+  const OSTINATO = ['chimbal', 'ride'];        // as peças de marcação
+  let k = 0;
+  const escolhidas = recorte.notas.filter(n => {
+    if (!OSTINATO.includes(n.peca)) return true;
+    if (nivel.semOstinato) return false;
+    return (k++ % nivel.ostinato) === 0;
+  });
+
+  ritmo.notas = escolhidas.map(n => ({
     t: n.t, id: n.peca, forca: n.forca ?? .85, mesh: null, julgada: false,
   }));
   ritmo.auto  = recorte.auto.slice();
@@ -263,7 +287,7 @@ function pararAuto(){
 function ritmoBatida(p){
   if (!ritmo.ativo) return;
   const agora = musica.tempo;
-  let alvo = null, menorDist = JANELA_BOM;
+  let alvo = null, menorDist = JB;
   for (const n of ritmo.notas){
     if (n.julgada || n.id !== p.id) continue;
     const d = Math.abs(n.t - agora);
@@ -276,7 +300,7 @@ function ritmoBatida(p){
   alvo.mesh.visible = false;
   acerto();
   const mult = 1 + Math.min(jogo.combo, 20) * .05;
-  if (menorDist < JANELA_PERFEITO){
+  if (menorDist < JP){
     jogo.perfeitas++; pontuar(Math.round(25 * mult)); julgamento('PERFEITO', '#ffd34d');
   } else {
     jogo.boas++;      pontuar(Math.round(12 * mult)); julgamento('BOM', '#3ddc97');
@@ -292,7 +316,7 @@ export function ritmoAtualizar(){
     if (n.julgada) continue;
     const dt = n.t - agora;
     if (dt > ANTECEDENCIA){ restantes++; continue; }   // ainda não nasceu
-    if (dt < -JANELA_PERDA){                           // passou batido
+    if (dt < -JX){                           // passou batido
       n.julgada = true; n.mesh.visible = false;
       erro(); julgamento('PERDEU', '#ff4d6d'); atualizarHUD();
       continue;
