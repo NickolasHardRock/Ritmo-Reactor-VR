@@ -31,7 +31,7 @@
    da pista de notas da fase 3.                                            */
 export const PECAS = [
   { id:'chimbal', nome:'Chimbal', x:-0.719, y:0.721, z: 0.078, r:0.194, tecla:'KeyA', cor:0xc17dff, som:'chimbal' },
-  { id:'crash',   nome:'Crash',   x:-0.405, y:0.773, z:-0.101, r:0.286, tecla:'KeyS', cor:0x66e0ff, som:'crash'   },
+  { id:'crash',   nome:'Crash',   x:-0.486, y:0.916, z:-0.184, r:0.230, tecla:'KeyS', cor:0x66e0ff, som:'crash'   },
   { id:'caixa',   nome:'Caixa',   x:-0.375, y:0.575, z: 0.242, r:0.189, tecla:'KeyD', cor:0xffa64d, som:'caixa'   },
   { id:'tom2',    nome:'Tom 2',   x:-0.159, y:0.681, z:-0.081, r:0.157, tecla:'KeyF', cor:0x3ddc97, som:'tom2'    },
   { id:'tom1',    nome:'Tom 1',   x: 0.161, y:0.683, z:-0.080, r:0.162, tecla:'KeyJ', cor:0x4da3ff, som:'tom1'    },
@@ -48,9 +48,9 @@ export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
 export const LAB = {
   url:          'modelos/lab.glb',
   escala:       1,              // modelo já em metros (~42 m de extensão)
-  rotacao:      0,              // ajustar conforme orientação desejada
-  postoJogador: [ 0, 0 ],      // centro da cena em coords do modelo (x, z)
-  alturaPiso:   0,              // Y das plataformas rochosas centrais
+  rotacao:      19.7,              // ajustar conforme orientação desejada
+  postoJogador: [ 2.8, 0.6 ],  // plataforma rochosa central entre os Marshall
+  alturaPiso:   2.0,            // Y da plataforma elevada
 };
 export const URL_BATERIA = 'modelos/bateria.glb';
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
