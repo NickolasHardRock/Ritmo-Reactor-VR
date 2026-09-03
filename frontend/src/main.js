@@ -190,9 +190,7 @@ $('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
 /* ------------------------------------------------- nível e calibragem ----- */
 function pintarNivel(){
   const k = nivelAtual();
-  for (const [id, chave] of [['btn-nivel-facil','facil'],
-                             ['btn-nivel-medio','medio'],
-                             ['btn-nivel-normal','normal']]){
+  for (const [id, chave] of [['btn-nivel-facil','facil'], ['btn-nivel-normal','normal']]){
     const b = $(id); if (!b) continue;
     b.style.borderColor = chave === k ? 'var(--cyan)' : 'var(--line)';
     b.style.color       = chave === k ? 'var(--cyan)' : 'var(--ink)';
@@ -204,7 +202,6 @@ function pintarNivel(){
     : `atraso calibrado: ${Math.round(c*1000)} ms`;
 }
 $('btn-nivel-facil').onclick  = () => { definirNivel('facil');  pintarNivel(); };
-$('btn-nivel-medio').onclick  = () => { definirNivel('medio');  pintarNivel(); };
 $('btn-nivel-normal').onclick = () => { definirNivel('normal'); pintarNivel(); };
 
 $('btn-calibrar').onclick = () => {

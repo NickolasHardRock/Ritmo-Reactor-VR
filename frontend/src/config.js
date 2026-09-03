@@ -105,9 +105,12 @@ export const CARTA_URL = (() => {
    `janela` multiplica a tolerância de tempo. No fácil a de PERFEITO passa de
    90 para 162 ms, que perdoa falta de prática sem virar automático.       */
 export const NIVEIS = {
-  facil:  { nome:'Fácil',  jogaveis:['caixa'],            janela:1.8 },
-  medio:  { nome:'Médio',  jogaveis:['caixa','chimbal'],  janela:1.4 },
-  normal: { nome:'Normal', jogaveis:null,                 janela:1.0 },   // null = todas
+  facil:  { nome:'Fácil',  jogaveis:['caixa'], janela:1.8 },
+  /* `jogaveis: null` = o jogador toca TUDO que a carta traz. É o caso geral,
+     e é por isso que existe só este nível além do fácil: um nível com lista
+     fixa de peças nunca pediria tom, surdo, crash ou ride, e travaria
+     qualquer carta que os tenha. */
+  normal: { nome:'Normal', jogaveis:null,      janela:1.0 },
 };
 const CHAVE_NIVEL = 'rrvr.nivel';
 export function nivelAtual(){
