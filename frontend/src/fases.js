@@ -224,8 +224,11 @@ export async function ritmoIniciar(){
   try {
     const carta = await musica.carregarCarta(CARTA_URL);
     recorte = notasDoRecorte(carta);
+    const quais = nivel.jogaveis
+      ? nivel.jogaveis.map(id => (PORID[id]?.nome || id).toUpperCase()).join(' e ')
+      : null;
     objetivo((carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo')
-             + ` — ${nivel.nome}`, '#00d9ff');
+             + (quais ? ` — toque só a ${quais}` : ` — ${nivel.nome}`), '#00d9ff');
   } catch (e){
     // Carta ou faixa faltando não pode derrubar a partida: sem a fase 3 o
     // jogador ainda tem calibração e eco, e o resultado é registrado.
@@ -235,18 +238,22 @@ export async function ritmoIniciar(){
     return;
   }
 
-  const OSTINATO = ['chimbal', 'ride'];        // as peças de marcação
-  let k = 0;
-  const escolhidas = recorte.notas.filter(n => {
-    if (!OSTINATO.includes(n.peca)) return true;
-    if (nivel.semOstinato) return false;
-    return (k++ % nivel.ostinato) === 0;
-  });
+  /* O que o jogador não toca não é descartado: vira trilha automática e
+     continua soando. Assim o nível fácil não deixa a música oca — ela toca
+     inteira e o jogador cuida de uma parte. */
+  const jog = nivel.jogaveis;
+  const escolhidas = [], extras = [];
+  for (const n of recorte.notas){
+    if (!jog || jog.includes(n.peca)) escolhidas.push(n);
+    // Um pouco mais baixas que o normal, para a batida do jogador se
+    // destacar do que a máquina toca.
+    else extras.push({ t:n.t, som:n.peca, forca:(n.forca ?? .7) * .8 });
+  }
 
   ritmo.notas = escolhidas.map(n => ({
     t: n.t, id: n.peca, forca: n.forca ?? .85, mesh: null, julgada: false,
   }));
-  ritmo.auto  = recorte.auto.slice();
+  ritmo.auto  = recorte.auto.concat(extras).sort((a,b) => a.t - b.t);
   ritmo.iAuto = 0;
   ritmo.fim   = recorte.fim;
 

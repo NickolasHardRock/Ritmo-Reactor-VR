@@ -91,28 +91,27 @@ export const CARTA_URL = (() => {
 
 
 /* ------------------------------------------------------ DIFICULDADE ------
-   Uma levada de rock toca chimbal em toda colcheia. Isso dá 4 notas por
-   segundo e exige mão de baterista — não é o público do trabalho.
+   `jogaveis` lista as peças que o JOGADOR toca. Todo o resto da carta não
+   desaparece: passa para a trilha automática e continua soando.
 
-   `ostinato` mantém 1 de cada N notas das peças de marcação (chimbal e ride),
-   que são as que repetem rápido. Caixa, tons e pratos de ataque ficam sempre:
-   são eles que dão a forma da música, e tirá-los descaracteriza a levada.
+   Essa é a diferença que importa. Tirar o chimbal deixava a levada oca; com
+   ele tocando sozinho a música fica inteira e o jogador cuida de uma parte
+   só — que é como se aprende bateria de verdade, uma mão por vez.
 
-   `janela` multiplica a tolerância de tempo. No fácil a janela de PERFEITO
-   passa de 90 para 162 ms, que perdoa quem não tem prática sem virar
-   automático.                                                             */
+   No fácil a parte é a CAIXA: é o backbeat, dá a forma da música, e é um
+   alvo só, quase sempre no mesmo lugar. Mirar é o que mais custa para quem
+   não toca, e sete alvos é o que trava.
+
+   `janela` multiplica a tolerância de tempo. No fácil a de PERFEITO passa de
+   90 para 162 ms, que perdoa falta de prática sem virar automático.       */
 export const NIVEIS = {
-  /* No fácil o chimbal e o ride SAEM. Não é só questão de quantidade: com
-     eles o jogador tem de mirar sete alvos diferentes, e mirar é o que mais
-     custa para quem não toca. Sem eles sobra a caixa e as viradas — a forma
-     da música, num alvo só na maior parte do tempo. O bumbo continua tocando
-     sozinho, então a levada segue reconhecível. */
-  facil:  { nome:'Fácil',  semOstinato:true,  ostinato:1, janela:1.8 },
-  normal: { nome:'Normal', semOstinato:false, ostinato:1, janela:1.0 },
+  facil:  { nome:'Fácil',  jogaveis:['caixa'], janela:1.8 },
+  normal: { nome:'Normal', jogaveis:null,      janela:1.0 },   // null = todas
 };
 const CHAVE_NIVEL = 'rrvr.nivel';
 export function nivelAtual(){
-  return NIVEIS[localStorage.getItem(CHAVE_NIVEL)] ? localStorage.getItem(CHAVE_NIVEL) : 'facil';
+  const k = localStorage.getItem(CHAVE_NIVEL);
+  return NIVEIS[k] ? k : 'facil';
 }
 export function definirNivel(k){ if (NIVEIS[k]) localStorage.setItem(CHAVE_NIVEL, k); }
 
