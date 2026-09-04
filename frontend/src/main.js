@@ -24,6 +24,7 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.js';
 import { musica, Musica } from './musica.js';
+import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem } from './calibragem.js';
@@ -298,9 +299,16 @@ pintarNivel();
 fetch(CARTA_URL)
   .then(r => r.ok ? r.json() : null)
   .then(c => {
-    if (!c || !c.creditos) return;
-    const el = $('inicio-creditos');
-    if (el) el.textContent = c.titulo ? `♪ ${c.titulo} — ${c.creditos}` : c.creditos;
+    if (!c) return;
+    if (c.creditos){
+      const el = $('inicio-creditos');
+      if (el) el.textContent = c.titulo ? `♪ ${c.titulo} — ${c.creditos}` : c.creditos;
+    }
+    /* Kit da carta pedido JÁ na abertura, e não quando a fase de ritmo
+       começa: assim as três fases usam o mesmo kit e a bateria não troca de
+       som no meio da partida. O synth guarda o pedido se o áudio ainda não
+       existir — ele só nasce no primeiro toque do jogador. */
+    synth.definirKit(c.kit || null);
   })
   .catch(() => {});
 
@@ -322,7 +330,7 @@ window.__jogo = {
   /* Expostos para conferir o modelo de pontuação de fora, sem jogar a
      partida inteira à mão. Foi assim que a tabela de multiplicador e as
      estrelas foram verificadas. */
-  atualizarHUD, telaResultado, pontuacao,
+  atualizarHUD, telaResultado, pontuacao, synth,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };

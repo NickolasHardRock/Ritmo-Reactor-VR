@@ -183,6 +183,7 @@ export class Musica {
      "titulo":  "Nome da faixa",
      "creditos":"Autor — licença",       // vai para a tela de resultado
      "faixa":   "sounds/arquivo.mp3",
+     "kit":     { "caixa": "kits/nome/caixa.wav" },   // opcional, ver synth.js
      "bpm":     134.2,
      "ancora":  1.582,                   // segundo do primeiro tempo forte
      "recorte": [45.9, 135.0],           // trecho jogável, em segundos

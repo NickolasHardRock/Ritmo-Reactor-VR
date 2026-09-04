@@ -33,7 +33,9 @@ export class Synth {
   constructor(){
     this.ctx = null;
     this.master = null;
-    this.buffers = {};   // id → AudioBuffer
+    this.buffers = {};        // id → AudioBuffer EM USO
+    this.buffersPadrao = {};  // o kit de biblioteca, sempre guardado
+    this._kitPendente = null; // kit pedido antes de existir AudioContext
     this._carregando = null;
   }
 
@@ -102,11 +104,54 @@ export class Synth {
         fetch(`sounds/${id}.mp3`)
           .then(r => r.arrayBuffer())
           .then(buf => this.ctx.decodeAudioData(buf))
-          .then(decoded => { this.buffers[id] = decoded; })
+          .then(decoded => { this.buffersPadrao[id] = this.buffers[id] = decoded; })
           .catch(e => console.warn(`[synth] falha ao carregar ${id}.mp3:`, e))
       )
-    );
+    ).then(() => this._kitPendente ? this.carregarKit(this._kitPendente) : null);
     return this._carregando;
+  }
+
+  /* ============================== KIT POR CARTA =========================
+     Uma carta pode trazer o próprio kit — as peças gravadas na mesma sala,
+     no mesmo tambor e com o mesmo microfone da música que vai tocar. É o
+     que faz a batida do jogador PERTENCER à gravação em vez de soar colada
+     por cima. Só o que a carta declarar é trocado; o resto continua sendo a
+     biblioteca, e é por isso que `buffersPadrao` existe.
+
+     Chamável antes de haver áudio: a carta é lida na abertura, e o
+     AudioContext só nasce no primeiro toque do jogador. Nesse caso o pedido
+     fica pendente e é aplicado dentro de `ligar()`.                       */
+
+  /** @param {Object<string,string>|null} mapa  id da peça → URL do arquivo */
+  definirKit(mapa){
+    if (!mapa){ this._kitPendente = null; return this.restaurarKit(); }
+    if (!this.ctx){ this._kitPendente = mapa; return Promise.resolve(); }
+    return this.carregarKit(mapa);
+  }
+
+  async carregarKit(mapa){
+    this._kitPendente = null;
+    const nomes = Object.keys(mapa).filter(id => SONS_BATERIA.includes(id));
+    await Promise.all(nomes.map(async id => {
+      try {
+        const r = await fetch(mapa[id]);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        this.buffers[id] = await this.ctx.decodeAudioData(await r.arrayBuffer());
+      } catch (e){
+        /* Kit que não carrega NÃO pode calar a peça: cai para a de
+           biblioteca, que já está na memória, e a partida continua. */
+        console.warn(`[synth] kit: ${id} não carregou (${e.message}) — usando a padrão`);
+        if (this.buffersPadrao[id]) this.buffers[id] = this.buffersPadrao[id];
+      }
+    }));
+    return nomes;
+  }
+
+  /** Volta tudo para a biblioteca. */
+  restaurarKit(){
+    for (const id of SONS_BATERIA)
+      if (this.buffersPadrao[id]) this.buffers[id] = this.buffersPadrao[id];
+    return Promise.resolve([]);
   }
 
   /** Relógio do áudio. Use ESTE para agendar ritmo — nunca setTimeout, que
