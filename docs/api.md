@@ -1,6 +1,6 @@
 # API — documentação dos endpoints (RF12)
 
-Base em produção: `https://<seu-projeto>.vercel.app/api`
+Base em produção: `https://ritmo-reactor-vr.vercel.app/api`
 Base em desenvolvimento: `http://localhost:3000/api`
 
 Todas as respostas são JSON. Erros seguem o formato

@@ -7,7 +7,7 @@ religá-lo.
 Roda em navegador comum (teclado e mouse) e em **Meta Quest 3**, onde os
 controles viram baquetas e a força da batida conta.
 
-- **Jogo:** _(preencher com a URL do Vercel após o primeiro deploy)_
+- **Jogo:** https://ritmo-reactor-vr.vercel.app
 - **API:** a mesma URL + `/api` — comece por `/api/saude`
 
 ---
