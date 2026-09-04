@@ -83,10 +83,18 @@ export const ALTURA_INICIAL_KIT = 0.35;
 export const CARTA_URL = (() => {
   /* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
      Serve para comparar cartas e para testar faixa que nao vai para o
-     repositorio. O sanitize evita montar caminho a partir da URL.        */
+     repositorio. O sanitize evita montar caminho a partir da URL.
+
+     O PADRAO e a Colour Me Red: e a carta que mostra o jogo como ele e --
+     musica de banda de verdade, kit gravado na mesma sala, dinamica tirada
+     da propria gravacao. A `teste.json` continua em `?carta=teste`, e vale
+     manter: e a UNICA que dispara as sete pecas. A Colour Me Red usa quatro
+     (caixa, chimbal, bumbo, crash), entao tom, surdo e ride so tem cobertura
+     por ela.                                                              */
+  const PADRAO = 'colour-me-red';
   const p = new URLSearchParams(location.search).get('carta');
-  const nome = (p || 'teste').replace(/[^\w-]/g, '');
-  return `cartas/${nome || 'teste'}.json`;
+  const nome = (p || PADRAO).replace(/[^\w-]/g, '');
+  return `cartas/${nome || PADRAO}.json`;
 })();
 
 

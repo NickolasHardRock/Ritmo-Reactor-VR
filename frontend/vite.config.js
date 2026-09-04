@@ -11,12 +11,12 @@ export default defineConfig({
     //
     // Para testar VR existem dois caminhos, e a escolha depende da FAIXA:
     //
-    //   - Faixa nossa (cartas/teste.json): o deploy resolve. Todo push
-    //     republica, e no Quest é só abrir a URL.
+    //   - Colour Me Red (a carta padrão) e a nossa cartas/teste.json: as
+    //     duas estão no deploy. Todo push republica, e no Quest é só abrir
+    //     a URL.
     //
-    //   - Faixa de terceiro (Colour Me Red, Money): essa não vai para o
-    //     repositório nem para o deploy — a licença é de uso didático, e
-    //     publicar seria distribuir. Aí o caminho é o cabo USB:
+    //   - Money For Nothing: essa NÃO vai para o repositório nem para o
+    //     deploy — master comercial, sem licença. Aí o caminho é o cabo USB:
     //
     //         adb reverse tcp:5173 tcp:5173
     //
