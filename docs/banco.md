@@ -13,7 +13,7 @@
 └─────────────────────┘            │ precisao    SMALLINT 0..100  │
                                    │ erros       SMALLINT         │
                                    │ combo_max   SMALLINT         │
-                                   │ reator      SMALLINT 0..100  │
+                                   │ estrelas    SMALLINT 0..5    │
                                    │ criado      TIMESTAMP        │
                                    └──────────────────────────────┘
 ```

@@ -8,7 +8,7 @@
 --
 --   jogador (id PK, nome UNIQUE, criado)
 --   partida (id PK, jogador_id FK -> jogador.id, pontos, tempo,
---            precisao, erros, combo_max, reator, criado)
+--            precisao, erros, combo_max, estrelas, criado)
 --
 -- POR QUE DUAS TABELAS E NÃO UMA
 -- Guardar o nome dentro de cada partida repetiria a mesma string a cada
@@ -42,14 +42,14 @@ CREATE TABLE partida (
   precisao    SMALLINT     NOT NULL CHECK (precisao BETWEEN 0 AND 100),
   erros       SMALLINT     NOT NULL DEFAULT 0 CHECK (erros >= 0),
   combo_max   SMALLINT     NOT NULL DEFAULT 0 CHECK (combo_max >= 0),
-  reator      SMALLINT     NOT NULL CHECK (reator BETWEEN 0 AND 100),
+  estrelas    SMALLINT     NOT NULL CHECK (estrelas BETWEEN 0 AND 5),
   criado      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE  partida          IS 'Uma linha por partida CONCLUÍDA (RN07).';
 COMMENT ON COLUMN partida.tempo    IS 'Duração em segundos.';
 COMMENT ON COLUMN partida.precisao IS 'Percentual de acertos sobre o total de julgamentos.';
-COMMENT ON COLUMN partida.reator   IS 'Carga final do reator, 0 a 100. >= 60 conta como vitória.';
+COMMENT ON COLUMN partida.estrelas IS 'Estrelas da partida, 0 a 5. Derivadas da precisão; ver pontuacao.js.';
 
 -- O ranking ordena por pontos; sem este índice ele varre a tabela toda.
 CREATE INDEX idx_partida_pontos  ON partida (pontos DESC);
@@ -63,7 +63,7 @@ COMMIT;
 -- correlacionada.
 -- ---------------------------------------------------------------------------
 -- SELECT ROW_NUMBER() OVER (ORDER BY m.pontos DESC, m.tempo ASC) AS posicao,
---        j.nome, m.pontos, m.tempo, m.precisao, m.combo_max, m.reator, m.criado
+--        j.nome, m.pontos, m.tempo, m.precisao, m.combo_max, m.estrelas, m.criado
 --   FROM (SELECT DISTINCT ON (jogador_id) *
 --           FROM partida ORDER BY jogador_id, pontos DESC, tempo ASC) m
 --   JOIN jogador j ON j.id = m.jogador_id
@@ -74,7 +74,7 @@ COMMIT;
 -- Dados de exemplo para conferir o ranking sem jogar (apague antes da entrega)
 -- ---------------------------------------------------------------------------
 -- INSERT INTO jogador (nome) VALUES ('Diego'), ('Bruno');
--- INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, reator)
+-- INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, estrelas)
 -- VALUES (1, 740, 96.20, 88, 4, 17, 82),
 --        (1, 520, 91.40, 71, 9, 11, 57),
 --        (2, 810, 94.75, 92, 3, 21, 90);

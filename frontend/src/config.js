@@ -141,8 +141,12 @@ export const CAMINHO_DRACO = 'libs/draco/';
 export const CAMINHO_BASIS = 'libs/basis/';
 
 /* ------------------------------------------------------- DIFICULDADE ----- */
-export const PONTOS_ALVO = 900;   // pontuação que enche o reator (100%)
-export const CARGA_MINIMA = 60;   // % de carga para considerar a missão vencida
+/* A pontuação não mora mais aqui. Havia um `PONTOS_ALVO = 900` decidindo o
+   que era "vencer", e ele só funcionava para uma carta de um tamanho: quando
+   a carta de ritmo passou de 133 para 505 notas, a meta era atingida nos
+   primeiros vinte segundos e a barra ficava cravada no máximo o resto da
+   música. O modelo agora é relativo à própria carta e vive em
+   `pontuacao.js`. */
 
 export const ECO_RODADAS = [3, 4, 5];   // tamanho do padrão em cada rodada
 

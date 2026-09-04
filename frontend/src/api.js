@@ -8,6 +8,7 @@
 
 import { API_BASE } from './config.js';
 import { jogo, precisao } from './estado.js';
+import { estrelas } from './pontuacao.js';
 import { statusApi } from './ui.js';
 
 /** Nome do jogador. Guardado localmente só por conveniência — o registro
@@ -30,7 +31,7 @@ export function corpoDaPartida(){
     precisao: precisao(),
     erros:    jogo.erros,
     comboMax: jogo.comboMax,
-    reator:   Math.floor(jogo.reator),
+    estrelas: estrelas(precisao()),
   };
 }
 

@@ -133,13 +133,30 @@ conf(await pagina.evaluate('window.__jogo.jogo.erros') === antes + 1, 'erro cont
 conf(await pagina.evaluate('window.__jogo.jogo.combo') === 0, 'combo zerado');
 
 console.log('\nCT-07  RF09/RF10 — conclusão e resultado');
+/* 20 perfeitas, 6 boas, 3 erros -> base (20*100 + 6*50) / (29*100) = 79%,
+   que cai na faixa de 3 estrelas (corte em 70). Os números são escolhidos
+   para cair no MEIO de uma faixa: um caso na borda passaria a testar o
+   arredondamento em vez da regra. */
 await pagina.evaluate(`(() => { const J = window.__jogo;
-  Object.assign(J.jogo, { pontos: 700, reator: 78, perfeitas: 20, boas: 6, erros: 3, comboMax: 14 });
+  Object.assign(J.jogo, { pontos: 700, perfeitas: 20, boas: 6, erros: 3, comboMax: 14 });
   J.concluir(); })()`);
 await pagina.waitForTimeout(400);
-conf((await pagina.textContent('#fim-titulo')).includes('concluída'), 'tela de resultado aparece');
 conf(await pagina.textContent('#f-pontos') === '700', 'pontuação exibida');
 conf(await pagina.textContent('#f-combo') === '14x', 'combo máximo exibido');
+conf(await pagina.textContent('#f-prec') === '79%', 'precisão ponderada exibida',
+     'um BOM vale metade de um PERFEITO');
+conf(await pagina.textContent('#f-estrelas') === '★★★☆☆', 'estrelas conferem com a precisão',
+     await pagina.textContent('#f-estrelas'));
+
+console.log('\nCT-07b  RN04 — a tabela do multiplicador');
+const mult = await pagina.evaluate(`(() => { const P = window.__jogo.pontuacao;
+  return [0,9,10,19,20,29,30,99].map(P.multiplicador); })()`);
+conf(JSON.stringify(mult) === JSON.stringify([1,1,2,2,3,3,4,4]),
+     'x1 até 9, x2 aos 10, x3 aos 20, x4 aos 30', mult.join(' '));
+const barra = await pagina.evaluate(`(() => { const P = window.__jogo.pontuacao;
+  return [0,5,10,15,30].map(c => +P.progressoDoDegrau(c).toFixed(2)); })()`);
+conf(JSON.stringify(barra) === JSON.stringify([0,0.5,0,0.5,1]),
+     'barra do rodapé mede o caminho até o próximo degrau', barra.join(' '));
 
 console.log('\nCT-08  custo por quadro');
 const custo = await pagina.evaluate(`({

@@ -57,8 +57,15 @@
   #teclas{position:fixed;bottom:16px;right:14px;z-index:5;font-size:11.5px;color:var(--muted);
     background:rgba(17,24,38,.86);border:1px solid var(--line);border-radius:9px;padding:9px 12px;
     line-height:1.75;text-align:right}
-  #carga{position:fixed;bottom:0;left:0;right:0;height:3px;background:#0c1220;z-index:5}
-  #carga i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--ok));
+  /* Degrau do multiplicador no HUD: destaque quando passa de x1, porque e o
+     unico numero do HUD que o jogador pode perder por um erro so. */
+  #hud b.mult{color:var(--muted)}
+  #hud b.mult.ativo{color:var(--ok)}
+  /* Estrelas do resultado. Tamanho grande de proposito: e a leitura que a
+     plateia enxerga de longe na apresentacao. */
+  #f-estrelas{font-size:34px;letter-spacing:.10em;color:var(--ok);line-height:1.1;margin:2px 0 6px}
+  #mult-barra{position:fixed;bottom:0;left:0;right:0;height:3px;background:#0c1220;z-index:5}
+  #mult-barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--ok));
     transition:width .3s}
   #load{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:14px;background:var(--bg)}

@@ -30,7 +30,7 @@ function validar(corpo){
     precisao:  num(corpo?.precisao, 'precisao', 0, 100),
     erros:     num(corpo?.erros ?? 0,    'erros',    0, 100_000),
     combo_max: num(corpo?.comboMax ?? 0, 'comboMax', 0, 100_000),
-    reator:    num(corpo?.reator,   'reator',   0, 100),
+    estrelas:  num(corpo?.estrelas, 'estrelas', 0, 5),
   };
   return { erros, dados };
 }
@@ -53,7 +53,7 @@ rotaPartidas.post('/', async (req, res, next) => {
       nome: dados.nome,
       pontos: criada.pontos,
       tempo: Number(criada.tempo),
-      reator: criada.reator,
+      estrelas: criada.estrelas,
       criado: criada.criado,
     });
   } catch (e) { next(e); }

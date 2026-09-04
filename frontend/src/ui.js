@@ -12,8 +12,9 @@
 
 import { jogo, FASES, precisao } from './estado.js';
 import { painelHUD, painelObj, flash, flashEstado,
-         atualizarAroCarga, renderer } from './cena.js';
-import { CARGA_MINIMA } from './config.js';
+         renderer } from './cena.js';
+import { multiplicador, progressoDoDegrau, estrelas,
+         estrelasEmTexto, veredito } from './pontuacao.js';
 import { musica } from './musica.js';
 
 export const $ = id => document.getElementById(id);
@@ -46,20 +47,27 @@ export function julgamento(txt, cor){
 
 /* --------------------------------------------------------------- HUD ----- */
 export function atualizarHUD(){
+  const mult = multiplicador(jogo.combo);
+  const prec = precisao();
+
   $('h-pontos').textContent = jogo.pontos;
   $('h-combo').textContent  = jogo.combo;
-  $('h-reator').textContent = Math.floor(jogo.reator);
-  $('carga-i').style.width  = jogo.reator + '%';
+  $('h-mult').textContent   = 'x' + mult;
+  $('h-mult').classList.toggle('ativo', mult > 1);
+  $('h-prec').textContent   = prec;
+  /* A barra do rodapé mostra o caminho até o PRÓXIMO degrau do
+     multiplicador. Era a carga do reator, que não existe mais — e o degrau
+     é a informação de momento que o jogador precisa: quantos acertos faltam
+     para dobrar. */
+  $('mult-i').style.width   = (progressoDoDegrau(jogo.combo) * 100) + '%';
   $('h-fase').textContent   = jogo.livre
     ? 'Modo livre'
     : `Fase ${jogo.fase + 1}/3 — ${FASES[jogo.fase].nome}`;
 
   painelHUD.userData.pintar(
-    [`REATOR  ${Math.floor(jogo.reator)}%`,
-     `${jogo.pontos} pts · combo ${jogo.combo}x`],
+    [`PRECISÃO  ${prec}%   ·   x${mult}`,
+     `${jogo.pontos} pts · combo ${jogo.combo}`],
     { cores:['#00d9ff','#e8eef8'], tam:.58 });
-
-  atualizarAroCarga(jogo.reator);
 }
 
 /** O objetivo do momento — RF06: o jogador nunca fica sem saber o que fazer. */
@@ -99,29 +107,32 @@ export function mostrarCreditos(){
 }
 
 export function telaResultado(){
-  const religou = jogo.reator >= CARGA_MINIMA;
+  const prec = precisao();
+  const n    = estrelas(prec);
+  const v    = veredito(n);
+
+  $('f-estrelas').textContent = estrelasEmTexto(n);
   $('f-pontos').textContent = jogo.pontos;
-  $('f-prec').textContent   = precisao() + '%';
+  $('f-prec').textContent   = prec + '%';
   $('f-combo').textContent  = jogo.comboMax + 'x';
   $('f-tempo').textContent  = jogo.duracao.toFixed(1) + 's';
   $('f-perf').textContent   = jogo.perfeitas;
   $('f-bom').textContent    = jogo.boas;
   $('f-erro').textContent   = jogo.erros;
 
-  $('fim-tag').textContent  = religou ? 'reator religado' : 'energia insuficiente';
-  $('fim-tag').style.color  = religou ? 'var(--ok)' : 'var(--warn)';
-  $('fim-titulo').textContent = religou ? 'Missão concluída' : 'Missão incompleta';
+  $('fim-tag').textContent  = `${n} de 5 estrelas`;
+  $('fim-tag').style.color  = n >= 4 ? 'var(--ok)' : n >= 2 ? 'var(--cyan)' : 'var(--warn)';
+  $('fim-titulo').textContent = v.titulo;
   /* Crédito da faixa. A carta traz o campo desde sempre e nada o mostrava —
      e crédito que não aparece não é crédito. Quando a faixa é de outra
      pessoa, é isto que sustenta o direito de usá-la. */
   mostrarCreditos();
 
-  $('fim-sub').textContent = `O núcleo chegou a ${Math.floor(jogo.reator)}% de carga.` +
-    (religou ? ' A estação volta a operar.'
-             : ` Precisa de ${CARGA_MINIMA}% para religar.`);
+  $('fim-sub').textContent = `Precisão de ${prec}%. ${v.sub}`;
 
-  objetivo(religou ? 'REATOR RELIGADO' : 'ENERGIA INSUFICIENTE',
-           religou ? '#3ddc97' : '#ffb84d');
+  /* No headset não existe HTML: o veredito precisa cabe no painel 3D. */
+  objetivo(`${estrelasEmTexto(n)}  ${prec}%`,
+           n >= 4 ? '#3ddc97' : n >= 2 ? '#00d9ff' : '#ffb84d');
 
   // Dentro do VR o jogador não vê HTML: o resultado fica no painel 3D.
   if (!renderer.xr.isPresenting){

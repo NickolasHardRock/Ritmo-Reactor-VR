@@ -24,11 +24,13 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.js';
 import { musica, Musica } from './musica.js';
+import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem } from './calibragem.js';
 import { NIVEIS, nivelAtual, definirNivel, CARTA_URL } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
-         statusXR, falhaCarregamento, progressoCarregamento } from './ui.js';
+         statusXR, falhaCarregamento, progressoCarregamento,
+         telaResultado } from './ui.js';
 
 /* ------------------------------------------------------ carregamento ----- */
 carregarLab();
@@ -144,7 +146,7 @@ renderer.setAnimationLoop(() => {
   detectarBatidas(dt, bater);     // antes de qualquer outra coisa
   ritmoAtualizar();
   animarZonas(dt, t);
-  animarReator(dt, t, jogo.reator);
+  animarReator(dt, t);
 
   camera.getWorldPosition(_v);
   painelHUD.lookAt(_v);
@@ -299,6 +301,10 @@ window.__jogo = {
   jogo, cal, eco, ritmo, zonas, PECAS, kit, scene, camera, player, renderer, orbit, baquetas, THREE,
   bater, iniciar, concluir, mostrarRotulos, destacar, processarPonta,
   ritmoIniciar, ritmoAtualizar, musica,
+  /* Expostos para conferir o modelo de pontuação de fora, sem jogar a
+     partida inteira à mão. Foi assim que a tabela de multiplicador e as
+     estrelas foram verificadas. */
+  atualizarHUD, telaResultado, pontuacao,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };

@@ -50,7 +50,7 @@ function adaptadorMemoria(){
         .map((p, i) => ({
           posicao: i + 1, nome: nomePorId.get(p.jogador_id),
           pontos: p.pontos, tempo: p.tempo, precisao: p.precisao,
-          combo_max: p.combo_max, reator: p.reator, criado: p.criado,
+          combo_max: p.combo_max, estrelas: p.estrelas, criado: p.criado,
         }));
     },
 
@@ -87,7 +87,7 @@ async function adaptadorPostgres(){
           precisao   SMALLINT NOT NULL CHECK (precisao BETWEEN 0 AND 100),
           erros      SMALLINT NOT NULL DEFAULT 0,
           combo_max  SMALLINT NOT NULL DEFAULT 0,
-          reator     SMALLINT NOT NULL CHECK (reator BETWEEN 0 AND 100),
+          estrelas   SMALLINT NOT NULL CHECK (estrelas BETWEEN 0 AND 5),
           criado     TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_partida_pontos ON partida (pontos DESC);
@@ -104,16 +104,16 @@ async function adaptadorPostgres(){
 
     async salvarPartida(p){
       const r = await pool.query(
-        `INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, reator)
+        `INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, estrelas)
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [p.jogador_id, p.pontos, p.tempo, p.precisao, p.erros, p.combo_max, p.reator]);
+        [p.jogador_id, p.pontos, p.tempo, p.precisao, p.erros, p.combo_max, p.estrelas]);
       return r.rows[0];
     },
 
     async ranking(limite){
       const r = await pool.query(
         `SELECT ROW_NUMBER() OVER (ORDER BY m.pontos DESC, m.tempo ASC) AS posicao,
-                j.nome, m.pontos, m.tempo, m.precisao, m.combo_max, m.reator, m.criado
+                j.nome, m.pontos, m.tempo, m.precisao, m.combo_max, m.estrelas, m.criado
            FROM (SELECT DISTINCT ON (jogador_id) *
                    FROM partida ORDER BY jogador_id, pontos DESC, tempo ASC) m
            JOIN jogador j ON j.id = m.jogador_id

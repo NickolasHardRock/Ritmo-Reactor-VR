@@ -137,7 +137,7 @@ export function carregarLab(){
 /* ========================================================== O REATOR =====
    O tanque do cenário É o núcleo — não desenho esfera nenhuma. Três anéis
    HORIZONTAIS abraçam o cilindro (é o que lê como "contenção de energia"),
-   uma luz acende por dentro e um arco no chão mostra a carga.
+   uma luz acende por dentro e um anel marca a base.
    O modelo faz o trabalho visual; o jogo só o acende.                     */
 export const reator = new THREE.Group(); scene.add(reator);
 const RAIO_TANQUE = 1.32;
@@ -157,29 +157,30 @@ export const aneis = ALTURAS_ANEL.map((dy, i) => {
 });
 export const luzR = new THREE.PointLight(0x00d9ff, .5, 12); reator.add(luzR);
 
+/* O aro do chão era o arco de carga: crescia com a pontuação e fechava o
+   círculo aos 100%. A carga não existe mais, e um arco incompleto parado
+   leria como barra de progresso quebrada — então ele virou anel fechado, e
+   fica como parte do cenário. */
 export const aroCarga = new THREE.Mesh(
-  new THREE.TorusGeometry(RAIO_TANQUE + .35, .05, 8, 120, 0.001),
-  new THREE.MeshBasicMaterial({ color:0x3ddc97 }));
+  new THREE.TorusGeometry(RAIO_TANQUE + .35, .05, 8, 120),
+  new THREE.MeshBasicMaterial({ color:0x14624a }));
 aroCarga.rotation.x = Math.PI/2;
 aroCarga.position.y = -1.35;
 reator.add(aroCarga);
 
-/** Redesenha o arco de progresso. Chamado quando a pontuação muda. */
-export function atualizarAroCarga(percentual){
-  aroCarga.geometry.dispose();
-  aroCarga.geometry = new THREE.TorusGeometry(RAIO_TANQUE + .35, .05, 8, 120,
-    Math.max(.001, percentual/100 * Math.PI*2));
-}
-
-/** Anima o reator conforme a carga. Chamado a cada quadro. */
-export function animarReator(dt, t, carga){
-  const c = carga / 100;
+/** Anima o reator. Chamado a cada quadro.
+ *
+ *  Ele não reage mais à pontuação: o tanque agora é cenário, e respira num
+ *  ritmo próprio. Deixar a animação atrelada a um número que ninguém mais vê
+ *  seria manter o acoplamento sem manter o sentido. */
+const VIDA = 0.35;             // o quanto ele "liga", de 0 a 1, sempre
+export function animarReator(dt, t){
   aneis.forEach(a => {
-    a.rotation.z += dt * a.userData.giro * (1 + c*3);
-    a.position.y = a.userData.base + Math.sin(t*.8 + a.userData.base*4)*.06*(0.3 + c);
-    a.material.emissiveIntensity = .2 + c*2.6;
+    a.rotation.z += dt * a.userData.giro * (1 + VIDA*3);
+    a.position.y = a.userData.base + Math.sin(t*.8 + a.userData.base*4)*.06*(0.3 + VIDA);
+    a.material.emissiveIntensity = .2 + VIDA*2.6;
   });
-  luzR.intensity = .5 + c*5.5 + Math.sin(t*5)*.35*c;
+  luzR.intensity = .5 + VIDA*5.5 + Math.sin(t*.7)*.5;
 }
 
 /* ============================================ PLACAS DE TEXTO EM 3D ======

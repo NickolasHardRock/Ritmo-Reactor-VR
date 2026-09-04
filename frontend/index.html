@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Drum Reactivate — Missão WebXR</title>
-<meta name="description" content="Jogo musical em WebXR: toque bateria para religar o reator da estação.">
+<meta name="description" content="Jogo musical em WebXR: toque bateria no tempo e feche a partida com cinco estrelas.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0e16'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%2300d9ff' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="./src/estilo.css">
 </head>
@@ -22,7 +22,7 @@
   <div class="card">
     <div class="tag">Missão WebXR</div>
     <h1>Drum Reactivate</h1>
-    <p class="sub">O reator da estação parou. O núcleo só volta a oscilar se receber um pulso rítmico
+    <p class="sub">A estação parou e o núcleo só volta a oscilar se receber um pulso rítmico
       preciso — e o único emissor a bordo é uma bateria. Toque para religar.</p>
 
     <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
@@ -95,8 +95,9 @@
 
 <div class="layer hidden" id="tela-fim">
   <div class="card">
-    <div class="tag" id="fim-tag">reator religado</div>
-    <h1 id="fim-titulo">Missão concluída</h1>
+    <div class="tag" id="fim-tag">— de 5 estrelas</div>
+    <div id="f-estrelas">☆☆☆☆☆</div>
+    <h1 id="fim-titulo">Fim da partida</h1>
     <p class="sub" id="fim-sub"></p>
     <p class="sub" id="fim-creditos" style="opacity:.75"></p>
     <div class="stats">
@@ -121,8 +122,8 @@
 <div id="hud" class="hidden">
   <div class="g">
     <div class="box">Pontos <b id="h-pontos">0</b></div>
-    <div class="box">Combo <b id="h-combo">0</b>x</div>
-    <div class="box">Reator <b id="h-reator">0</b>%</div>
+    <div class="box">Precisão <b id="h-prec">0</b>%</div>
+    <div class="box">Combo <b id="h-combo">0</b> <b id="h-mult" class="mult">x1</b></div>
   </div>
   <div class="g">
     <div class="box" id="h-fase">Fase 1/3 — Calibração</div>
@@ -132,7 +133,8 @@
 <div id="julg"></div>
 <div id="msg"></div>
 <div id="vr-slot"></div>
-<div id="carga"><i id="carga-i"></i></div>
+<!-- Caminho até o próximo degrau do multiplicador (era a carga do reator). -->
+<div id="mult-barra"><i id="mult-i"></i></div>
 <div id="teclas" class="hidden"></div>
 <script type="module" src="./src/main.js"></script>
 </body>

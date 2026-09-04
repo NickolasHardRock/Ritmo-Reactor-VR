@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, PORID, PONTOS_ALVO, CARTA_URL,
+import { PECAS, PORID, CARTA_URL,
          NIVEIS, nivelAtual } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
 import { registrarBatida } from './calibragem.js';
@@ -24,18 +24,33 @@ import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo, statusApi,
          telaJogando, telaResultado, mostrarCreditos } from './ui.js';
 import { enviarResultado } from './api.js';
+import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
+         valorDaJogada } from './pontuacao.js';
 
-/* --------------------------------------------------------- pontuação ----- */
-function pontuar(n){
-  jogo.pontos += n;
-  jogo.reator = Math.min(100, jogo.pontos / PONTOS_ALVO * 100);   // RN04
+/* --------------------------------------------------------- pontuação -----
+   Duas entradas, e a diferença entre elas é o que mantém a precisão honesta.
+
+   `marcar` é para JOGADA JULGADA: acertou no tempo, acertou torto, ou errou.
+   Conta na média da precisão e mexe no combo.
+
+   `bonus` é para OBJETIVO CUMPRIDO — fechar uma rodada de eco, por exemplo.
+   Soma pontos e fica FORA da média: não é uma batida, e contá-la como
+   batida perfeita inflaria a precisão de quem só chegou até a fase 2.
+
+   A regra em si está em `pontuacao.js` (RN04); aqui só se aplica.          */
+function marcar(qualidade){
+  if (qualidade === ERRADO){
+    jogo.combo = 0;
+    jogo.erros++;
+  } else {
+    jogo.combo++;
+    jogo.comboMax = Math.max(jogo.comboMax, jogo.combo);
+    jogo.pontos += valorDaJogada(qualidade, jogo.combo);
+    if (qualidade === PERFEITO) jogo.perfeitas++; else jogo.boas++;
+  }
   atualizarHUD();
 }
-function acerto(){
-  jogo.combo++;
-  jogo.comboMax = Math.max(jogo.comboMax, jogo.combo);
-}
-function erro(){ jogo.combo = 0; jogo.erros++; }
+function bonus(n){ jogo.pontos += n; atualizarHUD(); }
 
 /* ============================== A BATIDA ==================================
    Ponto único de entrada: venha do VR (baqueta), do teclado ou do mouse,
@@ -72,12 +87,12 @@ function calibracaoProxima(){
 }
 function calibracaoBatida(p){
   if (p.id === cal.atual){
-    pontuar(20); acerto(); jogo.perfeitas++;
+    marcar(PERFEITO);
     julgamento('OK', '#3ddc97');
     destacar(null);
     calibracaoProxima();
   } else {
-    erro();                                        // RN06
+    marcar(ERRADO);                                // RN06
     julgamento('ERRADO', '#ff4d6d');
     synth.tocar('erro', .6);
     atualizarHUD();
@@ -129,7 +144,7 @@ function ecoBatida(p){
   if (eco.tocando){ msg('Espere o padrão terminar.', 'bad', 1.2); return; }
   const esperado = eco.padrao[eco.entrada.length];
   if (p.id !== esperado){                          // RN06
-    erro();
+    marcar(ERRADO);
     julgamento('ERRADO', '#ff4d6d');
     synth.tocar('erro', .7);
     eco.entrada = [];
@@ -139,10 +154,10 @@ function ecoBatida(p){
     return;
   }
   eco.entrada.push(p.id);
-  acerto(); jogo.perfeitas++; pontuar(15);
+  marcar(PERFEITO);
   julgamento('OK', '#3ddc97');
   if (eco.entrada.length === eco.padrao.length){
-    eco.rodada++; pontuar(40); synth.tocar('nivel');
+    eco.rodada++; bonus(BONUS_RODADA); synth.tocar('nivel');
     msg(`Rodada ${eco.rodada}/${eco.tamanhos.length} concluída  +40`, 'gold');
     setTimeout(ecoNovaRodada, 1100);
   }
@@ -283,15 +298,17 @@ function ritmoBatida(p){
     if (d < menorDist){ menorDist = d; alvo = n; }
   }
   if (!alvo){                                      // RN06 — bateu fora de hora
-    erro(); julgamento('FORA', '#ff4d6d'); atualizarHUD(); return;
+    marcar(ERRADO); julgamento('FORA', '#ff4d6d'); return;
   }
   alvo.julgada = true;                             // RN03
-  acerto();
-  const mult = 1 + Math.min(jogo.combo, 20) * .05;
+  /* O multiplicador não é mais calculado aqui: `marcar` o aplica a partir do
+     combo, com a mesma tabela que a fase 1 e a fase 2 usam. Antes esta fase
+     tinha uma escala própria (25 e 12 pontos, multiplicador contínuo até
+     x2), e a soma das três fases só fazia sentido por acidente. */
   if (menorDist < JP){
-    jogo.perfeitas++; pontuar(Math.round(25 * mult)); julgamento('PERFEITO', '#ffd34d');
+    marcar(PERFEITO); julgamento('PERFEITO', '#ffd34d');
   } else {
-    jogo.boas++;      pontuar(Math.round(12 * mult)); julgamento('BOM', '#3ddc97');
+    marcar(BOM);      julgamento('BOM', '#3ddc97');
   }
 }
 
@@ -309,7 +326,7 @@ export function ritmoAtualizar(){
     if (dt > ANTECEDENCIA_BICHO){ restantes++; continue; }   // ainda não nasceu
     if (dt < -JX){                                           // passou batido
       n.julgada = true;
-      erro(); julgamento('PERDEU', '#ff4d6d'); atualizarHUD();
+      marcar(ERRADO); julgamento('PERDEU', '#ff4d6d');
       continue;
     }
     restantes++;

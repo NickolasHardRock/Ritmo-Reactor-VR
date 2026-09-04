@@ -6,6 +6,7 @@
    ========================================================================== */
 
 import { ECO_RODADAS } from './config.js';
+import { precisaoPonderada } from './pontuacao.js';
 
 export const jogo = {
   ativo: false,
@@ -20,7 +21,6 @@ export const jogo = {
   erros: 0,
   t0: 0,             // performance.now() do início
   duracao: 0,        // segundos, preenchido em concluir()
-  reator: 0,         // 0..100 — a carga, derivada dos pontos
 };
 
 export const FASES = [
@@ -47,15 +47,18 @@ export function reiniciarEstado(livre = false, atalho = false){
   Object.assign(jogo, {
     ativo: true, livre, atalho, fase: 0, pontos: 0, combo: 0, comboMax: 0,
     perfeitas: 0, boas: 0, erros: 0, t0: performance.now(),
-    duracao: 0, reator: 0,
+    duracao: 0,
   });
   cal.fila = []; cal.atual = null;
   eco.rodada = 0; eco.padrao = []; eco.entrada = []; eco.tocando = false;
   ritmo.ativo = false; ritmo.auto = []; ritmo.iAuto = 0;
 }
 
-/** Precisão em %, usada na tela de resultado e enviada à API. */
+/** Precisão em %, usada na tela de resultado, nas estrelas e na API.
+ *
+ *  Ponderada: um BOM vale metade de um PERFEITO. A conta mora em
+ *  `pontuacao.js`, que não depende de tela nenhuma e por isso pode ser
+ *  conferida com `node`. */
 export function precisao(){
-  const total = jogo.perfeitas + jogo.boas + jogo.erros;
-  return total ? Math.round((jogo.perfeitas + jogo.boas) / total * 100) : 0;
+  return precisaoPonderada(jogo.perfeitas, jogo.boas, jogo.erros);
 }

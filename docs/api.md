@@ -38,25 +38,25 @@ depois do fim; nunca durante.
 | `precisao` | número | sim | 0 a 100 (%) |
 | `erros` | número | não | 0 a 100.000 (padrão 0) |
 | `comboMax` | número | não | 0 a 100.000 (padrão 0) |
-| `reator` | número | sim | 0 a 100 (%) |
+| `estrelas` | número | sim | 0 a 5 — derivadas da precisão (ver `frontend/src/pontuacao.js`) |
 
 ```bash
 curl -X POST http://localhost:3000/api/partidas \
   -H 'Content-Type: application/json' \
   -d '{"nome":"Diego","pontos":740,"tempo":96.2,"precisao":88,
-       "erros":4,"comboMax":17,"reator":82}'
+       "erros":4,"comboMax":17,"estrelas":4}'
 ```
 
 **201 — criada**
 ```json
 { "id": 1, "nome": "Diego", "pontos": 740, "tempo": 96.2,
-  "reator": 82, "criado": "2026-09-01T23:16:02.194Z" }
+  "estrelas": 4, "criado": "2026-09-01T23:16:02.194Z" }
 ```
 
 **400 — dados inválidos**
 ```json
 { "erro": "dados inválidos",
-  "detalhes": ["nome é obrigatório", "reator fora do intervalo 0..100"] }
+  "detalhes": ["nome é obrigatório", "estrelas fora do intervalo 0..5"] }
 ```
 
 > O jogo roda no navegador do jogador: qualquer um pode forjar este POST.
@@ -71,7 +71,7 @@ Consulta uma partida específica.
 **200**
 ```json
 { "id": 1, "jogador_id": 1, "pontos": 740, "tempo": 96.2, "precisao": 88,
-  "erros": 4, "combo_max": 17, "reator": 82, "criado": "..." }
+  "erros": 4, "combo_max": 17, "estrelas": 4, "criado": "..." }
 ```
 
 **400** id inválido · **404** partida não encontrada
@@ -102,7 +102,7 @@ curl "http://localhost:3000/api/ranking?limite=5"
   "total": 3,
   "itens": [
     { "posicao": 1, "nome": "Bruno", "pontos": 810, "tempo": 94.75,
-      "precisao": 92, "combo_max": 21, "reator": 90, "criado": "..." }
+      "precisao": 92, "combo_max": 21, "estrelas": 5, "criado": "..." }
   ]
 }
 ```
