@@ -140,6 +140,7 @@ const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 let giroPronto = true;
 let xPronto = true;
+let aPronto = true;
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(relogio.getDelta(), .05);
@@ -168,6 +169,27 @@ renderer.setAnimationLoop(() => {
           giroPronto = false;
           ajustarAltura(y < 0 ? .03 : -.03, alturaMudou);
           setTimeout(() => { giroPronto = true; }, 140);
+        }
+      }
+
+      /* A DO CONTROLE DIREITO PULA PARA A MÚSICA.
+         `sessionstart` começa uma partida com `iniciar(false)`, ou seja, pelo
+         tutorial — o que é certo para quem nunca viu o kit, e é exatamente o
+         que sobra no caminho de quem já viu. O atalho existia ("Só a música"),
+         mas em HTML: dava para clicar antes de entrar no VR e não depois.
+
+         Reaproveita `iniciar(false, true)`, o mesmo caminho do botão, então o
+         `atalho` fica marcado e a partida não entra no ranking — pular o
+         tutorial não pode render pontuação comparável com quem jogou inteiro.
+
+         Só age nas fases 0 e 1: na fase de ritmo, A reiniciaria a música na
+         cara de quem está tocando. */
+      if (src.handedness === 'right' && g.buttons?.[4]?.pressed && aPronto){
+        aPronto = false;
+        setTimeout(() => { aPronto = true; }, 700);
+        if (jogo.fase < 2){
+          iniciar(false, true);
+          msg('Pulando para a música', 'gold', 1.6);
         }
       }
 
