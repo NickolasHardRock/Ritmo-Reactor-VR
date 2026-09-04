@@ -64,6 +64,12 @@
   /* Estrelas do resultado. Tamanho grande de proposito: e a leitura que a
      plateia enxerga de longe na apresentacao. */
   #f-estrelas{font-size:34px;letter-spacing:.10em;color:var(--ok);line-height:1.1;margin:2px 0 6px}
+  /* Contagem de entrada da calibragem. Grande porque e para ser lida de
+     relance, sem procurar: quem esta prestes a bater no tempo nao pode estar
+     lendo texto pequeno. */
+  #cal-contagem{font:700 46px/1.1 system-ui;color:var(--cyan);height:52px;margin:10px 0 2px;
+    font-variant-numeric:tabular-nums}
+  #cal-contagem.vai{font-size:26px;color:var(--ok)}
   #mult-barra{position:fixed;bottom:0;left:0;right:0;height:3px;background:#0c1220;z-index:5}
   #mult-barra i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--ok));
     transition:width .3s}

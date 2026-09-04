@@ -225,9 +225,17 @@ $('btn-atraso-mais').onclick  = () => nudge(+10);
 $('btn-nivel-facil').onclick  = () => { definirNivel('facil');  pintarNivel(); };
 $('btn-nivel-normal').onclick = () => { definirNivel('normal'); pintarNivel(); };
 
+function limparContagem(){
+  const el = $('cal-contagem');
+  if (!el) return;
+  el.textContent = '';
+  el.classList.remove('vai');
+}
+
 $('btn-calibrar').onclick = () => {
   $('cal-progresso').textContent = '—';
   $('cal-resultado').textContent = '';
+  limparContagem();
   document.getElementById('tela-cal').classList.remove('hidden');
 };
 $('cal-fechar').onclick = () => {
@@ -236,16 +244,19 @@ $('cal-fechar').onclick = () => {
      batidas boas e um clique no X davam em nada — sem aviso. */
   concluirCalibragem();
   pararCalibragem();
+  limparContagem();
   document.getElementById('tela-cal').classList.add('hidden');
   pintarNivel();
 };
 $('cal-comecar').onclick = () => {
   $('cal-resultado').textContent = '';
+  $('cal-progresso').textContent = '—';
   $('cal-comecar').disabled = true;
   iniciarCalibragem(
     (n, total) => { $('cal-progresso').textContent = `${n} de ${total} batidas`; },
     (ms, disp, det) => {
       $('cal-comecar').disabled = false;
+      limparContagem();
       if (ms === null){
         $('cal-resultado').innerHTML =
           '<span style="color:var(--warn)">Poucas batidas para medir — <strong>nada foi '
@@ -270,6 +281,13 @@ $('cal-comecar').onclick = () => {
         ` (dispersão ${Math.round(disp)} ms)</span>` +
         (confia ? ' — salvo.' : ' — salvo, mas irregular. Vale repetir.');
       pintarNivel();
+    },
+    /* A contagem: 3, 2, 1 e depois a deixa. O zero não é "acabou", é
+       "agora" — por isso troca de número para palavra. */
+    (n) => {
+      const el = $('cal-contagem');
+      if (n > 0){ el.textContent = String(n); el.classList.remove('vai'); }
+      else       { el.textContent = 'bata junto!'; el.classList.add('vai'); }
     });
 };
 pintarNivel();

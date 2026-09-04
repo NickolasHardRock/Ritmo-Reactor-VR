@@ -31,26 +31,55 @@ const CLIQUES   = 12;       // 12 s de medição; dá para errar alguns
 const MINIMO    = 6;        // abaixo disto a mediana não vale nada
 const TOLERANCIA = 0.45;    // metade do intervalo, menos uma folga
 
+/* CONTAGEM DE ENTRADA. Sem ela o primeiro som chega sem aviso, e a primeira
+   batida do jogador é sempre um chute — o que suja a amostra justamente no
+   começo, quando ele ainda está pegando o tempo.
+
+   A contagem vem no MESMO intervalo dos cliques, porque é isso que ensina o
+   andamento: quando o "1" aparece, o jogador já sabe exatamente quando cai o
+   próximo. E vem com som DIFERENTE, chimbal em vez de caixa, que é como um
+   baterista conta a entrada — não dá para confundir contagem com medida. As
+   três não entram em `agendados`, então uma batida em cima delas fica a um
+   segundo inteiro do primeiro clique medido, muito além da TOLERANCIA, e é
+   descartada sozinha. Não precisa de estado novo para isso.
+
+   O som importa mais que o número: dentro do headset o painel é HTML e não
+   aparece, então a contagem audível é a única que chega lá. */
+const CONTAGEM = 3;
+const RESPIRO  = 0.6;       // pausa antes de a contagem começar
+
 export const calibragem = {
   ativa: false,
   agendados: [],            // instantes (relógio do áudio) de cada clique
   desvios: [],
   fontes: [],
   aoAtualizar: null,        // (n, total) → void
-  aoTerminar: null,         // (resultadoMs|null, dispersaoMs) → void
+  aoTerminar: null,         // (resultadoMs|null, dispersaoMs, detalhe) → void
+  aoContar: null,           // (n) → void — 3, 2, 1 e depois 0 = "bata"
+  inicio: 0,                // instante do PRIMEIRO clique medido
 };
 
 /** Começa a medição. Os cliques são AGENDADOS de uma vez, no relógio do
  *  áudio: é o mesmo motivo da trilha automática — se dependesse do laço de
  *  render, uma engasgada estragaria a medida. */
-export async function iniciarCalibragem(aoAtualizar, aoTerminar){
+export async function iniciarCalibragem(aoAtualizar, aoTerminar, aoContar){
   await synth.ligar();
   pararCalibragem();
   calibragem.aoAtualizar = aoAtualizar;
   calibragem.aoTerminar  = aoTerminar;
+  calibragem.aoContar    = aoContar;
 
   const ctx = synth.ctx;
-  const t0 = ctx.currentTime + 1.0;      // um segundo para o jogador se situar
+  const inicioContagem = ctx.currentTime + RESPIRO;
+  const t0 = inicioContagem + CONTAGEM * INTERVALO;   // primeiro clique medido
+  calibragem.inicio = t0;
+
+  for (let i = 0; i < CONTAGEM; i++){
+    const f = synth.tocar('chimbal', 0.5, inicioContagem + i * INTERVALO);
+    if (f) calibragem.fontes.push(f);
+  }
+  desenharContagem();
+
   for (let i = 0; i < CLIQUES; i++){
     const t = t0 + i * INTERVALO;
     calibragem.agendados.push(t);
@@ -66,7 +95,36 @@ export async function iniciarCalibragem(aoAtualizar, aoTerminar){
   calibragem.ativa = true;
 
   // Fecha sozinho um pouco depois do último clique, mesmo se o jogador parar.
-  calibragem._fim = setTimeout(() => concluir(), (CLIQUES * INTERVALO + 1.8) * 1000);
+  calibragem._fim = setTimeout(() => concluir(),
+    (RESPIRO + CONTAGEM * INTERVALO + CLIQUES * INTERVALO + 1.8) * 1000);
+}
+
+/* O número na tela é lido do RELÓGIO DO ÁUDIO a cada quadro, não disparado
+   por `setTimeout`. Não é preciosismo: é o que mantém o número colado no som
+   que o jogador ouve. Um `setTimeout` de 1 s numa aba ocupada chega quando
+   chega, e aí o "1" apareceria fora do tempo do chimbal — ensinando o
+   andamento errado, que é o oposto do que a contagem existe para fazer.
+   (Aqui o laço de quadro é seguro: se ele travar, o pior que acontece é o
+   número atrasar. Nada do que é MEDIDO passa por ele.) */
+function desenharContagem(){
+  const ctx = synth.ctx;
+  const passo = () => {
+    if (!calibragem.ativa && !calibragem.inicio) return;
+    const falta = calibragem.inicio - ctx.currentTime;
+    if (falta <= 0){
+      calibragem.aoContar?.(0);          // "bata junto"
+      return;
+    }
+    /* Durante o RESPIRO ainda não soou nada, e mostrar número aí faria a
+       contagem começar em 4: `falta` vale 3,6 e o arredondamento para cima
+       sobe um. Número sem som correspondente é pior que tela vazia — ensina
+       um andamento que não existe. Então só conta a partir do primeiro
+       chimbal, quando `falta` cabe nos CONTAGEM intervalos. */
+    if (falta <= CONTAGEM * INTERVALO)
+      calibragem.aoContar?.(Math.ceil(falta / INTERVALO));
+    requestAnimationFrame(passo);
+  };
+  requestAnimationFrame(passo);
 }
 
 /** Chamada a cada batida do jogador durante a medição — tecla, clique do
@@ -135,6 +193,7 @@ export function pararCalibragem(){
   calibragem.agendados = [];
   calibragem.desvios = [];
   calibragem.fontes = [];
+  calibragem.inicio = 0;
 }
 
 export { concluir as concluirCalibragem };
