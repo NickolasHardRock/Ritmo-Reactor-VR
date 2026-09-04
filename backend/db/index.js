@@ -66,6 +66,32 @@ async function adaptadorPostgres(){
   const pool = new pg.Pool({
     connectionString: URL,
     ssl: URL.includes('localhost') ? false : { rejectUnauthorized: false },
+
+    /* Poucas conexões de propósito. Cada instância de função no Vercel abre o
+       PRÓPRIO pool, e o pooler do plano free tem um teto modesto de conexões:
+       um `max` generoso aqui multiplica por instância e esgota o servidor. */
+    max: 4,
+    /* Devolve a conexão logo — segurar socket ocioso atrás de um pooler é
+       pedir para ele ser descartado do outro lado. */
+    idleTimeoutMillis: 10_000,
+    /* Sem isto o padrão é esperar para sempre: um host errado deixaria a
+       requisição pendurada em vez de falhar com uma mensagem. */
+    connectionTimeoutMillis: 10_000,
+    keepAlive: true,
+  });
+
+  /* ISTO NÃO É OPCIONAL. Quando uma conexão OCIOSA do pool morre — e atrás de
+     um pooler isso é rotina, não exceção — o `pg` emite `error` no pool. Sem
+     ouvinte, o Node trata como erro não capturado e MATA O PROCESSO.
+
+     Foi assim que a API caiu no primeiro POST durante a implantação: o
+     /api/saude abriu a conexão, ela ficou parada alguns segundos, o pooler a
+     descartou, e a requisição seguinte pegou o socket morto. Em produção é
+     pior: função serverless fica ociosa entre requisições por natureza, então
+     esse é o caminho COMUM. O pool sabe se recuperar sozinho — ele descarta a
+     conexão ruim e abre outra. Só precisa que alguém escute o aviso. */
+  pool.on('error', (e) => {
+    console.error('[db] conexão ociosa caiu (o pool abre outra):', e.message);
   });
 
   return {

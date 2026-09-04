@@ -68,3 +68,43 @@ No Vercel, a mesma variável vai em *Settings → Environment Variables*.
 
 > O `.env` **não** vai para o Git. Nunca comitem a string de conexão: ela
 > contém a senha do banco (RNF04).
+
+## Supabase — o que já está provisionado
+
+Projeto na região **South America (São Paulo)**, esquema aplicado pelo SQL
+Editor a partir deste `schema.sql`.
+
+**Use a string do *transaction pooler*, porta 6543.** As outras duas opções
+que o botão *Connect* oferece não servem para o nosso caso:
+
+| opção | porta | por quê |
+|---|---|---|
+| Direct connection | 5432 | é IPv6, e o Vercel não faz saída por IPv6 — funciona na máquina de casa e falha no deploy |
+| Session pooler | 5432 | é para servidor que fica ligado, não para função que sobe e desce |
+| **Transaction pooler** | **6543** | **é a recomendada para serverless, e é IPv4 em todos os planos** |
+
+O usuário muda entre elas: na direta é `postgres`, no pooler é
+`postgres.<ref-do-projeto>`. A **senha é a mesma** nos dois — a do momento
+da criação do projeto. O `[YOUR-PASSWORD]` da string é um espaço reservado,
+não uma senha gerada; e se a senha tiver `@`, `:`, `/`, `?`, `#`, `%` ou
+`&`, ela precisa ir codificada em URL, senão o `pg` parte o endereço no
+meio e o erro que aparece é `password authentication failed`, que não dá
+pista nenhuma disso.
+
+### Ferramentas de diagnóstico
+
+```bash
+node ferramentas/testa-banco.mjs     # conecta, confere tabelas e colunas
+node ferramentas/testa-escrita.mjs   # percorre o caminho de gravação
+```
+
+Os dois nunca imprimem a senha, só o tamanho dela. O primeiro traduz o
+código de erro do Postgres em causa provável. O segundo anuncia cada passo
+antes de executar, então o último `→` da tela é onde quebrou — serve para
+quando o POST derruba a API e o stack se perde no reinício do `--watch`.
+
+### Plano free: pausa por inatividade
+
+O projeto é **pausado depois de 7 dias com pouca atividade**, com e-mail de
+aviso antes. Nada se perde e religar é um clique no painel, mas vale abrir
+o painel um dia antes de qualquer apresentação.
