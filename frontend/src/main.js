@@ -19,6 +19,8 @@ import { scene, camera, renderer, relogio, player,
          carregarLab, animarReator,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
+import * as balanco from './balanco.js';
+const { animarBalanco } = balanco;
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
          ajustarAltura, mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
@@ -149,6 +151,7 @@ renderer.setAnimationLoop(() => {
   detectarBatidas(dt, bater);     // antes de qualquer outra coisa
   ritmoAtualizar();
   animarZonas(dt, t);
+  animarBalanco(dt);
   animarReator(dt, t);
 
   camera.getWorldPosition(_v);
@@ -394,7 +397,7 @@ window.__jogo = {
   /* Expostos para conferir o modelo de pontuação de fora, sem jogar a
      partida inteira à mão. Foi assim que a tabela de multiplicador e as
      estrelas foram verificadas. */
-  atualizarHUD, telaResultado, pontuacao, synth,
+  atualizarHUD, telaResultado, pontuacao, synth, balanco,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };

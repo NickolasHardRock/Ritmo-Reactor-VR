@@ -52,7 +52,12 @@ export const LAB = {
   postoJogador: [ 2.8, 0.6 ],  // plataforma rochosa central entre os Marshall
   alturaPiso:   2.0,            // Y da plataforma elevada
 };
-export const URL_BATERIA = 'modelos/bateria.glb';
+/* O modelo com os TRÊS PRATOS recortados em nodes próprios, para poderem
+   balançar. `bateria.glb`, de onde este saiu, é uma malha fundida só —
+   nenhuma peça dava para mover. Ver ferramentas/cortar-peca.mjs e
+   src/balanco.js. Peça que este arquivo ainda não separou (os tambores)
+   simplesmente não balança, e o jogo segue igual sem ela. */
+export const URL_BATERIA = 'modelos/bateria_pratos.glb';
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
    ride de 54 cm (21") — medidas de bateria de verdade, conferidas em três
    referências independentes. Por isso escala 1.

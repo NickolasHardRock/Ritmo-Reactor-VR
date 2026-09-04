@@ -25,6 +25,7 @@ import { msg, julgamento, atualizarHUD, objetivo, statusApi,
          telaJogando, telaResultado, mostrarCreditos,
          esconderResultado3D } from './ui.js';
 import { enviarResultado } from './api.js';
+import { baterPeca, acalmarBalanco } from './balanco.js';
 import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
          valorDaJogada } from './pontuacao.js';
 
@@ -60,6 +61,9 @@ function bonus(n){ jogo.pontos += n; atualizarHUD(); }
 export function bater(zona, força = .8){
   const p = zona.p;
   synth.tocar(p.som, força);
+  /* ANTES do desvio da calibragem e antes de julgar: peça de verdade se mexe
+     quando é batida, não quando o jogo aprova a nota. */
+  baterPeca(p.id, força);
   /* Durante a calibragem a batida é a amostra, não jogada. Aceitar baqueta
      importa: a latência dentro do headset é outra, e é lá que se joga. */
   if (registrarBatida()) return;
@@ -372,6 +376,7 @@ export function iniciar(livre = false, direto = false){
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
   mostrarRotulos(true);
+  acalmarBalanco();          // peça não começa a partida balançando da anterior
   /* O painel 3D de resultado não se esconde sozinho: sem isto o placar da
      partida anterior fica pendurado no ar durante a nova. */
   esconderResultado3D();

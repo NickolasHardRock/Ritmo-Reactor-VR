@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { PECAS, URL_BATERIA, ESCALA_KIT, ALTURA_INICIAL_KIT, APOIO_KIT } from './config.js';
+import { registrarPecasMoveis } from './balanco.js';
 import { scene, loader, afinarTexturas, placa, renderer, player,
          pistaG, ALTURA_PISTA } from './cena.js';
 
@@ -132,6 +133,11 @@ export function carregarBateria(aoTerminar, aoProgredir){
         o.castShadow = false; o.receiveShadow = true; o.userData.kit = true; } });
       afinarTexturas(m);
       kit.add(m);
+      /* Quais peças o GLB trouxe separadas. Log de propósito: é a única
+         forma de saber, sem abrir o arquivo, se o corte de uma peça nova
+         chegou ao jogo. */
+      const moveis = registrarPecasMoveis(m, zonas);
+      console.info(`[kit] peças que balançam: ${moveis.join(', ') || 'nenhuma'}`);
       aoTerminar(true);
     },
     aoProgredir,
