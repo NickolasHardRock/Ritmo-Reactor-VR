@@ -7,7 +7,7 @@
 
 - **Nome do jogo:** Drum Reactivate
 - **Tema:** Estação espacial / laboratório sci-fi
-- **Equipe:** _[preencher]_
+- **Equipe:** Diego, Nickolas, Bruno e Danilo
 - **Disciplina:** ADS — Senac Joinville · Profª Claudia Werlich
 
 ## Público-alvo
@@ -98,7 +98,7 @@ isso são três, e não uma.
 
 | # | Requisito | Situação |
 |---|---|---|
-| RF01 | Tela inicial | ✅ _(falta preencher os nomes)_ |
+| RF01 | Tela inicial | ✅ |
 | RF02 | Início da partida | ✅ |
 | RF03 | Ambiente 3D | ✅ |
 | RF04 | Movimentação / observação | ✅ |

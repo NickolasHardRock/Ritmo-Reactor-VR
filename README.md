@@ -14,17 +14,13 @@ controles viram baquetas e a força da batida conta.
 
 ## Integrantes
 
-| Nome | Responsabilidade principal |
-|---|---|
-| _preencher_ | Front-end — HTML, CSS, interface, HUD |
-| _preencher_ | Game/3D — Three.js, cenário, mecânicas, interação VR |
-| _preencher_ | Back-end — API, regras, banco, persistência |
-| _preencher_ | QA/DevOps/Doc — testes, Git, deploy, testes no Quest |
+**Diego · Nickolas · Bruno · Danilo**
 
 ADS — Senac Joinville · Profª Claudia Werlich
 
-> As funções são responsabilidades **principais**, não áreas isoladas.
-> Preencham também os nomes em `frontend/index.html` (rodapé da tela inicial).
+> O trabalho foi feito em conjunto: front-end, 3D e interação VR, back-end,
+> banco, testes e deploy passaram pelas mãos de mais de um integrante, e por
+> isso o grupo optou por não dividir o projeto em áreas isoladas.
 
 ---
 
