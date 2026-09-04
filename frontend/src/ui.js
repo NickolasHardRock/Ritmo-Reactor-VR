@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import { jogo, FASES, precisao } from './estado.js';
-import { painelHUD, painelObj, painelFim, flash, flashEstado,
+import { painelHUD, painelObj, painelCentro, flash, flashEstado,
          renderer } from './cena.js';
 import { multiplicador, progressoDoDegrau, estrelas,
          estrelasEmTexto, veredito } from './pontuacao.js';
@@ -76,9 +76,32 @@ export function objetivo(txt, cor = '#e8eef8'){
 }
 
 /* ------------------------------------------------------------- telas ----- */
-/** Some com o painel de resultado — chamado ao começar outra partida, senão
- *  o placar da anterior fica pendurado no ar durante a nova. */
-export function esconderResultado3D(){ painelFim.visible = false; }
+/** Some com o painel central — chamado ao começar outra partida, senão o
+ *  placar da anterior fica pendurado no ar durante a nova. */
+export function esconderResultado3D(){ painelCentro.visible = false; }
+
+/** Desenha a calibragem no painel central, para quem está no headset.
+ *
+ *  A tela de calibragem é HTML: dentro do VR o jogador ouvia os chimbais e as
+ *  caixas, batia, e não via contagem, nem quantas batidas entraram, nem o
+ *  valor medido no fim. Media às cegas — e é justamente no headset que a
+ *  medida importa mais, porque a latência lá é maior e o golpe vem da baqueta,
+ *  não da tecla.
+ *
+ *  @param {string[]|null} linhas texto a mostrar; null esconde o painel */
+export function calibragem3D(linhas, cor = '#00d9ff'){
+  if (!linhas){ painelCentro.visible = false; return; }
+  const arr = [].concat(linhas);
+  painelCentro.userData.pintar(arr, {
+    cor,
+    /* A primeira linha é o número da contagem ou o valor medido: é o que o
+       jogador procura de relance, e por isso vem grande. */
+    tams: arr.length > 1 ? [0.95, 0.44, 0.36].slice(0, arr.length) : [0.95],
+    cores: arr.length > 1 ? [cor, '#e8eef8', '#8c9bb5'].slice(0, arr.length) : [cor],
+    borda: 'rgba(0,217,255,.45)',
+  });
+  painelCentro.visible = true;
+}
 
 export function telaJogando(){
   mostrar('tela-inicio', false);
@@ -152,7 +175,7 @@ export function telaResultado(){
   const credito = musica.carta && musica.carta.titulo
     ? `♪ ${musica.carta.titulo} — ${autor}${fonte ? ' · ' + fonte : ''}`
     : '';
-  painelFim.userData.pintar([
+  painelCentro.userData.pintar([
     estrelasEmTexto(n),
     v.titulo,
     `precisão ${prec}%   ·   ${jogo.pontos} pts`,
@@ -164,7 +187,7 @@ export function telaResultado(){
     tams:  [0.92, 0.62, 0.50, 0.44, 0.38, 0.26],
     borda: 'rgba(0,217,255,.45)',
   });
-  painelFim.visible = true;
+  painelCentro.visible = true;
 
   if (!renderer.xr.isPresenting){
     mostrar('tela-fim', true);

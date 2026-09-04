@@ -27,11 +27,11 @@ import { musica, Musica } from './musica.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
-         concluirCalibragem } from './calibragem.js';
+         concluirCalibragem, calibragem } from './calibragem.js';
 import { NIVEIS, nivelAtual, definirNivel, CARTA_URL } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
-         telaResultado } from './ui.js';
+         telaResultado, calibragem3D } from './ui.js';
 
 /* ------------------------------------------------------ carregamento ----- */
 carregarLab();
@@ -139,6 +139,7 @@ renderer.xr.addEventListener('sessionend', () => {
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 let giroPronto = true;
+let xPronto = true;
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(relogio.getDelta(), .05);
@@ -156,15 +157,33 @@ renderer.setAnimationLoop(() => {
   zonas.forEach(z => z.rotulo.quaternion.copy(_q));
 
   if (renderer.xr.isPresenting){
-    // alavanca direita ↑↓ ajusta a altura da bateria ao corpo do jogador
     for (const src of (renderer.xr.getSession()?.inputSources || [])){
-      const ax = src.gamepad?.axes;
-      if (!ax || src.handedness !== 'right') continue;
-      const y = ax[3] || 0;
-      if (Math.abs(y) > .7 && giroPronto){
-        giroPronto = false;
-        ajustarAltura(y < 0 ? .03 : -.03, alturaMudou);
-        setTimeout(() => { giroPronto = true; }, 140);
+      const g = src.gamepad;
+      if (!g) continue;
+
+      // alavanca direita ↑↓ ajusta a altura da bateria ao corpo do jogador
+      if (src.handedness === 'right'){
+        const y = g.axes?.[3] || 0;
+        if (Math.abs(y) > .7 && giroPronto){
+          giroPronto = false;
+          ajustarAltura(y < 0 ? .03 : -.03, alturaMudou);
+          setTimeout(() => { giroPronto = true; }, 140);
+        }
+      }
+
+      /* X DO CONTROLE ESQUERDO INICIA A CALIBRAGEM.
+         Sem isto o painel 3D de calibragem seria enfeite: dentro do headset
+         não existe o botão de HTML que a começa, então o jogador não tinha
+         como medir de lá — e é lá que a medida importa mais, porque a
+         latência é maior e o golpe vem da baqueta, não da tecla.
+
+         Índice 4 é o X/A no perfil `xr-standard` do Touch. Nenhum botão era
+         lido antes, então não há conflito; o gatilho e o grip seguem livres
+         porque a batida é movimento, não botão. */
+      if (src.handedness === 'left' && g.buttons?.[4]?.pressed && xPronto){
+        xPronto = false;
+        setTimeout(() => { xPronto = true; }, 600);   // anti-repique do botão
+        if (!calibragem.ativa) comecarCalibragem();
       }
     }
     if (flash.visible){
@@ -246,15 +265,22 @@ $('cal-fechar').onclick = () => {
   concluirCalibragem();
   pararCalibragem();
   limparContagem();
+  calibragem3D(null);
   document.getElementById('tela-cal').classList.add('hidden');
   pintarNivel();
 };
-$('cal-comecar').onclick = () => {
+/* Com nome porque agora tem DOIS gatilhos: o botão da tela e o X do controle
+   esquerdo, para quem está dentro do headset e não vê botão de HTML. */
+function comecarCalibragem(){
+  if (calibragem.ativa) return;
   $('cal-resultado').textContent = '';
   $('cal-progresso').textContent = '—';
   $('cal-comecar').disabled = true;
   iniciarCalibragem(
-    (n, total) => { $('cal-progresso').textContent = `${n} de ${total} batidas`; },
+    (n, total) => {
+      $('cal-progresso').textContent = `${n} de ${total} batidas`;
+      calibragem3D([`${n}/${total}`, 'batidas registradas', 'continue batendo junto']);
+    },
     (ms, disp, det) => {
       $('cal-comecar').disabled = false;
       limparContagem();
@@ -262,8 +288,20 @@ $('cal-comecar').onclick = () => {
         $('cal-resultado').innerHTML =
           '<span style="color:var(--warn)">Poucas batidas para medir — <strong>nada foi '
         + 'salvo</strong>. Tente de novo e bata junto com todos os cliques.</span>';
+        calibragem3D(['—', 'poucas batidas: nada foi salvo',
+                      'X no controle esquerdo mede de novo'], '#ffb84d');
         return;
       }
+      /* O mesmo resultado no painel 3D. Fica na tela até o jogador começar
+         outra coisa: no headset ele não tem como fechar um aviso, e um valor
+         que aparece por dois segundos não dá para conferir. */
+      calibragem3D([`${Math.round(ms)} ms`, 'atraso medido e salvo',
+                    /* Curto de propósito: a terceira linha media 91% da
+                       largura na versão anterior, e é a que cresce quando a
+                       dispersão passa de dois dígitos. */
+                    `dispersão ${Math.round(disp)} ms · `
+                      + (disp < 60 ? 'medida firme' : 'irregular, repita')],
+                   disp < 60 ? '#3ddc97' : '#ffb84d');
       if (det && det.usouPiso){
         $('cal-resultado').innerHTML =
           `<span style="color:var(--warn)">Sua medida deu ${Math.round(det.medida)} ms, `
@@ -289,8 +327,12 @@ $('cal-comecar').onclick = () => {
       const el = $('cal-contagem');
       if (n > 0){ el.textContent = String(n); el.classList.remove('vai'); }
       else       { el.textContent = 'bata junto!'; el.classList.add('vai'); }
+      calibragem3D(n > 0 ? [String(n), 'ouça os chimbais', 'na quarta, comece a bater']
+                         : ['bata junto!', 'com a caixa, uma por segundo'],
+                   n > 0 ? '#00d9ff' : '#3ddc97');
     });
-};
+}
+$('cal-comecar').onclick = comecarCalibragem;
 pintarNivel();
 
 /* Crédito da faixa já na abertura, sem esperar a fase de ritmo carregar: quem

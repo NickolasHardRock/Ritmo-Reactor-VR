@@ -244,17 +244,19 @@ painelHUD.position.set(-1.45, 2.2, -2.55); scene.add(painelHUD);
 export const painelObj = placa(1.05, .26);
 painelObj.position.set(1.45, 2.2, -2.55); scene.add(painelObj);
 
-/* RESULTADO EM 3D. A tela de fim é HTML, e HTML não existe no headset: quem
-   jogava em VR só via as estrelas no painel de objetivo e um aviso mandando
-   tirar o headset para ler o placar. Contorno, não solução — o RF10 pede o
-   resultado e o RF14 pede o modo VR, e os dois juntos pediam isto.
+/* O PAINEL DO "NÃO ESTOU JOGANDO, ESTOU LENDO".
+   HTML não existe no headset, então todo momento em que o jogo para para
+   dizer alguma coisa ao jogador precisa de um objeto 3D. São dois momentos, e
+   eles nunca acontecem juntos: o RESULTADO da partida e a CALIBRAGEM. Um
+   painel só serve aos dois — e é por isso que ele se chama "centro" e não
+   "fim".
 
    Fica CENTRADO e na linha dos olhos, diferente dos painéis de jogo, que são
-   laterais e altos de propósito para não tampar a bateria. Aqui a partida
-   acabou: o jogador não está mirando, está lendo. */
-export const painelFim = placa(1.62, 1.04, 1400);
-painelFim.position.set(0, 1.72, -2.30);
-painelFim.visible = false; scene.add(painelFim);
+   laterais e altos de propósito para não tampar a bateria. Aqui o jogador não
+   está mirando, está lendo. */
+export const painelCentro = placa(1.62, 1.04, 1400);
+painelCentro.position.set(0, 1.72, -2.30);
+painelCentro.visible = false; scene.add(painelCentro);
 
 /** Aviso volante que segue o olhar — o "toast" do mundo VR. */
 export const flash = placa(1.1, .24); flash.visible = false; scene.add(flash);
