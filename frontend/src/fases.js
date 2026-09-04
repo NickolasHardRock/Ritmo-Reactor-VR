@@ -22,7 +22,8 @@ import { synth } from './synth.js';
 import { pistaG, relogio } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo, statusApi,
-         telaJogando, telaResultado, mostrarCreditos } from './ui.js';
+         telaJogando, telaResultado, mostrarCreditos,
+         esconderResultado3D } from './ui.js';
 import { enviarResultado } from './api.js';
 import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
          valorDaJogada } from './pontuacao.js';
@@ -371,6 +372,9 @@ export function iniciar(livre = false, direto = false){
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
   mostrarRotulos(true);
+  /* O painel 3D de resultado não se esconde sozinho: sem isto o placar da
+     partida anterior fica pendurado no ar durante a nova. */
+  esconderResultado3D();
   telaJogando();
   synth.ligar();
   atualizarHUD();

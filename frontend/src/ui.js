@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import { jogo, FASES, precisao } from './estado.js';
-import { painelHUD, painelObj, flash, flashEstado,
+import { painelHUD, painelObj, painelFim, flash, flashEstado,
          renderer } from './cena.js';
 import { multiplicador, progressoDoDegrau, estrelas,
          estrelasEmTexto, veredito } from './pontuacao.js';
@@ -76,6 +76,10 @@ export function objetivo(txt, cor = '#e8eef8'){
 }
 
 /* ------------------------------------------------------------- telas ----- */
+/** Some com o painel de resultado — chamado ao começar outra partida, senão
+ *  o placar da anterior fica pendurado no ar durante a nova. */
+export function esconderResultado3D(){ painelFim.visible = false; }
+
 export function telaJogando(){
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
@@ -130,17 +134,42 @@ export function telaResultado(){
 
   $('fim-sub').textContent = `Precisão de ${prec}%. ${v.sub}`;
 
-  /* No headset não existe HTML: o veredito precisa cabe no painel 3D. */
   objetivo(`${estrelasEmTexto(n)}  ${prec}%`,
            n >= 4 ? '#3ddc97' : n >= 2 ? '#00d9ff' : '#ffb84d');
 
-  // Dentro do VR o jogador não vê HTML: o resultado fica no painel 3D.
+  /* O MESMO resultado, em 3D, para quem está no headset. Pintado sempre,
+     não só quando `isPresenting`: se o jogador entrar no VR depois de
+     terminar uma partida, o painel já está certo em vez de mostrar a
+     partida anterior. */
+  const cor = n >= 4 ? '#3ddc97' : n >= 2 ? '#00d9ff' : '#ffb84d';
+  /* Crédito COMPACTO: no painel 3D cabe o essencial da atribuição — faixa,
+     autor e de onde veio. O texto inteiro continua na tela HTML e na carta.
+     `creditos` começa pelo autor, antes do primeiro travessão; a fonte sai
+     do domínio, quando a carta declara um. */
+  const cr = (musica.carta && musica.carta.creditos) || '';
+  const autor = cr.split(/\s+—\s+/)[0].trim();
+  const fonte = (cr.match(/\(([\w.-]+\.\w{2,})\)/) || [])[1] || '';
+  const credito = musica.carta && musica.carta.titulo
+    ? `♪ ${musica.carta.titulo} — ${autor}${fonte ? ' · ' + fonte : ''}`
+    : '';
+  painelFim.userData.pintar([
+    estrelasEmTexto(n),
+    v.titulo,
+    `precisão ${prec}%   ·   ${jogo.pontos} pts`,
+    `combo máx ${jogo.comboMax}   ·   ${jogo.duracao.toFixed(0)}s`,
+    `${jogo.perfeitas} perfeitas   ${jogo.boas} boas   ${jogo.erros} erros`,
+    credito,
+  ], {
+    cores: [cor, cor, '#e8eef8', '#e8eef8', '#8c9bb5', '#6f7f96'],
+    tams:  [0.92, 0.62, 0.50, 0.44, 0.38, 0.26],
+    borda: 'rgba(0,217,255,.45)',
+  });
+  painelFim.visible = true;
+
   if (!renderer.xr.isPresenting){
     mostrar('tela-fim', true);
     mostrar('hud', false);
     mostrar('teclas', false);
-  } else {
-    msg('Missão encerrada — tire o headset para ver o placar.', 'gold', 4);
   }
 }
 

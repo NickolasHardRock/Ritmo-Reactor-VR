@@ -205,8 +205,33 @@ export function placa(w, h, px = 1024){
     c.textAlign = 'center'; c.textBaseline = 'middle';
     arr.forEach((t, i) => {
       c.fillStyle = (o.cores && o.cores[i]) || o.cor || '#e8eef8';
-      c.font = `${o.peso || 700} ${Math.round((o.tam || .6) * passo)}px system-ui, sans-serif`;
-      c.fillText(t, cv.width/2, passo * (i + 1));
+      /* `tams` permite tamanho por linha. Sem isso um painel com título e
+         crédito na mesma placa obriga os dois ao mesmo corpo: o título fica
+         pequeno ou o crédito não caberia na largura. */
+      const tam = (o.tams && o.tams[i]) || o.tam || .6;
+      const peso = (o.pesos && o.pesos[i]) || o.peso || 700;
+      const corpo = Math.round(tam * passo);
+      /* CABER É OBRIGAÇÃO DA PLACA, não de quem chama. Texto de largura fixa
+         com conteúdo variável — nome de faixa, crédito de terceiro — estoura
+         a borda sem avisar, e em VR ninguém vê o defeito de perto. Primeiro
+         tenta encolher a fonte até 55%; se ainda não couber, corta com "…".
+         Foi assim que o crédito da Colour Me Red foi pego, medindo 152% da
+         largura no painel de resultado. */
+      const maxW = cv.width * 0.94;
+      let escala = 1, texto = String(t);
+      c.font = `${peso} ${corpo}px system-ui, sans-serif`;
+      let w = c.measureText(texto).width;
+      while (w > maxW && escala > 0.55){
+        escala -= 0.05;
+        c.font = `${peso} ${Math.round(corpo * escala)}px system-ui, sans-serif`;
+        w = c.measureText(texto).width;
+      }
+      while (w > maxW && texto.length > 4){
+        texto = texto.slice(0, -2);
+        w = c.measureText(texto + '…').width;
+        if (w <= maxW) texto += '…';
+      }
+      c.fillText(texto, cv.width/2, passo * (i + 1));
     });
     tex.needsUpdate = true;
   };
@@ -218,6 +243,18 @@ painelHUD.position.set(-1.45, 2.2, -2.55); scene.add(painelHUD);
 
 export const painelObj = placa(1.05, .26);
 painelObj.position.set(1.45, 2.2, -2.55); scene.add(painelObj);
+
+/* RESULTADO EM 3D. A tela de fim é HTML, e HTML não existe no headset: quem
+   jogava em VR só via as estrelas no painel de objetivo e um aviso mandando
+   tirar o headset para ler o placar. Contorno, não solução — o RF10 pede o
+   resultado e o RF14 pede o modo VR, e os dois juntos pediam isto.
+
+   Fica CENTRADO e na linha dos olhos, diferente dos painéis de jogo, que são
+   laterais e altos de propósito para não tampar a bateria. Aqui a partida
+   acabou: o jogador não está mirando, está lendo. */
+export const painelFim = placa(1.62, 1.04, 1400);
+painelFim.position.set(0, 1.72, -2.30);
+painelFim.visible = false; scene.add(painelFim);
 
 /** Aviso volante que segue o olhar — o "toast" do mundo VR. */
 export const flash = placa(1.1, .24); flash.visible = false; scene.add(flash);
