@@ -143,7 +143,7 @@ com `node`.
 ritmo-reactor-vr/
 ├── frontend/               aplicação do jogo (Vite)
 │   ├── index.html          markup das telas 2D
-│   ├── public/modelos/     bateria_pratos.glb (em uso), lab.glb,
+│   ├── public/modelos/     bateria_pratos.glb e cenario.glb (em uso),
 │   │                       bateria.glb (scan inteiro, fonte do recorte)
 │   ├── scripts/            copia os decodificadores de node_modules
 │   └── src/
@@ -153,7 +153,7 @@ ritmo-reactor-vr/
 │       ├── calibragem.js   mede o atraso de saída do equipamento do jogador
 │       ├── pontuacao.js    a regra de pontuação, pura e conferível com node
 │       ├── estado.js       os dados da partida
-│       ├── cena.js         renderer, câmera, luzes, laboratório, placas 3D
+│       ├── cena.js         renderer, câmera, luzes, cenário, placas 3D
 │       ├── kit.js          bateria, zonas de acerto, baquetas
 │       ├── balanco.js      o balanço dos pratos na batida
 │       ├── bichos.js       o indicador de nota que desce sobre a peça
@@ -233,11 +233,11 @@ que o jogo carrega. Os originais do Sketchfab **não vão para o Git** (ver
 Para reprocessar um cenário novo:
 
 ```bash
-node ferramentas/otimizar-cenario.mjs cenario-original.glb frontend/public/modelos/lab.glb
+node ferramentas/otimizar-cenario.mjs cenario-original.glb frontend/public/modelos/cenario.glb
 ```
 
 O que importa não é o tamanho do arquivo, é a **VRAM**: um PNG 1024×1024 vira
-5,59 MB na memória da GPU, sempre. O laboratório original tinha 110 texturas
+5,59 MB na memória da GPU, sempre. O cenário original tinha 110 texturas
 assim — 615 MB, inviável no Quest. Depois do tratamento com KTX2, **14 MB**.
 Ver [docs/tecnica.md](docs/tecnica.md).
 

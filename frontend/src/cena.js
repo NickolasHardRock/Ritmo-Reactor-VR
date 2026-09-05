@@ -1,5 +1,5 @@
 /* ============================================================================
-   cena.js — o mundo: renderizador, câmera, luzes, o laboratório e o reator.
+   cena.js — o mundo: renderizador, câmera, luzes, o cenário e as placas 3D.
 
    REGRA DE OURO DO VR, que explica quase tudo aqui:
    dentro da sessão a posição da câmera é ditada pelo HEADSET. Mexer nela na
@@ -12,7 +12,7 @@ import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { LAB, QUALIDADE, CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
+import { CENARIO, QUALIDADE, CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
 
 /* --------------------------------------------------------- cena base ----- */
 export const scene = new THREE.Scene();
@@ -101,29 +101,34 @@ export function afinarTexturas(raiz){
   });
 }
 
-/* ==================================================== O LABORATÓRIO ======
+/* ======================================================= O CENÁRIO =======
    O cenário é uma malha centrada na origem. Escala, posiciona o posto do
-   baterista em POSTO e ajusta o chão para Y=0.                            */
+   baterista em POSTO e ajusta o chão para Y=0.
 
-function encaixarLab(m){
-  const s   = LAB.escala  || 1;
-  const rot = LAB.rotacao || 0;
+   O cenário NÃO tem chão contínuo sob o posto: é uma paisagem irregular, e
+   medindo coluna por coluna há vazio bem embaixo do jogador. Quem segura a
+   bateria é o estrado que o próprio jogo desenha, não o modelo. Por isso
+   trocar de cenário aqui é barato: nada estrutural depende dele.          */
+
+function encaixarCenario(m){
+  const s   = CENARIO.escala  || 1;
+  const rot = (CENARIO.rotacaoGraus || 0) * Math.PI / 180;
   m.scale.setScalar(s);
   m.rotation.y = rot;
   /* postoJogador é em coords do modelo (antes da rotação). Aplicar a
      mesma rotação para descobrir onde ele cai no mundo.                */
   const c = Math.cos(rot), sn = Math.sin(rot);
-  const px = ( LAB.postoJogador[0]*c + LAB.postoJogador[1]*sn) * s;
-  const pz = (-LAB.postoJogador[0]*sn + LAB.postoJogador[1]*c) * s;
-  m.position.set(-px, -LAB.alturaPiso * s, POSTO.z - pz);
+  const px = ( CENARIO.postoJogador[0]*c + CENARIO.postoJogador[1]*sn) * s;
+  const pz = (-CENARIO.postoJogador[0]*sn + CENARIO.postoJogador[1]*c) * s;
+  m.position.set(-px, -CENARIO.alturaPiso * s, POSTO.z - pz);
 }
 
 /** Carrega o cenário. Falha não é fatal: o jogo roda sem ele. */
-export function carregarLab(){
-  loader.load(LAB.url,
+export function carregarCenario(){
+  loader.load(CENARIO.url,
     (gltf) => {
       const m = gltf.scene;
-      encaixarLab(m);
+      encaixarCenario(m);
       m.traverse(o => { if (o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
       afinarTexturas(m);
       scene.add(m);

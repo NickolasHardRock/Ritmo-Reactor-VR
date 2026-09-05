@@ -2,7 +2,7 @@
    otimizar-cenario.mjs — v2, com KTX2
    ----------------------------------------------------------------------------
    USO:
-     node otimizar-cenario.mjs sci-fi_lab.glb lab.glb
+     node otimizar-cenario.mjs world_of_metal.glb ../frontend/public/modelos/cenario.glb
 
    POR QUE ESTA VERSÃO DÁ MUITO MAIS QUALIDADE QUE A v1
    ----------------------------------------------------------------------------

@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit,
-         carregarLab, animarReator,
+         carregarCenario, animarReator,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
 import * as balanco from './balanco.js';
@@ -36,7 +36,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          telaResultado, calibragem3D } from './ui.js';
 
 /* ------------------------------------------------------ carregamento ----- */
-carregarLab();
+carregarCenario();
 carregarBichos(kit);
 carregarBateria(
   (ok) => {

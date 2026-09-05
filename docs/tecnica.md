@@ -139,7 +139,7 @@ subtrai pontos: punir duas vezes desestimula tentar as viradas.
 
 ### 6. VRAM, não tamanho de arquivo
 
-O laboratório do Sketchfab tinha 58 MB e 110 texturas 1024×1024. O que
+O cenário do Sketchfab tinha 58 MB e 110 texturas 1024×1024. O que
 inviabiliza no Quest não é o download: é que **a GPU descomprime cada PNG
 para RGBA cru**, 5,59 MB por textura — 615 MB no total.
 
@@ -156,10 +156,16 @@ Diferença visual medida: 1,3%. Ferramenta: `ferramentas/otimizar-cenario.mjs`.
 
 ### 7. O cenário se move, não o jogo
 
-O laboratório veio em coordenadas próprias. Em vez de reescrever as posições
-da bateria, giramos e deslocamos o **lab** para que o posto do baterista
-caísse onde o jogo já esperava o jogador (`cena.js` → `encaixarLab`). Toda a
-lógica de posições continuou valendo.
+O cenário veio em coordenadas próprias. Em vez de reescrever as posições da
+bateria, giramos e deslocamos o **cenário** para que o posto do baterista
+caísse onde o jogo já esperava o jogador (`cena.js` → `encaixarCenario`).
+Toda a lógica de posições continuou valendo.
+
+Isso é mais barato do que parece porque **o cenário não sustenta nada**:
+medindo coluna por coluna, não há chão contínuo sob o posto — a paisagem é
+irregular e há vazio bem embaixo do jogador. Quem segura a bateria é o
+estrado que o próprio jogo desenha. Trocar de cenário não quebra geometria
+nenhuma.
 
 O tanque luminoso no fundo é **cenário**. Ele já foi a mecânica do reator; a
 mecânica saiu e o objeto ficou, porque ancora o olhar e custa nada.
@@ -220,7 +226,7 @@ Duas coisas que não apareceriam num servidor comum:
 | Draw calls | ~72 |
 | VRAM de textura, cenário | ~14 MB (KTX2) |
 | VRAM de textura, bateria | **~64 MB** (três JPEG 2048², ainda sem KTX2) |
-| Modelo do lab | 12 MB, 28 draw calls |
+| Modelo do cenário | 12,2 MB, 158 mil triângulos, 88 primitivas |
 | Modelo da bateria | 10,2 MB, ~213 mil triângulos, 4 nodes |
 
 O número de triângulos subiu com o scan: eram ~280 mil quando a bateria

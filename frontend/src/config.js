@@ -41,16 +41,32 @@ export const PECAS = [
 export const PORID = Object.fromEntries(PECAS.map(p => [p.id, p]));
 
 /* ------------------------------------------------------- O CENÁRIO -------
-   O cenário é uma malha única centrada na origem (~2 m de extensão).
-   `escala` amplia para tamanho de sala; `postoJogador` indica, em coords
-   do modelo (ANTES da escala), onde o baterista fica. Ver cena.js →
-   encaixarLab().                                                          */
-export const LAB = {
-  url:          'modelos/lab.glb',
-  escala:       1,              // modelo já em metros (~42 m de extensão)
-  rotacao:      19.7,              // ajustar conforme orientação desejada
-  postoJogador: [ 2.8, 0.6 ],  // plataforma rochosa central entre os Marshall
-  alturaPiso:   2.0,            // Y da plataforma elevada
+   `postoJogador` indica, em coordenadas do modelo e ANTES da rotação, onde
+   o baterista fica; `alturaPiso` é o Y que vira o zero do jogo. Ver
+   cena.js → encaixarCenario().
+
+   O ARQUIVO SE CHAMAVA lab.glb E O CÓDIGO CHAMAVA TUDO DE "LABORATÓRIO",
+   mas o modelo nunca foi um laboratório: é o cenário "World of Metal", uma
+   paisagem industrial/rochosa, com alguns adereços acrescentados depois
+   (amplificadores, uma laje, um cabo). O nome errado já custou tempo — foi
+   preciso medir as duas caixas envolventes para descobrir que `lab.glb` e
+   `world_of_metal_otimizado.glb` são o MESMO modelo. Daí `cenario.glb`,
+   que diz o que a coisa é sem prometer o que ela não é, e continua
+   valendo se o modelo for trocado um dia.
+
+   A FONTE NÃO ESTÁ NO REPOSITÓRIO. `cenario.glb` foi gerado a partir de
+   `world_of_metal_otimizado.glb`, que é grande demais e está no .gitignore.
+   Quem precisar refazer pede o original para a equipe.                    */
+export const CENARIO = {
+  url:          'modelos/cenario.glb',
+  escala:       1,              // modelo já em metros (~26 x 32 x 27 m)
+  /* Ângulo em GRAUS. Estava 19.7 e era aplicado direto em `rotation.y`,
+     que espera RADIANOS: 19,7 rad dão três voltas inteiras mais 48,7°.
+     Funcionava porque foi ajustado no olho até ficar bom, mas lia como
+     graus e não era. 48,73° é a mesma orientação, agora dita de verdade. */
+  rotacaoGraus: 48.73,
+  postoJogador: [ 2.8, 0.6 ],  // trecho rochoso central, entre os amplificadores
+  alturaPiso:   2.0,            // Y do modelo que o jogo trata como chão
 };
 /* O modelo com os TRÊS PRATOS recortados em nodes próprios, para poderem
    balançar. `bateria.glb`, de onde este saiu, é uma malha fundida só —
