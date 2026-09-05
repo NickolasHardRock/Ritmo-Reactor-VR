@@ -47,11 +47,24 @@ as fortes. Medição em [testes.md](testes.md), CT-02.
 | Entrada | Ação |
 |---|---|
 | Movimento do controle | mover a baqueta |
-| Alavanca direita ↑↓ | ajustar a altura da bateria |
+| Alavanca direita ↑↓ | ajustar a altura da bateria ao corpo |
+| Botão **A** (direito) | pular o tutorial e ir direto para a música |
+| Botão **X** (esquerdo) | abrir a calibragem de atraso |
 | Vibração (saída) | retorno tátil proporcional à força da batida |
 
-Não usamos gatilho nem botões: bater é um gesto, não um comando. Era esse o
-ponto do projeto.
+**Bater não usa botão nenhum** — é gesto, e era esse o ponto do projeto. O
+gatilho e o *grip* seguem livres de propósito.
+
+Os dois botões existem porque tirar o headset para clicar na tela quebra a
+sessão. **A** salta o tutorial de sete peças, que é útil na primeira vez e
+cansativo da segunda em diante; ele só age nas fases 0 e 1, porque durante a
+música reiniciaria a faixa na cara de quem está tocando. **X** abre a
+calibragem, que é justamente o ajuste mais necessário no headset (veja
+abaixo). Ambos têm anti-repique de ~0,7 s: um botão de VR lido a cada quadro
+dispara dezenas de vezes num toque.
+
+Índice 4 no perfil `xr-standard` do Touch é o X/A. Nenhum botão era lido
+antes, então não há conflito com nada.
 
 ## Interface dentro do VR
 
@@ -59,9 +72,34 @@ Nenhum `<div>` aparece dentro do headset. Toda informação visível em VR é um
 **objeto 3D**: texto desenhado num `<canvas>` e usado como textura
 (`frontend/src/cena.js` → `placa()`).
 
-- Painel esquerdo: carga do reator, pontos e combo
+- Painel esquerdo: pontos, combo e multiplicador
 - Painel direito: o objetivo do momento
+- Painel central: **resultado da partida** e **calibragem**, que antes só
+  existiam em HTML e eram invisíveis para quem estava de headset
 - Aviso volante: segue o olhar quando algo precisa ser dito na hora
+
+As placas se ajustam sozinhas ao texto: cada linha encolhe até 55% e só
+depois é cortada com reticências. Sem isso a linha de crédito da faixa saía
+com 152% da largura do painel, escorrendo para fora da placa.
+
+### A indicação de nota fica sobre a peça, não numa pista
+
+A versão anterior tinha uma pista de notas acima da bateria. No monitor dá
+para acompanhar as duas com o canto do olho; **em VR não**, porque virar o
+olho custa virar a cabeça. A indicação passou a descer sobre o próprio
+tambor (`bichos.js`), e o caminho é inclinado de propósito — descer reto
+colocaria o nascimento acima da linha dos olhos de quem joga em pé, o que
+recriaria o problema que a mudança resolve.
+
+São desenhados com `InstancedMesh`: oito na tela custam **um** draw call em
+vez de oito.
+
+### O prato balança quando é atingido
+
+Os três pratos são nodes próprios, recortados do scan, girados por um
+oscilador amortecido (`balanco.js`). Em VR isso importa mais que no monitor:
+sem retorno tátil de verdade, o movimento do prato é boa parte da confirmação
+de que a batida valeu.
 
 ## Ajustes de qualidade
 
@@ -85,11 +123,35 @@ qualquer outra coisa.
 - **Tom 1 e Tom 2 têm zonas que se sobrepõem** em cerca de 4 cm. Resolvido
   escolhendo a peça cruzada primeiro no trajeto, mas uma batida bem na
   fronteira é ambígua.
-- **Alternar o olhar** entre a pista de notas (acima) e a bateria (abaixo)
-  cansa em sessões longas.
 - **Sem modo canhoto:** o kit é destro.
 - **Custo por quadro alto:** cerca de 280 mil triângulos, que dobram em VR
   porque cada olho é um desenho.
+
+### Uma limitação que foi resolvida
+
+Ficava aqui: *"alternar o olhar entre a pista de notas (acima) e a bateria
+(abaixo) cansa em sessões longas"*. Foi o motivo da troca da pista pelos
+indicadores sobre as peças. Fica registrado porque a limitação anotada é que
+gerou a solução.
+
+## Atraso de áudio no headset
+
+É o ponto que mais afeta a sensação de jogo em VR, e o Quest é o pior caso da
+cadeia: **passa fácil de 100 ms** entre agendar um som e ele sair — mais
+ainda com fone Bluetooth.
+
+O jogador reage ao que **ouve**, então sem compensar o jogo acusa
+adiantamento em quem está batendo certo. Dois motivos para calibrar dentro
+do headset, e não antes de colocá-lo:
+
+1. o `ctx.outputLatency` que o navegador declara costuma ser bem menor que o
+   real, então o palpite automático não basta;
+2. a latência do headset não é a mesma do desktop — calibrar no monitor e
+   entrar em VR mede a cadeia errada.
+
+Daí o botão **X**. A medida fica salva em `localStorage` e o ajuste fino de
+±10 ms continua disponível na tela inicial. Detalhes da conta em
+[tecnica.md](tecnica.md).
 
 ## Dispositivos usados nos testes
 
