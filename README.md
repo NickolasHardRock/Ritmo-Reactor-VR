@@ -125,10 +125,14 @@ Detalhes em [docs/vr.md](docs/vr.md).
 | Fase | Mecânica | O que exercita |
 |---|---|---|
 | 1 — Calibração | acerte a peça indicada | reconhecer o instrumento, mirar |
-| 2 — Eco | o reator toca um padrão, você repete (3 rodadas) | memória sequencial |
+| 2 — Eco | a estação toca um padrão, você repete (3 rodadas) | memória sequencial |
 | 3 — Ritmo | acerte as notas no tempo; combo multiplica | precisão temporal |
 
-O reator carrega conforme a pontuação. **60% religa a estação.**
+A partida termina com **precisão ponderada e de 0 a 5 estrelas**: um acerto
+"bom" vale metade de um "perfeito", e o combo multiplica os pontos em degraus
+(×2 aos 10 acertos seguidos, ×3 aos 20, ×4 aos 30). A regra vive isolada em
+`frontend/src/pontuacao.js`, sem Three.js nem DOM, para poder ser conferida
+com `node`.
 
 ---
 
@@ -138,14 +142,20 @@ O reator carrega conforme a pontuação. **60% religa a estação.**
 ritmo-reactor-vr/
 ├── frontend/               aplicação do jogo (Vite)
 │   ├── index.html          markup das telas 2D
-│   ├── public/modelos/     bateria.glb e lab.glb (otimizados)
+│   ├── public/modelos/     bateria_pratos.glb (em uso), lab.glb,
+│   │                       bateria.glb (scan inteiro, fonte do recorte)
 │   ├── scripts/            copia os decodificadores de node_modules
 │   └── src/
 │       ├── config.js       ⇦ COMECE POR AQUI: tudo que se ajusta
-│       ├── synth.js        a bateria sintetizada em Web Audio
+│       ├── synth.js        Web Audio: kit sintetizado e kit por amostras
+│       ├── musica.js       ⇦ O RELÓGIO: faixa, carta e compensação de atraso
+│       ├── calibragem.js   mede o atraso de saída do equipamento do jogador
+│       ├── pontuacao.js    a regra de pontuação, pura e conferível com node
 │       ├── estado.js       os dados da partida
-│       ├── cena.js         renderer, câmera, luzes, laboratório, reator
+│       ├── cena.js         renderer, câmera, luzes, laboratório, placas 3D
 │       ├── kit.js          bateria, zonas de acerto, baquetas
+│       ├── balanco.js      o balanço dos pratos na batida
+│       ├── bichos.js       o indicador de nota que desce sobre a peça
 │       ├── deteccao.js     ⇦ O NÚCLEO TÉCNICO: colisão varrida
 │       ├── ui.js           interface 2D e as placas 3D do VR
 │       ├── fases.js        as regras dos três desafios
@@ -157,7 +167,8 @@ ritmo-reactor-vr/
 │   ├── rotas/              partidas.js, ranking.js
 │   └── db/                 adaptadores + schema.sql
 ├── api/index.js            adaptador do Express para o Vercel
-├── ferramentas/            otimizador de cenário e testes automatizados
+├── ferramentas/            otimizador de cenário, recorte de peças,
+│                           conversor de carta e testes automatizados
 └── docs/                   documentação obrigatória
 ```
 
@@ -168,8 +179,13 @@ ritmo-reactor-vr/
 1. Suba o repositório para o GitHub.
 2. Em [vercel.com](https://vercel.com) → **Add New → Project** → importe o
    repositório. Não mude nada: o `vercel.json` já define o build e a saída.
-3. Se for usar Postgres, adicione a variável de ambiente `DATABASE_URL` em
-   *Settings → Environment Variables* e refaça o deploy.
+3. Adicione a variável `DATABASE_URL` em *projeto → Settings → Environment
+   Variables*, tipo **Secret**, em Production e Preview. Use a string do
+   **pooler de transação** (porta 6543) — a conexão direta do Supabase é
+   IPv6 e o Vercel não sai por IPv6. Detalhes e armadilhas em
+   [docs/banco.md](docs/banco.md).
+   **A ordem importa:** variável primeiro, deploy depois. Salva depois, exige
+   *Redeploy* com o cache de build desmarcado.
 
 A partir daí, **todo push na branch principal republica automaticamente** —
 que é o que permite testar no Quest a cada mudança.
