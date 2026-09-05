@@ -22,11 +22,23 @@ comando abstrato mapeado num botão.
 
 ## História
 
-O reator da estação parou. O núcleo só volta a oscilar se receber um pulso
-rítmico preciso, e o único emissor a bordo é uma bateria de calibração
-esquecida no laboratório. O jogador precisa tocá-la para religar a estação.
+Uma estação orbital em turno longo. No laboratório existe uma **bateria de
+calibração** — instalada para testar a resposta acústica da sala e nunca
+retirada. Não há emergência nem missão: o jogador é alguém a bordo que se
+senta nela e toca.
 
-_[expandir se quiserem: quem é o jogador? por que a estação parou?]_
+O objetivo é a própria execução. A partida termina numa avaliação de
+desempenho (precisão e estrelas), não no cumprimento de uma tarefa narrativa.
+
+> **Nota de projeto.** A versão anterior tinha uma história de emergência: o
+> reator da estação havia parado e o jogador tocava para religá-lo, com a
+> carga do reator subindo conforme a pontuação. Essa mecânica foi substituída
+> por um modelo de pontuação próprio (precisão, multiplicador e estrelas), e
+> a história foi ajustada junto: manter a promessa de religar algo que o jogo
+> não religa mais seria descrever um jogo que não existe. O tanque luminoso
+> continua no cenário como elemento visual.
+
+_[expandir se quiserem: quem é o jogador? o que a estação faz?]_
 
 ## Personagens
 
@@ -36,7 +48,10 @@ _[preencher — mesmo que seja só "o técnico de plantão", vale definir]_
 
 Laboratório da estação: um tanque de contenção luminoso ao centro, parede de
 consoles à direita, comporta pressurizada, maquinário e tubulações à
-esquerda. O jogador fica de frente para o tanque, que é o reator.
+esquerda. O jogador fica de frente para o tanque.
+
+O tanque é **cenário**, não mecânica: ele ancora o olhar de quem está de
+headset e dá profundidade ao fundo, mas não reage à partida.
 
 ## Mecânicas
 
@@ -51,7 +66,7 @@ esquerda. O jogador fica de frente para o tanque, que é o reator.
 | Fase | Mecânica | Pontuação |
 |---|---|---|
 | 1 — Calibração | acertar cada peça indicada | jogada perfeita |
-| 2 — Eco | repetir o padrão do tanque (3 rodadas) | jogada perfeita por nota + 200 de bônus por rodada |
+| 2 — Eco | repetir o padrão que a sala toca (3 rodadas) | jogada perfeita por nota + 200 de bônus por rodada |
 | 3 — Ritmo | acertar as notas no tempo | perfeita dentro de 90 ms, boa até 240 ms |
 
 ## Pontuação
