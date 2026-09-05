@@ -6,7 +6,7 @@
 ## Identificação
 
 - **Nome do jogo:** Drumfall
-- **Tema:** Estação espacial / laboratório sci-fi
+- **Tema:** Palco a céu aberto em paisagem industrial
 - **Equipe:** Diego, Nickolas, Bruno e Danilo
 - **Disciplina:** ADS — Senac Joinville · Profª Claudia Werlich
 
@@ -22,10 +22,9 @@ comando abstrato mapeado num botão.
 
 ## História
 
-Uma estação orbital em turno longo. No laboratório existe uma **bateria de
-calibração** — instalada para testar a resposta acústica da sala e nunca
-retirada. Não há emergência nem missão: o jogador é alguém a bordo que se
-senta nela e toca.
+Uma bateria montada a céu aberto, no meio de uma paisagem rochosa e
+industrial, cercada por amplificadores. Não há emergência nem missão, e não
+se explica como aquilo foi parar ali: o jogador chega, senta e toca.
 
 O objetivo é a própria execução. A partida termina numa avaliação de
 desempenho (precisão e estrelas), não no cumprimento de uma tarefa narrativa.
@@ -37,15 +36,26 @@ desempenho (precisão e estrelas), não no cumprimento de uma tarefa narrativa.
 > renomeá-los quebraria a URL já entregue e o `remote` de git de todo mundo,
 > sem ganho nenhum.
 >
-> **A história.** A versão anterior tinha uma história de emergência: o
-> reator da estação havia parado e o jogador tocava para religá-lo, com a
-> carga do reator subindo conforme a pontuação. Essa mecânica foi substituída
-> por um modelo de pontuação próprio (precisão, multiplicador e estrelas), e
-> a história foi ajustada junto: manter a promessa de religar algo que o jogo
-> não religa mais seria descrever um jogo que não existe. O tanque luminoso
-> continua no cenário como elemento visual.
+> **A história e o cenário.** A versão anterior era uma emergência a bordo de
+> uma estação espacial: o reator havia parado, o jogador tocava para religá-lo
+> e a carga do reator subia conforme a pontuação. Três coisas fizeram isso
+> cair, nesta ordem:
+>
+> 1. A **mecânica do reator** foi substituída por um modelo de pontuação
+>    próprio — precisão, multiplicador e estrelas —, que mede o desempenho
+>    melhor do que uma barra de carga media.
+> 2. Com ela fora, a **história** deixou de descrever o jogo: prometer religar
+>    algo que nada religa é descrever um jogo que não existe.
+> 3. Conferindo a documentação contra o projeto, descobriu-se que o **cenário
+>    nunca foi um laboratório**. O arquivo se chamava `lab.glb` e o código
+>    dizia "laboratório", mas o modelo sempre foi uma paisagem industrial a
+>    céu aberto. A descrição de "parede de consoles e comporta pressurizada"
+>    descrevia um cenário antigo, já substituído.
+>
+> Os objetos do reator (anéis, luz, aro) foram removidos do código; eles já
+> ficavam invisíveis sempre que o cenário carregava.
 
-_[expandir se quiserem: quem é o jogador? o que a estação faz?]_
+_[expandir se quiserem: quem é o jogador? por que a bateria está ali?]_
 
 ## Personagens
 
@@ -53,12 +63,18 @@ _[preencher — mesmo que seja só "o técnico de plantão", vale definir]_
 
 ## Cenário
 
-Laboratório da estação: um tanque de contenção luminoso ao centro, parede de
-consoles à direita, comporta pressurizada, maquinário e tubulações à
-esquerda. O jogador fica de frente para o tanque.
+Paisagem aberta, rochosa e industrial, de aproximadamente **26 × 32 × 27 m**,
+com desníveis fortes — o terreno vai de −19 a +13 m de altura. A bateria fica
+num trecho central elevado, com pilhas de amplificadores em volta. Céu aberto
+em todas as direções.
 
-O tanque é **cenário**, não mecânica: ele ancora o olhar de quem está de
-headset e dá profundidade ao fundo, mas não reage à partida.
+**O cenário não sustenta a bateria.** Medindo coluna por coluna, não há chão
+contínuo sob o posto do jogador: o que segura o kit é um estrado que o próprio
+jogo desenha, mais uma mancha de sombra no chão. Isso é de propósito e está
+documentado em `cena.js` — significa que trocar o cenário não quebra nenhuma
+posição do jogo.
+
+O cenário é puramente visual: nada nele reage à partida.
 
 ## Mecânicas
 
@@ -73,7 +89,7 @@ headset e dá profundidade ao fundo, mas não reage à partida.
 | Fase | Mecânica | Pontuação |
 |---|---|---|
 | 1 — Calibração | acertar cada peça indicada | jogada perfeita |
-| 2 — Eco | repetir o padrão que a sala toca (3 rodadas) | jogada perfeita por nota + 200 de bônus por rodada |
+| 2 — Eco | repetir o padrão que o jogo toca (3 rodadas) | jogada perfeita por nota + 200 de bônus por rodada |
 | 3 — Ritmo | acertar as notas no tempo | perfeita dentro de 90 ms, boa até 240 ms |
 
 ## Pontuação

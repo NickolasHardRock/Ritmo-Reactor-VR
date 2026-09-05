@@ -132,60 +132,10 @@ export function carregarCenario(){
       m.traverse(o => { if (o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
       afinarTexturas(m);
       scene.add(m);
-      reator.visible = false;
     },
     undefined,
     (err) => console.warn('[cena] cenário não carregou — seguindo sem ele', err),
   );
-}
-
-/* ========================================================== O REATOR =====
-   O tanque do cenário É o núcleo — não desenho esfera nenhuma. Três anéis
-   HORIZONTAIS abraçam o cilindro (é o que lê como "contenção de energia"),
-   uma luz acende por dentro e um anel marca a base.
-   O modelo faz o trabalho visual; o jogo só o acende.                     */
-export const reator = new THREE.Group(); scene.add(reator);
-const RAIO_TANQUE = 1.32;
-const ALTURAS_ANEL = [-0.55, 0, 0.55];
-
-const matAnel = new THREE.MeshStandardMaterial({
-  color:0x1a3a52, emissive:0x00d9ff, emissiveIntensity:.25, roughness:.3, metalness:.7 });
-
-export const aneis = ALTURAS_ANEL.map((dy, i) => {
-  const a = new THREE.Mesh(new THREE.TorusGeometry(RAIO_TANQUE, .045, 8, 64), matAnel.clone());
-  a.rotation.x = Math.PI/2;               // deitado -> abraça o cilindro
-  a.position.y = dy;
-  a.userData.giro = (i % 2 ? -1 : 1) * (0.22 + i*0.06);
-  a.userData.base = dy;
-  reator.add(a);
-  return a;
-});
-export const luzR = new THREE.PointLight(0x00d9ff, .5, 12); reator.add(luzR);
-
-/* O aro do chão era o arco de carga: crescia com a pontuação e fechava o
-   círculo aos 100%. A carga não existe mais, e um arco incompleto parado
-   leria como barra de progresso quebrada — então ele virou anel fechado, e
-   fica como parte do cenário. */
-export const aroCarga = new THREE.Mesh(
-  new THREE.TorusGeometry(RAIO_TANQUE + .35, .05, 8, 120),
-  new THREE.MeshBasicMaterial({ color:0x14624a }));
-aroCarga.rotation.x = Math.PI/2;
-aroCarga.position.y = -1.35;
-reator.add(aroCarga);
-
-/** Anima o reator. Chamado a cada quadro.
- *
- *  Ele não reage mais à pontuação: o tanque agora é cenário, e respira num
- *  ritmo próprio. Deixar a animação atrelada a um número que ninguém mais vê
- *  seria manter o acoplamento sem manter o sentido. */
-const VIDA = 0.35;             // o quanto ele "liga", de 0 a 1, sempre
-export function animarReator(dt, t){
-  aneis.forEach(a => {
-    a.rotation.z += dt * a.userData.giro * (1 + VIDA*3);
-    a.position.y = a.userData.base + Math.sin(t*.8 + a.userData.base*4)*.06*(0.3 + VIDA);
-    a.material.emissiveIntensity = .2 + VIDA*2.6;
-  });
-  luzR.intensity = .5 + VIDA*5.5 + Math.sin(t*.7)*.5;
 }
 
 /* ============================================ PLACAS DE TEXTO EM 3D ======

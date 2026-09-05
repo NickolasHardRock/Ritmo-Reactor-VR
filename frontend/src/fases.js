@@ -105,7 +105,7 @@ function calibracaoBatida(p){
 }
 
 /* ============================ FASE 2 — ECO ================================
-   O reator toca um padrão, o jogador repete. Memória sequencial, três
+   O jogo toca um padrão, o jogador repete. Memória sequencial, três
    rodadas crescentes.                                                     */
 const INTERVALO_ECO = 0.55;   // segundos entre notas do padrão
 

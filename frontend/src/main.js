@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit,
-         carregarCenario, animarReator,
+         carregarCenario,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
 import * as balanco from './balanco.js';
@@ -152,7 +152,6 @@ renderer.setAnimationLoop(() => {
   ritmoAtualizar();
   animarZonas(dt, t);
   animarBalanco(dt);
-  animarReator(dt, t);
 
   camera.getWorldPosition(_v);
   painelHUD.lookAt(_v);

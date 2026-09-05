@@ -167,8 +167,16 @@ irregular e há vazio bem embaixo do jogador. Quem segura a bateria é o
 estrado que o próprio jogo desenha. Trocar de cenário não quebra geometria
 nenhuma.
 
-O tanque luminoso no fundo é **cenário**. Ele já foi a mecânica do reator; a
-mecânica saiu e o objeto ficou, porque ancora o olhar e custa nada.
+**O reator saiu inteiro.** Ele era um grupo desenhado por código — três anéis
+em volta de um tanque, uma luz interna e um aro no chão — e a carga subia com
+a pontuação. Quando a pontuação virou um modelo próprio, o `cena.js` passou a
+fazer `reator.visible = false` assim que o cenário carregava: os objetos só
+apareceriam se o modelo falhasse ao baixar. Ficaram assim por dois dias, meio
+vivos, até serem removidos de vez.
+
+Vale como lição de leitura de código: procurando "o que desenha o reator" a
+resposta parecia estar ali, viva, com animação por quadro e tudo. O que
+decidia de fato era uma linha solta dentro do `onload` do carregador.
 
 ### 8. Câmera do headset, jogador em grupo
 

@@ -1,9 +1,9 @@
 # Drumfall — Bateria em WebXR
 
-Jogo musical em realidade virtual pelo navegador. Numa estação orbital existe
-uma bateria de calibração, instalada para testar a acústica do laboratório e
-nunca retirada. O jogador se senta nela e toca; a partida termina numa
-avaliação de desempenho, de zero a cinco estrelas.
+Jogo musical em realidade virtual pelo navegador. Uma bateria montada a céu
+aberto, no meio de uma paisagem rochosa e industrial, cercada por
+amplificadores. Sem missão e sem enredo: o jogador senta e toca, e a partida
+termina numa avaliação de desempenho, de zero a cinco estrelas.
 
 Roda em navegador comum (teclado e mouse) e em **Meta Quest 3**, onde os
 controles viram baquetas e a força da batida conta.
@@ -126,7 +126,7 @@ Detalhes em [docs/vr.md](docs/vr.md).
 | Fase | Mecânica | O que exercita |
 |---|---|---|
 | 1 — Calibração | acerte a peça indicada | reconhecer o instrumento, mirar |
-| 2 — Eco | a estação toca um padrão, você repete (3 rodadas) | memória sequencial |
+| 2 — Eco | o jogo toca um padrão, você repete (3 rodadas) | memória sequencial |
 | 3 — Ritmo | acerte as notas no tempo; combo multiplica | precisão temporal |
 
 A partida termina com **precisão ponderada e de 0 a 5 estrelas**: um acerto
