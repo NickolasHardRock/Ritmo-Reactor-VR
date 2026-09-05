@@ -25,7 +25,7 @@ export const jogo = {
 
 export const FASES = [
   { nome:'Calibração', desc:'acerte a peça indicada'     },
-  { nome:'Eco',        desc:'repita o padrão do reator'  },
+  { nome:'Eco',        desc:'repita o padrão da sala'    },
   { nome:'Ritmo',      desc:'acerte no tempo'            },
 ];
 

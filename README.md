@@ -1,8 +1,9 @@
-# Drum Reactivate — Missão WebXR
+# Drumfall — Bateria em WebXR
 
-Jogo musical em realidade virtual pelo navegador. O reator da estação parou e
-o único emissor de pulso rítmico a bordo é uma bateria: o jogador toca para
-religá-lo.
+Jogo musical em realidade virtual pelo navegador. Numa estação orbital existe
+uma bateria de calibração, instalada para testar a acústica do laboratório e
+nunca retirada. O jogador se senta nela e toca; a partida termina numa
+avaliação de desempenho, de zero a cinco estrelas.
 
 Roda em navegador comum (teclado e mouse) e em **Meta Quest 3**, onde os
 controles viram baquetas e a força da batida conta.

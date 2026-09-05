@@ -2,7 +2,7 @@
   "name": "ritmo-reactor-vr",
   "private": true,
   "version": "0.1.0",
-  "description": "Drum Reactivate — jogo WebXR de ritmo. ADS Senac Joinville.",
+  "description": "Drumfall — jogo WebXR de ritmo. ADS Senac Joinville.",
   "type": "module",
   "workspaces": [
     "frontend",

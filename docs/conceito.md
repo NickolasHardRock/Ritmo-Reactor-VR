@@ -5,7 +5,7 @@
 
 ## Identificação
 
-- **Nome do jogo:** Drum Reactivate
+- **Nome do jogo:** Drumfall
 - **Tema:** Estação espacial / laboratório sci-fi
 - **Equipe:** Diego, Nickolas, Bruno e Danilo
 - **Disciplina:** ADS — Senac Joinville · Profª Claudia Werlich
@@ -30,7 +30,14 @@ senta nela e toca.
 O objetivo é a própria execução. A partida termina numa avaliação de
 desempenho (precisão e estrelas), não no cumprimento de uma tarefa narrativa.
 
-> **Nota de projeto.** A versão anterior tinha uma história de emergência: o
+> **Nota de projeto — o nome e o endereço do repositório.** O jogo se chamava
+> *Drum Reactivate* e o repositório é `Ritmo-Reactor-VR`; a URL de produção
+> continua `ritmo-reactor-vr.vercel.app`. O nome do jogo mudou junto com a
+> história, mas o repositório e o endereço ficaram como estavam de propósito:
+> renomeá-los quebraria a URL já entregue e o `remote` de git de todo mundo,
+> sem ganho nenhum.
+>
+> **A história.** A versão anterior tinha uma história de emergência: o
 > reator da estação havia parado e o jogador tocava para religá-lo, com a
 > carga do reator subindo conforme a pontuação. Essa mecânica foi substituída
 > por um modelo de pontuação próprio (precisão, multiplicador e estrelas), e
