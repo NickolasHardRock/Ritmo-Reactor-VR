@@ -124,8 +124,10 @@ qualquer outra coisa.
   escolhendo a peça cruzada primeiro no trajeto, mas uma batida bem na
   fronteira é ambígua.
 - **Sem modo canhoto:** o kit é destro.
-- **Custo por quadro alto:** cerca de 280 mil triângulos, que dobram em VR
-  porque cada olho é um desenho.
+- **Custo por quadro alto:** cerca de 400 mil triângulos por olho, que dobram
+  em VR porque cada olho é um desenho — 800 mil por quadro. A bateria sozinha
+  responde por 213 mil deles, e as texturas dela ainda são JPEG 2048², 64 MB
+  de VRAM. É o primeiro lugar onde mexer se o Quest engasgar.
 
 ### Uma limitação que foi resolvida
 

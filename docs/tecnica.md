@@ -216,11 +216,17 @@ Duas coisas que não apareceriam num servidor comum:
 
 | Métrica | Valor |
 |---|---|
-| Triângulos | ~280 mil (dobram em VR: um desenho por olho) |
+| Triângulos | ~400 mil por olho — **800 mil por quadro em VR** |
 | Draw calls | ~72 |
-| VRAM de textura | ~14 MB (cenário, em KTX2) |
+| VRAM de textura, cenário | ~14 MB (KTX2) |
+| VRAM de textura, bateria | **~64 MB** (três JPEG 2048², ainda sem KTX2) |
 | Modelo do lab | 12 MB, 28 draw calls |
 | Modelo da bateria | 10,2 MB, ~213 mil triângulos, 4 nodes |
+
+O número de triângulos subiu com o scan: eram ~280 mil quando a bateria
+tinha 86 mil. Hoje ela sozinha responde por 213 mil dos ~400 mil. O CT-08
+imprime o valor medido de verdade a cada execução — se este número aqui
+divergir do que ele mostra, o certo é o do teste.
 
 Os 4 nodes da bateria são `kit_resto` (163.903 triângulos) e os três pratos
 recortados: ride (23.924), chimbal (13.832) e crash (10.935).
