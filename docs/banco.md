@@ -41,17 +41,47 @@ Isso não é gambiarra: é o que permite clonar o repositório e ter a API no ar
 em trinta segundos, sem instalar Postgres, para desenvolver o front e rodar
 os testes. Nenhuma rota muda quando o banco entra.
 
+**Um contrato só para os dois.** O `node-postgres` devolve `NUMERIC` e
+`BIGINT` como *string* — decisão correta dele, porque esses tipos cabem mais
+do que um `double` aguenta. O efeito colateral era o mesmo endpoint responder
+`"tempo": 96.2` em memória e `"tempo": "96.20"` no Postgres. O adaptador
+normaliza os campos numéricos antes de devolver, para que trocar de banco não
+mude o formato da resposta.
+
+### Duas fontes do esquema, e por quê
+
+O DDL existe em dois lugares e os dois precisam continuar iguais:
+
+| arquivo | quando roda | forma |
+|---|---|---|
+| `backend/db/schema.sql` | à mão, uma vez | começa com `DROP TABLE` — **apaga tudo** |
+| `iniciar()` em `db/index.js` | toda subida da API | `CREATE TABLE IF NOT EXISTS`, idempotente |
+
+São dois porque o `schema.sql` é destrutivo e não pode rodar sozinho quando a
+API sobe. Já divergiram uma vez: faltavam no código os `CHECK` de `erros` e
+`combo_max` e o índice `idx_partida_jogador` — que é exatamente o que o
+`DISTINCT ON (jogador_id)` do ranking percorre. **Mexeu num, confira o outro.**
+
+### O pool, e por que ele derrubava a API
+
+Quatro decisões em `db/index.js` que só fazem sentido em serverless:
+
+| ajuste | motivo |
+|---|---|
+| `max: 4` | cada instância de função no Vercel abre o **próprio** pool. Um `max` generoso multiplica por instância e esgota o teto do plano free |
+| `idleTimeoutMillis: 10s` | segurar socket ocioso atrás de um pooler é pedir para ele ser descartado do outro lado |
+| `connectionTimeoutMillis: 10s` | o padrão é esperar **para sempre**: um host errado penduraria a requisição em vez de falhar com mensagem |
+| `pool.on('error', ...)` | **este derrubava a API.** Quando uma conexão ociosa cai, o `pg` emite um evento de erro no pool; sem ouvinte, o Node trata como exceção não capturada e mata o processo inteiro. O sintoma era o primeiro POST depois de um tempo parada falhar |
+
 ---
 
 ## Provisionando um Postgres
 
-Opções gratuitas que funcionam com o Vercel:
+A equipe usa **Supabase**. Alternativas equivalentes, caso alguém precise
+recriar o ambiente: [Neon](https://neon.tech), ou um Postgres local
+(`postgres://postgres:senha@localhost:5432/drum`, que dispensa SSL).
 
-- **[Neon](https://neon.tech)** — plano gratuito, string de conexão pronta
-- **[Supabase](https://supabase.com)** — idem, com painel de tabelas
-- **Postgres local** — `postgres://postgres:senha@localhost:5432/drum`
-
-Depois:
+Em qualquer um dos casos:
 
 ```bash
 # 1. cole a string em backend/.env
@@ -64,10 +94,33 @@ psql "$DATABASE_URL" -f backend/db/schema.sql
 curl http://localhost:3000/api/saude    # deve responder "banco":"postgres"
 ```
 
-No Vercel, a mesma variável vai em *Settings → Environment Variables*.
-
 > O `.env` **não** vai para o Git. Nunca comitem a string de conexão: ela
 > contém a senha do banco (RNF04).
+
+### No Vercel
+
+A variável vai em *projeto → Settings → Environment Variables* — o item fica
+**dentro** do projeto, não na barra lateral da conta; o que aparece no nível
+da conta são as *shared environment variables*, que não alcançam um projeto
+de outra conta.
+
+Como foi cadastrada:
+
+| campo | valor |
+|---|---|
+| Key | `DATABASE_URL` |
+| Type | **Secret** (o antigo *Sensitive*): o valor fica ilegível depois de salvo |
+| Environments | **Production e Preview** |
+
+Development ficou de fora porque **Secret não aceita esse ambiente** — o
+botão trava se ele estiver marcado. Não custa nada: Development só é lido
+pelo `vercel dev` da CLI, e o desenvolvimento local aqui é `npm run dev:api`,
+que lê o `backend/.env` do disco.
+
+**A ordem importa.** Variável de ambiente só entra em deploy **novo**. Se ela
+for salva depois do deploy, é preciso *Redeploy* com *"Use existing Build
+Cache"* desmarcado — o deploy antigo continua servindo sem ela, e o sintoma é
+`/api/saude` responder `"banco":"memoria"` sem erro nenhum.
 
 ## Supabase — o que já está provisionado
 
@@ -82,6 +135,12 @@ que o botão *Connect* oferece não servem para o nosso caso:
 | Direct connection | 5432 | é IPv6, e o Vercel não faz saída por IPv6 — funciona na máquina de casa e falha no deploy |
 | Session pooler | 5432 | é para servidor que fica ligado, não para função que sobe e desce |
 | **Transaction pooler** | **6543** | **é a recomendada para serverless, e é IPv4 em todos os planos** |
+
+**O que o pooler de transação cobra em troca:** cada consulta pode cair numa
+conexão diferente, então nada que dependa de *estado de sessão* sobrevive —
+`SET`, tabelas temporárias, `LISTEN/NOTIFY` e *prepared statements* nomeados.
+O código atual não usa nada disso (`pool.query` com parâmetros posicionais é
+seguro aqui), mas quem for acrescentar precisa saber.
 
 O usuário muda entre elas: na direta é `postgres`, no pooler é
 `postgres.<ref-do-projeto>`. A **senha é a mesma** nos dois — a do momento

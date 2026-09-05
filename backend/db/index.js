@@ -115,6 +115,12 @@ async function adaptadorPostgres(){
   return {
     tipo: 'postgres',
 
+    /* ESTE DDL TEM QUE CONTINUAR IGUAL AO db/schema.sql. Sao duas fontes de
+       propósito -- o schema.sql comeca com DROP TABLE, entao nao pode rodar
+       sozinho na subida da API -- mas um banco criado por aqui e um criado
+       pelo schema.sql precisam ser o MESMO banco. Ja divergiram uma vez:
+       faltavam os CHECK de erros e combo_max e o indice por jogador_id, que
+       e justamente o que o DISTINCT ON (jogador_id) do ranking usa. */
     async iniciar(){
       // cria as tabelas se ainda não existirem (idempotente)
       await pool.query(`
@@ -129,12 +135,13 @@ async function adaptadorPostgres(){
           pontos     INTEGER NOT NULL CHECK (pontos >= 0),
           tempo      NUMERIC(7,2) NOT NULL CHECK (tempo >= 0),
           precisao   SMALLINT NOT NULL CHECK (precisao BETWEEN 0 AND 100),
-          erros      SMALLINT NOT NULL DEFAULT 0,
-          combo_max  SMALLINT NOT NULL DEFAULT 0,
+          erros      SMALLINT NOT NULL DEFAULT 0 CHECK (erros >= 0),
+          combo_max  SMALLINT NOT NULL DEFAULT 0 CHECK (combo_max >= 0),
           estrelas   SMALLINT NOT NULL CHECK (estrelas BETWEEN 0 AND 5),
           criado     TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-        CREATE INDEX IF NOT EXISTS idx_partida_pontos ON partida (pontos DESC);
+        CREATE INDEX IF NOT EXISTS idx_partida_pontos  ON partida (pontos DESC);
+        CREATE INDEX IF NOT EXISTS idx_partida_jogador ON partida (jogador_id);
       `);
     },
 

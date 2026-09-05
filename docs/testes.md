@@ -119,7 +119,9 @@ abaixo são verificáveis no `git log`.
 | 7 | Bater forte deixava o som mais **agudo**, como um brinquedo | `synth.js` | a força passou a abrir o brilho (`highshelf` com teto em zero) em vez de mexer no `playbackRate` | 04/09 (`3d0cc71`) |
 | 8 | A API caía no primeiro POST depois de um tempo parada | `backend/db/index.js` | sem `pool.on('error')`, o erro de uma conexão ociosa que cai não tem tratamento e derruba o processo Node inteiro | 04/09 (`99f609d`) |
 | 9 | O crash balançava **pela metade**, partido no ar | `ferramentas/cortar-peca.mjs` | o recorte usava uma faixa horizontal, e o prato veio do scan inclinado 35°: um disco de 0,23 m de raio nessa inclinação ocupa 0,28 m de altura contra os 0,15 m da faixa, então ela cortava as pontas *por construção*. A faixa passou a seguir o plano do próprio prato | 04/09 (`8295c60`) |
-| 10 | | | | |
+| 10 | O ranking devolvia `"posicao":"1"` e `"tempo":"96.20"` — strings, onde o contrato promete número | `backend/db/index.js` | o `node-postgres` entrega `NUMERIC` e `BIGINT` como string, então o **mesmo endpoint** respondia com tipos diferentes conforme `DATABASE_URL` estar definida. Confirmado em produção antes da correção. O adaptador Postgres passou a normalizar | 05/09 (`4cf87ab`) |
+| 11 | As linhas de exemplo do `schema.sql` violavam o próprio `CHECK` | `backend/db/schema.sql` | `estrelas` 82, 57 e 90 contra `CHECK (estrelas BETWEEN 0 AND 5)` — valores do reator, que ia de 0 a 100, renomeados sem converter. Quem descomentasse levava erro de constraint | 05/09 (`4cf87ab`) |
+| 12 | | | | |
 
 ### Erros de método, que também custaram tempo
 
