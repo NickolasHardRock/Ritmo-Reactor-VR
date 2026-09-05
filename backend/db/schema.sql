@@ -75,6 +75,9 @@ COMMIT;
 -- ---------------------------------------------------------------------------
 -- INSERT INTO jogador (nome) VALUES ('Diego'), ('Bruno');
 -- INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, estrelas)
--- VALUES (1, 740, 96.20, 88, 4, 17, 82),
---        (1, 520, 91.40, 71, 9, 11, 57),
---        (2, 810, 94.75, 92, 3, 21, 90);
+-- VALUES (1, 740, 96.20, 88, 4, 17, 4),
+--        (1, 520, 91.40, 71, 9, 11, 3),
+--        (2, 810, 94.75, 92, 3, 21, 4);
+--
+-- As estrelas conferem com a precisao pela regra de pontuacao.js
+-- (cortes em 95 / 85 / 70 / 50): 88% e 92% dao 4 estrelas, 71% da 3.

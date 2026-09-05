@@ -60,6 +60,24 @@ function adaptadorMemoria(){
 }
 
 /* -------------------------------------------------------- POSTGRESQL ----- */
+
+/* O node-postgres devolve NUMERIC e BIGINT como STRING, nao como numero: e
+   a decisao correta da biblioteca, porque esses tipos cabem mais do que um
+   double aguenta. Só que aqui isso fazia o MESMO endpoint responder com
+   tipos diferentes conforme o DATABASE_URL estar definido ou nao --
+   `"tempo": 96.2` em memoria contra `"tempo": "96.20"` no Postgres, e
+   `"posicao": 1` contra `"posicao": "1"`. Quem consome ordenaria ou somaria
+   string sem perceber. Os valores deste jogo cabem folgados num double, e o
+   contrato publicado em docs/api.md diz numero, entao normalizamos aqui. */
+const CAMPOS_NUMERICOS = ['posicao', 'pontos', 'tempo', 'precisao', 'erros',
+                          'combo_max', 'estrelas', 'jogador_id', 'id'];
+function normalizar(linha){
+  const saida = { ...linha };
+  for (const k of CAMPOS_NUMERICOS)
+    if (saida[k] !== undefined && saida[k] !== null) saida[k] = Number(saida[k]);
+  return saida;
+}
+
 async function adaptadorPostgres(){
   // import dinâmico: quem roda em memória não precisa ter o `pg` instalado
   const { default: pg } = await import('pg');
@@ -145,12 +163,12 @@ async function adaptadorPostgres(){
            JOIN jogador j ON j.id = m.jogador_id
           ORDER BY m.pontos DESC, m.tempo ASC
           LIMIT $1`, [limite]);
-      return r.rows;
+      return r.rows.map(normalizar);
     },
 
     async partida(id){
       const r = await pool.query('SELECT * FROM partida WHERE id = $1', [id]);
-      return r.rows[0] || null;
+      return r.rows[0] ? normalizar(r.rows[0]) : null;
     },
     async total(){
       const r = await pool.query('SELECT COUNT(*)::int AS n FROM partida');
