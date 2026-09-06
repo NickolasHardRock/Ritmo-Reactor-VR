@@ -24,14 +24,25 @@
 
    PRÉ-REQUISITOS
    ----------------------------------------------------------------------------
-   1) npm install @gltf-transform/core @gltf-transform/extensions \
-                  @gltf-transform/functions draco3dgltf sharp
+   1) `npm install` na raiz já traz @gltf-transform/{core,extensions,functions}
+      e sharp — são devDependencies do projeto. (draco3dgltf vem junto.)
    2) npm install -g @gltf-transform/cli
    3) KTX-Software (fornece o binário `ktx`, que faz a compressão Basis):
         Windows: baixe o instalador .exe em
                  https://github.com/KhronosGroup/KTX-Software/releases
                  e REABRA o terminal depois de instalar (PATH).
-      Sem ele o script ainda roda, mas para no passo de resolução e avisa.
+      Sem ele o script ainda roda, avisa e sai em PNG.
+
+      CUIDADO COM O NOME `ktx`. Existe um pacote npm chamado `ktx` que é
+      OUTRA ferramenta e ocupa o mesmo nome no PATH. Se ele estiver
+      instalado, a detecção daqui dá verdadeiro e a conversão morre no meio.
+      Confira antes:
+
+        ktx --version     → tem de responder "ktx version: v4.x"
+
+      Se responder outra coisa, é o impostor. O instalador da Khronos
+      escreve no PATH de SISTEMA, que o Windows compõe antes do PATH de
+      usuário (onde mora o npm), então instalar já costuma resolver.
 
    IMPORTANTE: o jogo precisa do KTX2Loader para abrir o arquivo resultante.
    O jogo.html já vem com ele.
