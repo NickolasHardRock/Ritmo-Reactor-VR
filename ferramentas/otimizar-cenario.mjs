@@ -24,14 +24,25 @@
 
    PRÉ-REQUISITOS
    ----------------------------------------------------------------------------
-   1) npm install @gltf-transform/core @gltf-transform/extensions \
-                  @gltf-transform/functions draco3dgltf sharp
+   1) `npm install` na raiz já traz @gltf-transform/{core,extensions,functions}
+      e sharp — são devDependencies do projeto. (draco3dgltf vem junto.)
    2) npm install -g @gltf-transform/cli
    3) KTX-Software (fornece o binário `ktx`, que faz a compressão Basis):
         Windows: baixe o instalador .exe em
                  https://github.com/KhronosGroup/KTX-Software/releases
                  e REABRA o terminal depois de instalar (PATH).
-      Sem ele o script ainda roda, mas para no passo de resolução e avisa.
+      Sem ele o script ainda roda, avisa e sai em PNG.
+
+      CUIDADO COM O NOME `ktx`. Existe um pacote npm chamado `ktx` que é
+      OUTRA ferramenta e ocupa o mesmo nome no PATH. Se ele estiver
+      instalado, a detecção daqui dá verdadeiro e a conversão morre no meio.
+      Confira antes:
+
+        ktx --version     → tem de responder "ktx version: v4.x"
+
+      Se responder outra coisa, é o impostor. O instalador da Khronos
+      escreve no PATH de SISTEMA, que o Windows compõe antes do PATH de
+      usuário (onde mora o npm), então instalar já costuma resolver.
 
    IMPORTANTE: o jogo precisa do KTX2Loader para abrir o arquivo resultante.
    O jogo.html já vem com ele.
@@ -75,12 +86,18 @@ if (!ENTRADA || !SAIDA){
   process.exit(1);
 }
 const TMP = SAIDA.replace(/\.glb$/i,'') + '.__tmp.glb';
-const io  = new NodeIO().registerExtensions(ALL_EXTENSIONS);
-/* Decodificador Draco: preciso dele para RELER o arquivo no fim e conferir
-   o resultado — sem ele a leitura de volta quebra. */
-const ioLeitura = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
-  'draco3d.decoder': await draco3d.createDecoderModule(),
-});
+/* Decodificador Draco, registrado nos DOIS leitores.
+   No fim eu preciso dele para RELER a saída e conferir o resultado — essa
+   era a única razão de existir, e por isso ele só estava no `ioLeitura`.
+   Só que a entrada também pode vir comprimida: quem apontar este script para
+   um `.glb` que já passou por Draco (o `world_of_metal_otimizado.glb`, por
+   exemplo, e é fácil confundir com a fonte crua) recebia um
+   `Cannot read properties of undefined (reading 'DT_FLOAT32')` lá dentro do
+   @gltf-transform, que não diz nada a quem chamou. Registrar nos dois custa
+   um módulo e apaga a armadilha. */
+const draco = { 'draco3d.decoder': await draco3d.createDecoderModule() };
+const io  = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies(draco);
+const ioLeitura = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies(draco);
 
 /** VRAM de uma textura, com mipmaps (fator 4/3).
  *  PNG/JPG/WebP: a GPU descomprime para RGBA -> 4 bytes por pixel.
@@ -175,25 +192,49 @@ const gt = process.platform === 'win32' ? 'gltf-transform.cmd' : 'gltf-transform
 const temGT  = temCmd(gt, ['--version']);
 const temKTX = temCmd('ktx', ['--version']);
 
+/* ATENÇÃO AO NOME `ktx`. Existe um pacote npm chamado `ktx` que NÃO tem nada
+   a ver com o KTX-Software da Khronos — é uma ferramenta de outro assunto que
+   só divide o nome. Se ele estiver no PATH, `ktx --version` responde, o
+   `temKTX` dá verdadeiro, e o script seguia confiante para morrer no meio do
+   caminho com um `spawn ktx ENOENT` vindo lá de dentro do gltf-transform.
+   Perder o encoder é chato; perder o arquivo no meio da conversão é pior.
+   Por isso a passada de KTX2 vive num try: se ela falhar por qualquer razão,
+   caímos no caminho de PNG, que é a degradação que este script já previa. */
+let fezKTX2 = false;
 if (CFG.usarKTX2 && temGT && temKTX){
   await io.write(TMP, doc);
   const rodar = (args) => execFileSync(gt, args, {stdio:'inherit', shell:process.platform==='win32'});
-  console.log('\n• KTX2: mapas normais em UASTC (precisam de precisão)…');
-  rodar(['uastc', TMP, TMP+'2', '--slots','{normalTexture,clearcoatNormalTexture}',
-         '--level','2','--rdo','4','--zstd','18']);
-  console.log('• KTX2: cor, emissivo e rugosidade em ETC1S (mais compacto)…');
-  rodar(['etc1s', TMP+'2', TMP+'3', '--quality','200']);
-  console.log('• Draco na geometria…');
-  rodar(['draco', TMP+'3', SAIDA]);
-  for (const f of [TMP, TMP+'2', TMP+'3']) try{ fs.unlinkSync(f); }catch{}
-} else {
-  if (CFG.usarKTX2){
+  try {
+    console.log('\n• KTX2: mapas normais em UASTC (precisam de precisão)…');
+    rodar(['uastc', TMP, TMP+'2', '--slots','{normalTexture,clearcoatNormalTexture}',
+           '--level','2','--rdo','4','--zstd','18']);
+    console.log('• KTX2: cor, emissivo e rugosidade em ETC1S (mais compacto)…');
+    rodar(['etc1s', TMP+'2', TMP+'3', '--quality','200']);
+    console.log('• Draco na geometria…');
+    rodar(['draco', TMP+'3', SAIDA]);
+    fezKTX2 = true;
+  } catch (e){
+    console.log('\n⚠  A conversão para KTX2 falhou no meio. Causa provável: o'
+      + '\n   `ktx` do PATH não é o do KTX-Software (há um pacote npm de mesmo'
+      + '\n   nome). Confira com `ktx --version` — o da Khronos se identifica'
+      + '\n   como KTX-Software. Baixe em:'
+      + '\n   https://github.com/KhronosGroup/KTX-Software/releases'
+      + `\n   Erro: ${String(e.message).split('\n')[0]}`);
+  }
+  for (const f of [TMP+'2', TMP+'3']) try{ fs.unlinkSync(f); }catch{}
+  if (fezKTX2) try{ fs.unlinkSync(TMP); }catch{}
+}
+
+if (!fezKTX2){
+  if (CFG.usarKTX2 && !(temGT && temKTX)){
     console.log('\n⚠  KTX2 pulado — ' +
       (!temGT  ? 'falta `npm install -g @gltf-transform/cli`. ' : '') +
-      (!temKTX ? 'falta o binário `ktx` (KTX-Software). ' : '') +
-      '\n   Saindo em PNG. Com KTX2 esse mesmo arquivo usaria ~8x menos VRAM.');
+      (!temKTX ? 'falta o binário `ktx` (KTX-Software). ' : ''));
   }
-  await io.write(TMP, doc);
+  if (CFG.usarKTX2){
+    console.log('   Saindo em PNG. Com KTX2 esse mesmo arquivo usaria ~8x menos VRAM.');
+  }
+  if (!fs.existsSync(TMP)) await io.write(TMP, doc);
   if (temGT){
     execFileSync(gt, ['draco', TMP, SAIDA], {stdio:'inherit', shell:process.platform==='win32'});
     fs.unlinkSync(TMP);

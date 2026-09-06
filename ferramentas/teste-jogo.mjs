@@ -167,10 +167,73 @@ conf(JSON.stringify(barra) === JSON.stringify([0,0.5,0,0.5,1]),
 console.log('\nCT-08  custo por quadro');
 const custo = await pagina.evaluate(`({
   tris: window.__jogo.renderer.info.render.triangles,
-  draws: window.__jogo.renderer.info.render.calls })`);
+  draws: window.__jogo.renderer.info.render.calls,
+  cena: window.__perf.inventario() })`);
 console.log(`  · ${custo.tris.toLocaleString('pt-BR')} triângulos, ${custo.draws} draw calls`);
 console.log('    (em VR isto DOBRA — um desenho por olho)');
+
+/* DE QUEM É O PESO. O total sozinho aponta a dor sem apontar a causa: não
+   diz se cortar deve começar pela bateria ou pelo cenário. A medida dentro
+   do headset vai herdar exatamente essa dúvida, então ela se responde aqui,
+   onde é barato. Conta a geometria montada, não a que sobreviveu ao
+   descarte por frustum — é o peso do que existe, não o do último quadro. */
+for (const g of custo.cena){
+  console.log(`    ${g.nome.padEnd(10)}`
+    + ` ${g.triangulos.toLocaleString('pt-BR').padStart(9)} tris`
+    + ` ${String(g.malhas).padStart(4)} malhas`
+    + (g.malhasDuplas
+        ? `   +${g.malhasDuplas} desenhadas 2x `
+          + `(+${g.triangulosExtras.toLocaleString('pt-BR')} tris)`
+        : ''));
+}
+
+/* Não é asserção, é vigia. Material `transparent` com `DoubleSide` faz o
+   three desenhar a malha duas vezes; o exportador de glTF marca transparente
+   por hábito, e o custo não aparece em lugar nenhum do nosso código. Fica
+   impresso a cada rodada para ninguém precisar redescobrir isso. */
+const extras = custo.cena.reduce((s, g) => s + g.triangulosExtras, 0);
+if (extras){
+  console.log(`    ⚠ ${extras.toLocaleString('pt-BR')} triângulos por olho vêm da`
+    + ' passada dupla de material transparente + DoubleSide');
+}
+
 conf(custo.draws < 200, 'draw calls dentro do razoável para mobile');
+/* As duas raízes precisam continuar nomeadas: é o nome que separa uma da
+   outra. Quem renomear sem querer faz o inventário desabar num número só,
+   e o teste avisa em vez de deixar passar. */
+const nomes = custo.cena.map(g => g.nome);
+conf(nomes.includes('bateria') && nomes.includes('cenario'),
+     'inventário separa bateria e cenário', nomes.join(', '));
+
+/* O painel e o resumo de desempenho só aparecem dentro do headset, onde
+   ninguém vê uma exceção acontecer: o quadro simplesmente para. Então o
+   caminho inteiro — ligar, gravar, resumir, pintar — é exercitado aqui. */
+console.log('\nCT-08b  o instrumento de medição funciona');
+await pagina.evaluate('window.__perf.ligar(true)');
+/* Espera CONDIÇÃO, não relógio. Neste Chromium a cena roda por software, a
+   ~13 quadros por segundo: qualquer pausa fixa ou sobra ou falta, e um teste
+   que depende da velocidade da máquina é um teste que vai piscar. */
+await pagina.waitForFunction('window.__perf.serie().ms.length >= 12', { timeout: 30000 });
+const r = await pagina.evaluate('window.__perf.resumo()');
+conf(r.geral && r.geral.n >= 12, 'a sessão é gravada quadro a quadro',
+     `${r.geral ? r.geral.n : 0} quadros`);
+conf(r.geral && r.geral.p50 > 0 && r.geral.p95 >= r.geral.p50 && r.geral.pior >= r.geral.p95,
+     'os percentis saem ordenados',
+     r.geral ? `p50 ${r.geral.p50.toFixed(1)} ≤ p95 ${r.geral.p95.toFixed(1)}`
+               + ` ≤ pior ${r.geral.pior.toFixed(1)}` : 'sem amostras');
+conf(r.orcamento > 0 && Math.abs(r.orcamento - 1000 / r.hz) < 1e-9,
+     'o orçamento vem da taxa real, não de um número fixo',
+     `${r.hz} Hz -> ${r.orcamento.toFixed(1)} ms`);
+conf(r.porFase.length >= 1 && r.porFase.every(f => f.n > 0),
+     'a estatística é separada por fase', r.porFase.map(f => f.rotulo).join(', '));
+
+await pagina.evaluate('window.__perf.alternarResumo(true)');
+await pagina.waitForTimeout(120);
+const textoResumo = await pagina.textContent('#perf-resumo');
+conf(/RESUMO/.test(textoResumo) && /TOTAL/.test(textoResumo),
+     'o resumo é pintado numa tela só, para sair do headset num print',
+     (textoResumo.split('\n')[0] || '').trim());
+await pagina.evaluate('window.__perf.alternarResumo(false); window.__perf.ligar(false)');
 
 console.log('\nCT-09  RF11/RF12 — a partida foi registrada pela API');
 const reg = await fetch(`http://localhost:${PORTA}/api/ranking?limite=5`).then(r => r.json());
@@ -182,6 +245,50 @@ conf((await pagina.textContent('#f-api')).includes('salva'),
 
 console.log('\nCT-10  console limpo');
 conf(erros.length === 0, 'nenhum erro de JavaScript', erros.join(' | '));
+
+/* ---------------------------------------------------------------------------
+   CT-11 — as chaves de diagnóstico abrem sem quebrar.
+
+   Estas duas só serão usadas DENTRO do headset, num dia marcado, com o
+   equipamento na mão. Se uma delas lançar exceção, a descoberta acontece
+   tarde demais: o quadro congela e a sessão de medição vai embora junto.
+   Por isso elas são abertas aqui, numa aba própria, com o console vigiado.  */
+console.log('\nCT-11  as chaves de diagnóstico abrem sem quebrar');
+/* A aba principal sai de cena antes: neste Chromium tudo roda por software,
+   e duas cenas de 450 mil triângulos disputando a mesma CPU fazem a segunda
+   demorar mais que qualquer limite razoável de espera. */
+await pagina.close();
+for (const [chave, confere] of [
+  ['perf=1&semrender=1',
+   `(() => { const sc = window.__jogo.scene;
+      const vis = sc.children.filter(o => o.visible && !o.isLight).map(o => o.name || o.type);
+      return { visiveis: vis, temPainel: !!document.getElementById('perf') }; })()`],
+  ['perf=1&escala=0.01',
+   `(() => ({ visiveis: null, temPainel: !!document.getElementById('perf') }))()`],
+]){
+  const aba = await navegador.newPage({ viewport: { width: 800, height: 600 } });
+  const ruim = [];
+  aba.on('pageerror', e => ruim.push(String(e.message)));
+  aba.on('console', m => { if (m.type() === 'error') ruim.push(m.text()); });
+  /* `commit` em vez de `load`: o que interessa é o jogo ficar pronto, e isso
+     quem responde é `window.__pronto`. Esperar o evento `load` seria esperar
+     os 22 MB de modelo por um caminho que não diz nada a mais. */
+  await aba.goto(`http://localhost:${PORTA}/?${chave}`,
+                 { waitUntil: 'commit', timeout: 120000 });
+  await aba.waitForFunction('window.__pronto === true', { timeout: 120000 });
+  await aba.waitForFunction('window.__perf.serie().ms.length >= 5', { timeout: 30000 });
+  const est = await aba.evaluate(confere);
+  conf(ruim.length === 0 && est.temPainel, `?${chave} abre, mede e não erra`,
+       ruim.join(' | ') || (est.temPainel ? '' : 'painel não apareceu'));
+  /* `semrender` tem de deixar só o jogador de pé — é nele que a câmera, e
+     portanto o painel, estão penduradas. Se sobrar cenário, o experimento
+     não isolou nada e o número seria uma mentira confortável. */
+  if (est.visiveis){
+    conf(est.visiveis.length === 1 && est.visiveis[0] === 'jogador',
+         'semrender esconde a cena e preserva o painel', est.visiveis.join(', '));
+  }
+  await aba.close();
+}
 
 await navegador.close();
 servidor.close();
