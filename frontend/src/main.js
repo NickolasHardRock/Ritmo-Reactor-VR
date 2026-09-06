@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit,
-         carregarCenario,
+         carregarCenario, gerarAmbienteDaCena,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
 import { medir as medirDesempenho, alternarResumo } from './desempenho.js';
@@ -37,8 +37,14 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
          telaResultado, calibragem3D } from './ui.js';
 
-/* ------------------------------------------------------ carregamento ----- */
-carregarCenario();
+/* ------------------------------------------------------ carregamento -----
+   A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
+   O reflexo dos pratos é feito do próprio cenário: capturar antes de ele
+   estar na cena devolve um cubo do vazio, e um `setTimeout` chutado devolve
+   isso de vez em quando, na máquina de alguém, sem aviso. Ver
+   cena.js → gerarAmbienteDaCena(). O kit não precisa ter chegado: ele é
+   justamente o que a captura esconde.                                     */
+carregarCenario(() => gerarAmbienteDaCena());
 carregarBichos(kit);
 carregarBateria(
   (ok) => {
@@ -417,6 +423,13 @@ window.__jogo = {
      partida inteira à mão. Foi assim que a tabela de multiplicador e as
      estrelas foram verificadas. */
   atualizarHUD, telaResultado, pontuacao, synth, balanco,
+  /* Regerar o ambiente de fora é o único jeito de comparar reflexo A/B sem
+     recarregar a página — e recarregar perde a posição da câmera, que é
+     justamente o que se quer manter igual entre as duas fotos. NÃO chame por
+     `import('/src/cena.js')`: o Vite serve o módulo com `?t=` depois de cada
+     HMR, e o import devolve uma instância NOVA, com uma cena vazia. O sintoma
+     é a função avisar "sem cenário na cena" enquanto o cenário está na tela. */
+  gerarAmbienteDaCena,
   NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,

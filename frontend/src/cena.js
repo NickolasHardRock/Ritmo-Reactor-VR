@@ -11,8 +11,8 @@ import * as THREE          from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { CENARIO, QUALIDADE, CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
+import { CENARIO, QUALIDADE, AMBIENTE,
+         CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
 
 /* --------------------------------------------------------- cena base ----- */
 export const scene = new THREE.Scene();
@@ -59,7 +59,52 @@ export function molduraVR(){
 
 /* ------------------------------------------------------------- luz ------- */
 const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), .05).texture;
+
+/* O AMBIENTE PROVISÓRIO, que vive só até o cenário carregar.
+   Um gradiente escuro numa esfera de dentro para fora — zero download, uma
+   malha de 16 × 12 que nem chega a existir por quadro, porque o PMREM a
+   consome uma vez e ela é descartada. Serve a dois momentos: os segundos
+   entre a página abrir e o `cenario.glb` chegar, e o caso em que o cenário
+   NÃO carrega (que não é fatal aqui — o jogo roda sem ele). Sem nenhum
+   ambiente, todo metal do kit fica preto e o defeito parece ser do modelo. */
+function ambienteGradiente(){
+  const g = new THREE.SphereGeometry(1, 16, 12);
+  const pos = g.attributes.position, cor = new THREE.Color(), cores = [];
+  const alto = new THREE.Color(0x2a3446), baixo = new THREE.Color(0x0b0f18);
+  for (let i = 0; i < pos.count; i++){
+    cor.copy(baixo).lerp(alto, THREE.MathUtils.smoothstep(pos.getY(i), -.6, .6));
+    cores.push(cor.r, cor.g, cor.b);
+  }
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3));
+  const provisoria = new THREE.Scene();
+  provisoria.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+    vertexColors: true, side: THREE.BackSide })));
+  const rt = pmrem.fromScene(provisoria, .04);
+  g.dispose();
+  return rt;
+}
+
+/* Guardar o RENDER TARGET, não a textura: quem tem `dispose()` que devolve a
+   memória da GPU é ele. Trocar `scene.environment` sem isto vaza um alvo de
+   PMREM inteiro por troca — e este código troca pelo menos uma vez por
+   carregamento. */
+let _envRT = null;
+const _ouvintes = [];
+
+/** Avisa quando o `scene.environment` troca, e já chama com o que existe
+ *  agora. Existe porque o kit precisa saber: ele copia a textura para o
+ *  próprio `envMap` (ver kit.js), e o ambiente definitivo costuma chegar
+ *  DEPOIS do modelo — cenário e bateria carregam em paralelo, e quem termina
+ *  primeiro muda com a rede. */
+export function aoTrocarAmbiente(fn){ _ouvintes.push(fn); fn(scene.environment); }
+
+function trocarAmbiente(rt){
+  if (_envRT && _envRT !== rt) _envRT.dispose();
+  _envRT = rt;
+  scene.environment = rt ? rt.texture : null;
+  for (const fn of _ouvintes) fn(scene.environment);
+}
+trocarAmbiente(ambienteGradiente());
 
 scene.add(new THREE.HemisphereLight(0xbcd4f5, 0x2b3648, 1.15));
 const luzChave = new THREE.DirectionalLight(0xdfeaff, .85);
@@ -175,8 +220,13 @@ function encaixarCenario(m){
   m.position.set(-px, -CENARIO.alturaPiso * s, POSTO.z - pz);
 }
 
-/** Carrega o cenário. Falha não é fatal: o jogo roda sem ele. */
-export function carregarCenario(){
+/** Carrega o cenário.
+ *  Falha não é fatal: o jogo roda sem ele — e por isso `aoTerminar` é chamado
+ *  nos DOIS caminhos, com o modelo ou com `null`. Quem espera o cenário para
+ *  agir (a captura do ambiente, logo abaixo) precisa saber que ele não vem,
+ *  em vez de esperar para sempre.
+ *  @param {(cenario:THREE.Object3D|null)=>void} [aoTerminar] */
+export function carregarCenario(aoTerminar){
   loader.load(CENARIO.url,
     (gltf) => {
       const m = gltf.scene;
@@ -188,11 +238,105 @@ export function carregarCenario(){
          do custo da bateria. Sem nome, os dois viram um numero so. */
       m.name = 'cenario';
       scene.add(m);
+      if (aoTerminar) aoTerminar(m);
     },
     undefined,
-    (err) => console.warn('[cena] cenário não carregou — seguindo sem ele', err),
+    (err) => {
+      console.warn('[cena] cenário não carregou — seguindo sem ele', err);
+      if (aoTerminar) aoTerminar(null);
+    },
   );
 }
+
+/* ======================= O AMBIENTE VEM DA PRÓPRIA CENA ==================
+   Seis faces renderizadas UMA vez da posição do kit, viradas em mapa de
+   ambiente pelo PMREM. Zero download, e nada por quadro depois da carga.
+
+   Por que não um HDRI: engorda de 1 a 4 MB o que se está tentando emagrecer.
+   Por que não gradiente procedural: melhor que estúdio branco, mas continua
+   sendo um lugar que não existe. Aqui o prato reflete a rocha, os
+   amplificadores e a cor do céu que estão de fato em volta dele.
+
+   O QUE NÃO ENTRA NA CAPTURA. Só o cenário e as luzes. Sai o kit (que
+   refletiria a si mesmo a partir de um ponto só, e ainda pagaria 212 mil
+   triângulos vezes seis), saem os discos e anéis coloridos das zonas, os
+   rótulos, os painéis, a mancha de sombra, a pista e o grupo do jogador com
+   as baquetas. LUZ NÃO SE ESCONDE: `visible = false` numa luz a tira do
+   cálculo, e a captura sairia preta.
+
+   A NÉVOA TEM DE SAIR NO MEIO. Ela é 16–40 m e o cenário tem 26 × 32 × 27 m,
+   então as bordas dele caem bem dentro da faixa: capturar com névoa ligada
+   assa o cinza `0x2a3446` em quase todo o cubo e o resultado fica PIOR que o
+   estúdio branco — um borrão uniforme reflete pior que uma sala errada.
+
+   O AMBIENTE ANTERIOR TAMBÉM SAI. Sem isso a captura inclui o reflexo velho
+   já assado na rocha, e uma segunda chamada se alimentaria da primeira. Como
+   o resultado fica um pouco mais escuro que o que está na tela, a
+   compensação é o `envMapIntensity` do config — que é onde ela deve estar,
+   e não escondida aqui dentro.                                            */
+export function gerarAmbienteDaCena(){
+  if (!AMBIENTE.ligado){
+    console.info('[cena] ?amb=0 — ambiente segue no gradiente provisório');
+    return null;
+  }
+
+  /* Seis renders num quadro só. Fora do VR é um engasgo que ninguém vê,
+     porque acontece atrás da tela de carregamento. Dentro de uma sessão é um
+     tranco na cabeça de quem está de headset — e o `CubeCamera.update()`
+     ainda desliga o `xr.enabled` no meio do caminho para conseguir
+     renderizar. Se o cenário chegar com o jogador já em VR, espera ele sair. */
+  if (renderer.xr.isPresenting){
+    const depois = () => { renderer.xr.removeEventListener('sessionend', depois);
+                           gerarAmbienteDaCena(); };
+    renderer.xr.addEventListener('sessionend', depois);
+    console.info('[cena] captura do ambiente adiada — sessão VR em curso');
+    return null;
+  }
+
+  const cenario = scene.getObjectByName('cenario');
+  if (!cenario){
+    console.warn('[cena] sem cenário na cena — ambiente segue no gradiente');
+    return null;
+  }
+
+  const t0 = performance.now();
+
+  const escondidos = [];
+  for (const o of scene.children){
+    if (o === cenario || o.isLight || !o.visible) continue;
+    o.visible = false; escondidos.push(o);
+  }
+  const nevoaAntes = scene.fog;         scene.fog = null;
+  const envAntes   = scene.environment; scene.environment = null;
+  const fundoAntes = scene.background;
+  if (AMBIENTE.corDoCeu != null) scene.background = new THREE.Color(AMBIENTE.corDoCeu);
+
+  /* `near` 0,1 porque nada perto sobrou visível; `far` 100 cobre com folga os
+     ~32 m do cenário. HalfFloat para o PMREM receber a faixa alta sem
+     estourar: o céu é bem mais claro que a rocha e é ele que dá o brilho da
+     borda do prato. */
+  const alvo = new THREE.WebGLCubeRenderTarget(AMBIENTE.resolucao,
+    { type: THREE.HalfFloatType });
+  const camCubo = new THREE.CubeCamera(.1, 100, alvo);
+  camCubo.position.set(0, AMBIENTE.altura, 0);
+  camCubo.update(renderer, scene);
+
+  const rt = pmrem.fromCubemap(alvo.texture);
+  alvo.dispose();
+
+  scene.fog = nevoaAntes;
+  scene.environment = envAntes;
+  scene.background = fundoAntes;
+  for (const o of escondidos) o.visible = true;
+
+  trocarAmbiente(rt);
+  console.info(`[cena] ambiente gerado da própria cena em`
+    + ` ${Math.round(performance.now() - t0)} ms`
+    + ` — ${AMBIENTE.resolucao}² por face, câmera em y=${AMBIENTE.altura} m,`
+    + ` céu 0x${(AMBIENTE.corDoCeu ?? 0).toString(16).padStart(6, '0')}`);
+  return rt.texture;
+}
+
 
 /* ============================================ PLACAS DE TEXTO EM 3D ======
    HTML não existe dentro do headset: nenhum <div> aparece em VR. Todo aviso
