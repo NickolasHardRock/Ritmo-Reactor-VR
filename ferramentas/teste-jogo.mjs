@@ -58,6 +58,21 @@ const navegador = await chromium.launch({
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'],
 });
 const pagina = await navegador.newPage({ viewport: { width: 1280, height: 800 } });
+/* LIMITE DE ESPERA, NUMA LINHA SÓ — E É O JEITO CERTO.
+   `waitForFunction(fn, arg, options)`: o SEGUNDO parâmetro posicional é o
+   argumento da função, não as opções. Escrever
+   `waitForFunction(expr, { timeout: 120000 })` passa o objeto como ARGUMENTO,
+   e o limite volta ao padrão de 30 s — calado, sem aviso nenhum.
+
+   Este arnês fazia isso desde o commit inicial, em seis lugares: o
+   `{ timeout: 60000 }` do CT-01 nunca valeu nada. O sintoma era um teste que
+   falhava quando a máquina estava ocupada e culpava o código.
+
+   Em vez de acertar a chamada seis vezes e deixar a armadilha armada para a
+   sétima, o limite passa a ser da PÁGINA. Generoso de propósito: a cena roda
+   por software aqui, e na primeira execução ainda compila shader.
+   O que os testes afirmam não mudou — só a paciência. */
+pagina.setDefaultTimeout(120000);
 
 const erros = [];
 pagina.on('pageerror', e => erros.push(String(e.message)));
@@ -70,7 +85,7 @@ const conf = (cond, t, extra='') => cond ? ok(t, extra) : nok(t, extra);
 
 console.log('\nCT-01  carregamento');
 await pagina.goto(`http://localhost:${PORTA}/`);
-await pagina.waitForFunction('window.__pronto === true', { timeout: 60000 });
+await pagina.waitForFunction('window.__pronto === true');
 ok('cenário e bateria carregados');
 
 console.log('\nCT-02  detecção varrida de batida (o núcleo do jogo)');
@@ -125,7 +140,7 @@ conf(await pagina.evaluate('window.__jogo.zonas.every(z => !z.rotulo.visible)'),
 console.log('\nCT-05  fase 2 — eco');
 await pagina.waitForTimeout(1900);
 conf((await pagina.textContent('#h-fase')).includes('Eco'), 'fase 2 ativa');
-await pagina.waitForFunction('window.__jogo.eco.tocando === false', { timeout: 15000 });
+await pagina.waitForFunction('window.__jogo.eco.tocando === false');
 const padrao = await pagina.evaluate('window.__jogo.eco.padrao');
 conf(padrao.every((v, i) => i === 0 || v !== padrao[i-1]),
      'padrão não repete a mesma peça em seguida', padrao.join(' > '));
@@ -221,7 +236,7 @@ await pagina.evaluate('window.__perf.ligar(true)');
    enquanto alguém jogava ao lado. O que se afirma aqui é que o instrumento
    GRAVA e SOMA certo, não que a máquina esteja rápida — então o tempo é
    generoso e a asserção continua estrita. */
-await pagina.waitForFunction('window.__perf.serie().ms.length >= 12', { timeout: 120000 });
+await pagina.waitForFunction('window.__perf.serie().ms.length >= 12');
 const r = await pagina.evaluate('window.__perf.resumo()');
 conf(r.geral && r.geral.n >= 12, 'a sessão é gravada quadro a quadro',
      `${r.geral ? r.geral.n : 0} quadros`);
@@ -275,6 +290,7 @@ for (const [chave, confere] of [
    `(() => ({ visiveis: null, temPainel: !!document.getElementById('perf') }))()`],
 ]){
   const aba = await navegador.newPage({ viewport: { width: 800, height: 600 } });
+  aba.setDefaultTimeout(120000);
   const ruim = [];
   aba.on('pageerror', e => ruim.push(String(e.message)));
   aba.on('console', m => { if (m.type() === 'error') ruim.push(m.text()); });
@@ -283,8 +299,8 @@ for (const [chave, confere] of [
      os 22 MB de modelo por um caminho que não diz nada a mais. */
   await aba.goto(`http://localhost:${PORTA}/?${chave}`,
                  { waitUntil: 'commit', timeout: 120000 });
-  await aba.waitForFunction('window.__pronto === true', { timeout: 120000 });
-  await aba.waitForFunction('window.__perf.serie().ms.length >= 5', { timeout: 30000 });
+  await aba.waitForFunction('window.__pronto === true');
+  await aba.waitForFunction('window.__perf.serie().ms.length >= 5');
   const est = await aba.evaluate(confere);
   conf(ruim.length === 0 && est.temPainel, `?${chave} abre, mede e não erra`,
        ruim.join(' | ') || (est.temPainel ? '' : 'painel não apareceu'));
@@ -318,9 +334,10 @@ for (const [chave, esperado, titulo] of [
   ['carta=teste',     null, 'sem a chave, o nível manda como sempre'],
 ]){
   const aba = await navegador.newPage({ viewport: { width: 800, height: 600 } });
+  aba.setDefaultTimeout(120000);
   await aba.goto(`http://localhost:${PORTA}/?${chave}`,
                  { waitUntil: 'commit', timeout: 120000 });
-  await aba.waitForFunction('window.__pronto === true', { timeout: 120000 });
+  await aba.waitForFunction('window.__pronto === true');
   const r = await aba.evaluate(`(() => {
     const J = window.__jogo;
     const nivel = J.NIVEIS[J.nivelAtual()] || J.NIVEIS.normal;
