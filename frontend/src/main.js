@@ -19,7 +19,7 @@ import { scene, camera, renderer, relogio, player,
          carregarCenario,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
-import { medir as medirDesempenho } from './desempenho.js';
+import { medir as medirDesempenho, alternarResumo } from './desempenho.js';
 import * as balanco from './balanco.js';
 const { animarBalanco } = balanco;
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
@@ -144,6 +144,7 @@ const _q = new THREE.Quaternion();
 let giroPronto = true;
 let xPronto = true;
 let aPronto = true;
+let bPronto = true;
 
 renderer.setAnimationLoop(() => {
   medirDesempenho();              // primeiro: mede o intervalo entre quadros
@@ -206,6 +207,22 @@ renderer.setAnimationLoop(() => {
          Índice 4 é o X/A no perfil `xr-standard` do Touch. Nenhum botão era
          lido antes, então não há conflito; o gatilho e o grip seguem livres
          porque a batida é movimento, não botão. */
+      /* B DO CONTROLE DIREITO MOSTRA O RESUMO DA MEDIÇÃO.
+         O painel ao vivo só conhece os últimos 1,7 s, e ninguém decora seis
+         números em quatro momentos jogando de headset. Isto abre a
+         estatística da sessão INTEIRA, separada por fase, numa placa só —
+         feita para o jogador tirar print e sair do headset com o dado.
+
+         Índice 5 é o B/Y no perfil `xr-standard` do Touch; o A (índice 4)
+         já pula para a música, e o gatilho e o grip seguem livres, porque a
+         batida é movimento, não botão. Só faz efeito com `?perf=1`: sem
+         gravação não há o que resumir. */
+      if (src.handedness === 'right' && g.buttons?.[5]?.pressed && bPronto){
+        bPronto = false;
+        setTimeout(() => { bPronto = true; }, 600);   // anti-repique do botão
+        alternarResumo();
+      }
+
       if (src.handedness === 'left' && g.buttons?.[4]?.pressed && xPronto){
         xPronto = false;
         setTimeout(() => { xPronto = true; }, 600);   // anti-repique do botão

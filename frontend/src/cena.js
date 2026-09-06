@@ -20,7 +20,7 @@ scene.background = new THREE.Color(0x0a0e16);
 scene.fog = new THREE.Fog(0x2a3446, 16, 40);
 
 export const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, .05, 60);
-export const player = new THREE.Group();
+export const player = new THREE.Group(); player.name = 'jogador';
 player.add(camera); scene.add(player);
 camera.position.set(0, 1.42, 2.05);
 
@@ -131,6 +131,9 @@ export function carregarCenario(){
       encaixarCenario(m);
       m.traverse(o => { if (o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
       afinarTexturas(m);
+      /* Nome explicito: e por ele que desempenho.js separa o custo do cenario
+         do custo da bateria. Sem nome, os dois viram um numero so. */
+      m.name = 'cenario';
       scene.add(m);
     },
     undefined,
@@ -148,6 +151,7 @@ export function placa(w, h, px = 1024){
   const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map:tex, transparent:true }));
+  mesh.name = 'placa';
   mesh.userData.pintar = (linhas, o = {}) => {
     const c = cv.getContext('2d');
     c.clearRect(0, 0, cv.width, cv.height);
@@ -219,6 +223,6 @@ export const flashEstado = { ate: 0 };
 
 /** A pista de notas da fase 3 vive aqui para que a altura possa acompanhar
  *  o ajuste da bateria. */
-export const pistaG = new THREE.Group();
+export const pistaG = new THREE.Group(); pistaG.name = 'pista';
 pistaG.position.set(0, 1.95, 0); scene.add(pistaG);
 export const ALTURA_PISTA = 1.95;

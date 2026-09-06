@@ -13,7 +13,7 @@ import { registrarPecasMoveis } from './balanco.js';
 import { scene, loader, afinarTexturas, placa, renderer, player,
          pistaG, ALTURA_PISTA } from './cena.js';
 
-export const kit = new THREE.Group(); scene.add(kit);
+export const kit = new THREE.Group(); kit.name = 'bateria'; scene.add(kit);
 
 /* Mancha de sombra sob a bateria.
    PERFORMANCE (Quest): a bateria NÃO entra no mapa de sombra. Ela sozinha
@@ -34,7 +34,7 @@ const mancha = (() => {
   m.rotation.x = -Math.PI/2; m.position.set(0, .012, -.05);
   return m;
 })();
-scene.add(mancha);
+mancha.name = 'mancha'; scene.add(mancha);
 
 /* --------------------------------------------------- zonas de acerto ----- */
 export const zonas = [];
