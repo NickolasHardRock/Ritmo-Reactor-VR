@@ -293,6 +293,55 @@ export const AMBIENTE = {
   corDoCeu: 0x2a3446,
 };
 
+/* ---------------------------------------------------- A LUZ DE PALCO -----
+   A `luzChave` era uma `DirectionalLight`: raios paralelos, sem posição real
+   e sem queda com a distância — ilumina o mundo inteiro por igual. Serve para
+   sol; não serve para palco.
+
+   Agora é uma `SpotLight`, e a diferença que importa não é "mais luz", é luz
+   CONCENTRADA: a poça cai na bateria e o entorno continua escuro. Foi o que
+   sobrou faltando depois que o ambiente deixou de ser um estúdio branco.
+
+   É UMA LUZ, NÃO DUAS. A directional foi convertida, não acompanhada — o
+   orçamento por quadro já estava estourado (17,9 ms medidos contra 16,7 de
+   um quadro a 60 Hz) e uma luz a mais custa em cada fragmento da tela.
+
+   CUIDADO COM A INTENSIDADE. Spot é luz física: cai com o quadrado da
+   distância (`decaimento: 2`). O 0,85 da directional não se traduz — a esta
+   distância, o mesmo brilho pede algo perto de 10. Mexer na `posicao` muda a
+   intensidade necessária junto, e é por isso que os dois moram lado a lado.
+
+   `alvo` está em y ≈ 1,0 porque é a altura das peles com o kit na altura
+   inicial. Não acompanha o ajuste de altura do jogador de propósito: o cone
+   é largo o bastante para os ±45 cm, e mover a luz por quadro custaria
+   recalcular a sombra.
+
+   OS NÚMEROS SAÍRAM DE MEDIÇÃO, não de gosto. Medindo a luminância média do
+   kit contra a da rocha do primeiro plano, com o brilho do kit sempre
+   normalizado em ~26, o que muda é só o contraste:
+
+     posição            ângulo   intens.   kit    rocha   razão
+     (0.8, 3.4, 1.8)     0,62      40      24,9    8,3     3,0
+     (0.8, 3.4, 1.8)     0,42      40      24,9    6,0     4,1
+     (0.6, 2.8, 1.2)     0,42      22      25,4    3,3     7,7
+     (0.5, 2.4, 1.0)     0,38      15      26,4    2,3    11,6
+     (0.5, 2.4, 1.0)     0,45      15      26,4    2,7     9,8  <- este
+
+   Aproximar a luz é o que faz o contraste, não subir a intensidade: a razão
+   quase não muda com o brilho, e muda muito com a distância. O 0,45 é meio
+   passo mais aberto que o de maior contraste porque a 0,38 os pratos das
+   pontas caem fora da poça (ride 23,3 contra 26,0 aqui).                  */
+export const PALCO = {
+  posicao: [0.5, 2.4, 1.0],
+  alvo:    [0, 1.0, 0],
+  cor: 0xdfeaff,
+  intensidade: 15,
+  angulo:   0.45,   // radianos: meia-abertura do cone
+  penumbra: 0.55,   // 0 = borda dura de holofote; 1 = toda esfumada
+  alcance:  12,     // metros até apagar de vez
+  decaimento: 2,    // 2 = física; 0 = sem queda com a distância
+};
+
 /* Decodificadores de Draco (geometria comprimida) e Basis (texturas KTX2).
    Servidos do PRÓPRIO domínio, não de CDN: rede que bloqueia CDN externo
    — e rede de faculdade bloqueia — faria nenhum modelo carregar.
