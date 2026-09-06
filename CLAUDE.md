@@ -88,21 +88,44 @@ Mostra mediana, p95, pior da janela, o orçamento da taxa real e draw
 calls/triângulos. **Em milissegundos, não FPS** — FPS é média e esconde o
 engasgo, que é o que se sente no headset. A 72 Hz o orçamento é 13,9 ms.
 
-Números de arquivo já levantados (estimativas, **não** medida de quadro):
+Números de arquivo **medidos**, não estimados — `node
+ferramentas/inventario-modelos.mjs` os reproduz a qualquer hora. Continuam
+sendo peso de arquivo, **não** medida de quadro:
 
 | | valor |
 |---|---|
-| bateria `bateria_pratos.glb` | 10,2 MB, ~213 mil triângulos, 4 nodes |
-| cenário `cenario.glb` | 12,2 MB, ~158 mil triângulos, 88 primitivas |
-| total por olho | ~400 mil triângulos — dobra em VR |
-| VRAM de textura da bateria | **~64 MB** (três JPEG 2048², sem KTX2) |
-| VRAM de textura do cenário | ~14 MB (já em KTX2) |
+| bateria `bateria_pratos.glb` | 10,2 MB, **212.594** triângulos, 4 primitivas |
+| cenário `cenario.glb` | 11,6 MB, **154.361** triângulos, 72 primitivas |
+| total | **366.955** triângulos — dobra em VR, um desenho por olho |
+| VRAM de textura da bateria | **64,0 MB** (três JPEG 2048², sem KTX2) |
+| VRAM de textura do cenário | **33,3 MB** (21 texturas, já em KTX2) |
+
+Duas correções que a medição trouxe: a VRAM do cenário era estimada em ~14 MB
+e são **33,3 MB** — errava por 2,4×. E as "88 primitivas" do cenário eram a
+contagem em CENA, não no arquivo: são 72 malhas no `.glb`, e viram 88 objetos
+porque nós diferentes reaproveitam a mesma malha. A bateria, essa, a
+estimativa acertou em cheio.
+
+**Uma malha transparente é desenhada DUAS vezes.** Material `transparent` com
+`side = DoubleSide` faz o three desenhar de costas e depois de frente
+(`WebGLRenderer.js:2133`). Hoje isso atinge 62 das 88 malhas do cenário e 7
+das 19 da bateria: **106.059 triângulos por olho, por quadro**, e o dobro
+disso em VR. Ninguém pediu essa transparência — exportador de glTF marca
+`transparent` sempre que o material declara alpha, mesmo com alpha 1.
+`forceSinglePass = true` desliga a segunda passada. O `npm test` imprime a
+conta a cada rodada, no CT-08, para ninguém precisar redescobrir.
 
 Candidatos, na ordem em que eu apostaria:
 
 1. **Texturas da bateria em KTX2/UASTC** — 64 MB → ~8 MB. É o maior custo
-   isolado que sobrou. `ferramentas/otimizar-cenario.mjs` já faz KTX2. Usar
-   UASTC e não ETC1S: a bateria fica a 60 cm do rosto.
+   isolado que sobrou, e a Meta recomenda KTX2/Basis explicitamente para
+   WebXR no Quest. `ferramentas/otimizar-cenario.mjs` faz KTX2 — **mas
+   precisa do binário `ktx` do KTX-Software**, e existe um pacote npm
+   chamado `ktx` que é outra ferramenta e ocupa o mesmo nome no PATH. Se
+   `ktx --version` não disser KTX-Software, é o impostor: baixe o de verdade
+   em github.com/KhronosGroup/KTX-Software/releases. Sem ele o script avisa e
+   sai em PNG, em vez de quebrar. Usar UASTC e não ETC1S: a bateria fica a
+   60 cm do rosto.
 2. **`simplify` do meshoptimizer** no scan da bateria.
 3. **Reconsiderar o scan.** A bateria antiga tinha 86 mil triângulos, 9 draw
    calls e ZERO textura, e já estava validada no headset. A troca foi
