@@ -13,7 +13,7 @@
     "dev:api": "npm run dev --workspace backend",
     "build": "npm run build --workspace frontend",
     "preview": "npm run preview --workspace frontend",
-    "test": "node ferramentas/teste-jogo.mjs"
+    "test": "npm run build && node ferramentas/teste-jogo.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
