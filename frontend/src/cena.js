@@ -101,6 +101,58 @@ export function afinarTexturas(raiz){
   });
 }
 
+/* ============================ A PASSADA DUPLA =============================
+   MATERIAL TRANSPARENTE + DoubleSide É DESENHADO DUAS VEZES. O three faz
+   isso de propósito: desenha as faces de trás, depois as da frente, para a
+   ordem da mistura sair certa (`WebGLRenderer.js`, em `renderObject`). São
+   dois draw calls e o dobro dos triângulos para uma malha só.
+
+   O PROBLEMA É QUE QUASE NINGUÉM PEDIU ESSA TRANSPARÊNCIA. Exportador de
+   glTF marca o material como transparente sempre que o material declara
+   canal alfa, mesmo com opacidade 1 e nada translúcido para mostrar. No
+   `cenario.glb` isso acontecia em 62 das 88 malhas, e custava 104.939
+   triângulos e ~62 draw calls POR QUADRO — medido, com a GPU já respondendo
+   por 88% do tempo de quadro. Era o desperdício mais caro que existia.
+
+   `forceSinglePass = true` desliga só a segunda passada. Escolhido em vez de
+   `transparent = false`, que seria mais agressivo e QUEBRARIA folhagem: o
+   cenário tem vegetação, e recorte de folha vem do alfa da textura de cor —
+   canal que este teste não consegue inspecionar sem decodificar a imagem.
+   Desligar a mistura ali deixaria as folhas como retângulos opacos.
+
+   O CRITÉRIO É CONSERVADOR: só mexe onde a opacidade é 1 E não há mapa de
+   alfa próprio. Material de vidro de verdade — a bateria tem sete, com
+   opacidade 0,1 — mantém as duas passadas, porque ali a ordem das faces é
+   visível e custa só 1.120 triângulos.                                    */
+export function corrigirPassadaDupla(raiz){
+  let malhas = 0, triangulos = 0;
+  raiz.traverse(o => {
+    if (!o.isMesh || !o.material || !o.geometry) return;
+    let mexeu = false;
+    for (const mat of [].concat(o.material)){
+      if (!mat || mat.transparent !== true) continue;
+      if (mat.side !== THREE.DoubleSide) continue;
+      if (mat.forceSinglePass === true) continue;
+      /* Transparência de verdade fica como está. */
+      if (mat.opacity !== 1 || mat.alphaMap) continue;
+      mat.forceSinglePass = true;
+      mat.needsUpdate = true;
+      mexeu = true;
+    }
+    if (mexeu){
+      malhas++;
+      const g = o.geometry;
+      triangulos += (g.index ? g.index.count : (g.attributes.position?.count || 0)) / 3;
+    }
+  });
+  if (malhas){
+    console.info(`[cena] passada dupla desligada em ${malhas} malhas`
+      + ` — ${Math.round(triangulos).toLocaleString('pt-BR')} triângulos`
+      + ' por quadro, por olho, que eram desenhados de graça');
+  }
+  return { malhas, triangulos: Math.round(triangulos) };
+}
+
 /* ======================================================= O CENÁRIO =======
    O cenário é uma malha centrada na origem. Escala, posiciona o posto do
    baterista em POSTO e ajusta o chão para Y=0.
@@ -131,6 +183,7 @@ export function carregarCenario(){
       encaixarCenario(m);
       m.traverse(o => { if (o.isMesh){ o.castShadow = false; o.receiveShadow = false; } });
       afinarTexturas(m);
+      corrigirPassadaDupla(m);
       /* Nome explicito: e por ele que desempenho.js separa o custo do cenario
          do custo da bateria. Sem nome, os dois viram um numero so. */
       m.name = 'cenario';
