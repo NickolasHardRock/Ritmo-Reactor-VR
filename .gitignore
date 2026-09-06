@@ -53,3 +53,7 @@ frontend/public/modelos/world_of_metal_*.glb
 
 # Saidas de sessao do assistente
 Claude outputs/
+
+# Contexto local do Claude Code. Fica so na maquina de quem usa o CLI:
+# nao e parte da entrega e nao deve aparecer no repositorio avaliado.
+CLAUDE.md

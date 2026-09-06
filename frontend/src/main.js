@@ -19,6 +19,7 @@ import { scene, camera, renderer, relogio, player,
          carregarCenario,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
+import { medir as medirDesempenho } from './desempenho.js';
 import * as balanco from './balanco.js';
 const { animarBalanco } = balanco;
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
@@ -145,6 +146,7 @@ let xPronto = true;
 let aPronto = true;
 
 renderer.setAnimationLoop(() => {
+  medirDesempenho();              // primeiro: mede o intervalo entre quadros
   const dt = Math.min(relogio.getDelta(), .05);
   const t  = relogio.elapsedTime;
 
