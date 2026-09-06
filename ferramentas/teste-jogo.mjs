@@ -112,7 +112,13 @@ while (await pagina.evaluate('window.__jogo.jogo.fase') === 0 && guarda++ < 30){
   await pagina.waitForTimeout(50);
 }
 const pontos1 = await pagina.evaluate('window.__jogo.jogo.pontos');
-conf(pontos1 === 140, 'sete peças acertadas valem 140 pontos', `deu ${pontos1}`);
+/* Sete peças, todas PERFEITO (100), combo de 1 a 7 — ainda abaixo do
+   primeiro degrau do multiplicador (10), então vale x1: 7 x 100 = 700.
+   O 140 daqui era da tabela antiga, de quando um acerto valia 20; a troca
+   pelo modelo de pontuação próprio mudou a tabela e não mexeu neste número. */
+const ESPERADO_CALIBRACAO = 700;
+conf(pontos1 === ESPERADO_CALIBRACAO,
+     `sete peças acertadas valem ${ESPERADO_CALIBRACAO} pontos`, `deu ${pontos1}`);
 conf(await pagina.evaluate('window.__jogo.zonas.every(z => !z.rotulo.visible)'),
      'rótulos somem depois da calibração');
 
