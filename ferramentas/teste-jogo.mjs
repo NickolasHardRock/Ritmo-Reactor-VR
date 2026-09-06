@@ -212,8 +212,16 @@ console.log('\nCT-08b  o instrumento de medição funciona');
 await pagina.evaluate('window.__perf.ligar(true)');
 /* Espera CONDIÇÃO, não relógio. Neste Chromium a cena roda por software, a
    ~13 quadros por segundo: qualquer pausa fixa ou sobra ou falta, e um teste
-   que depende da velocidade da máquina é um teste que vai piscar. */
-await pagina.waitForFunction('window.__perf.serie().ms.length >= 12', { timeout: 30000 });
+   que depende da velocidade da máquina é um teste que vai piscar.
+
+   O limite é FOLGADO de propósito. Doze quadros levam ~1 s com a máquina
+   livre, mas este teste roda na máquina de quem desenvolve — e uma aba com
+   o jogo aberto, renderizando 450 mil triângulos por software, deixa o
+   Chromium do teste sem CPU. Já aconteceu: o caso falhou por 30 s de espera
+   enquanto alguém jogava ao lado. O que se afirma aqui é que o instrumento
+   GRAVA e SOMA certo, não que a máquina esteja rápida — então o tempo é
+   generoso e a asserção continua estrita. */
+await pagina.waitForFunction('window.__perf.serie().ms.length >= 12', { timeout: 120000 });
 const r = await pagina.evaluate('window.__perf.resumo()');
 conf(r.geral && r.geral.n >= 12, 'a sessão é gravada quadro a quadro',
      `${r.geral ? r.geral.n : 0} quadros`);
