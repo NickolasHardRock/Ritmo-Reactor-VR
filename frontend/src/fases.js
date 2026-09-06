@@ -12,7 +12,7 @@
 
 import * as THREE from 'three';
 import { PECAS, PORID, CARTA_URL,
-         NIVEIS, nivelAtual } from './config.js';
+         NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
 import { registrarBatida } from './calibragem.js';
 import { carregarBichos, desenharBichos, limparBichos,
@@ -225,6 +225,10 @@ export async function ritmoIniciar(){
      na hora de tocar, e não na carta — assim a mesma carta serve para os dois
      níveis e trocar de nível não exige reconverter nada. */
   const nivel = NIVEIS[nivelAtual()] || NIVEIS.normal;
+  /* A lista de peças do jogador sai daqui, e não de `nivel.jogaveis` direto,
+     porque a chave `?sem=` do config pode substituí-la. A `janela` continua
+     vindo do nível: a chave escolhe QUAIS peças, não a dificuldade. */
+  const jog = jogaveisAgora(nivel);
   JP = JANELA_PERFEITO * nivel.janela;
   JB = JANELA_BOM      * nivel.janela;
   JX = JANELA_PERDA    * nivel.janela;
@@ -233,8 +237,13 @@ export async function ritmoIniciar(){
   try {
     const carta = await musica.carregarCarta(CARTA_URL);
     recorte = notasDoRecorte(carta);
-    const quais = nivel.jogaveis
-      ? nivel.jogaveis.map(id => (PORID[id]?.nome || id).toUpperCase()).join(' e ')
+    /* A chave `?sem=` é de teste e NÃO anuncia nada em tela. Mas ela também
+       não pode deixar a tela MENTIR: ligada, o rótulo do nível fácil diria
+       "toque só a CAIXA" justamente quando a caixa é a única que o jogador
+       não toca. Então cai no rótulo neutro do nível, que já existe — nada
+       novo aparece, e nada errado também. */
+    const quais = (!PECAS_SEM.length && jog)
+      ? jog.map(id => (PORID[id]?.nome || id).toUpperCase()).join(' e ')
       : null;
     mostrarCreditos();
     objetivo((carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo')
@@ -251,7 +260,6 @@ export async function ritmoIniciar(){
   /* O que o jogador não toca não é descartado: vira trilha automática e
      continua soando. Assim o nível fácil não deixa a música oca — ela toca
      inteira e o jogador cuida de uma parte. */
-  const jog = nivel.jogaveis;
   const escolhidas = [], extras = [];
   for (const n of recorte.notas){
     if (!jog || jog.includes(n.peca)) escolhidas.push(n);

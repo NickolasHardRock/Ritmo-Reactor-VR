@@ -141,6 +141,60 @@ export const NIVEIS = {
      qualquer carta que os tenha. */
   normal: { nome:'Normal', jogaveis:null,      janela:1.0 },
 };
+/* ------------------------------------------ MODO DE TESTE: `?sem=peca` ---
+   Tira peças da PARTE DO JOGADOR na fase de ritmo, para exercitar as outras
+   sem depender daquela. Nasceu de uma necessidade concreta: conferir que
+   todos os instrumentos respondem, menos um.
+
+     ?sem=caixa              o jogador toca as outras seis
+     ?sem=caixa,ride         tira duas
+     ?carta=teste&sem=caixa  ver a NOTA abaixo — quase sempre é isto que se quer
+
+   ELE DEFINE O CONJUNTO, NÃO SUBTRAI DO NÍVEL. Parece detalhe e não é: o
+   nível padrão é o `facil`, cujo `jogaveis` é `['caixa']`. Subtrair a caixa
+   dali deixaria ZERO peças jogáveis e a fase de ritmo viraria uma música que
+   se toca sozinha. Com a chave ligada, o conjunto passa a ser "todas as
+   peças menos as pedidas", qualquer que seja o nível. A `janela` do nível
+   continua valendo — a chave mexe em QUAIS peças, não em quão difícil é.
+
+   NOTA SOBRE A CARTA. Uma peça só é tocável se a carta tiver notas dela. A
+   `colour-me-red`, que é a padrão, traz caixa, chimbal, bumbo e crash — o
+   bumbo nem é peça jogável. Então `?sem=caixa` sozinho deixa você com
+   chimbal e crash, e não com seis instrumentos. Para exercitar as sete de
+   verdade a carta tem de ser a `teste`, a única que dispara todas:
+
+     ?carta=teste&sem=caixa
+
+   O QUE ELE NÃO MUDA: a calibração e o eco seguem pedindo todas as peças, e
+   a RN06 continua valendo — bater na peça excluída ainda conta erro e zera o
+   combo. A chave só decide quem toca o quê na fase de ritmo; o que o jogador
+   não toca vira trilha automática e continua soando, como sempre.        */
+export const PECAS_SEM = (() => {
+  const p = new URLSearchParams(location.search).get('sem');
+  if (!p) return [];
+  const pedidas  = p.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const validas   = pedidas.filter(id =>  PORID[id]);
+  const invalidas = pedidas.filter(id => !PORID[id]);
+  if (invalidas.length){
+    console.warn(`[config] ?sem= ignorou peça desconhecida: ${invalidas.join(', ')}.`
+      + ` Válidas: ${PECAS.map(x => x.id).join(', ')}`);
+  }
+  /* Excluir tudo não é um modo de teste, é um bug de digitação. Melhor
+     ignorar e avisar do que entregar uma fase sem nada para tocar. */
+  if (validas.length >= PECAS.length){
+    console.warn('[config] ?sem= excluiria todas as peças — chave ignorada.');
+    return [];
+  }
+  return validas;
+})();
+
+/** As peças que o JOGADOR toca na fase de ritmo, com o `?sem=` já aplicado.
+ *  `null` continua significando "tudo o que a carta trouxer". */
+export function jogaveisAgora(nivel){
+  if (!PECAS_SEM.length) return nivel ? nivel.jogaveis : null;
+  return PECAS.map(p => p.id).filter(id => !PECAS_SEM.includes(id));
+}
+
 const CHAVE_NIVEL = 'rrvr.nivel';
 export function nivelAtual(){
   const k = localStorage.getItem(CHAVE_NIVEL);

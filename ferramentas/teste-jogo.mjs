@@ -290,6 +290,42 @@ for (const [chave, confere] of [
   await aba.close();
 }
 
+/* ---------------------------------------------------------------------------
+   CT-12 — a chave de teste `?sem=peca`.
+
+   Ela existe para exercitar a fase de ritmo sem uma peça. O risco que o teste
+   cobre é o silencioso: a chave é lida da URL, então uma mudança em `config`
+   pode desligá-la sem nenhum erro aparecer, e a fase seguiria pedindo a peça
+   que era para estar de fora.                                              */
+console.log('\nCT-12  a chave `?sem=` tira a peça da parte do jogador');
+const TODAS = ['chimbal','crash','caixa','tom2','tom1','surdo','ride'];
+for (const [chave, esperado, titulo] of [
+  ['sem=caixa',       TODAS.filter(x => x !== 'caixa'), 'tira a caixa e deixa as outras seis'],
+  ['sem=caixa,ride',  TODAS.filter(x => x !== 'caixa' && x !== 'ride'), 'aceita mais de uma peça'],
+  /* Peça inexistente não pode virar exclusão fantasma: se `?sem=bumbo`
+     passasse, o jogador perderia uma peça de verdade sem entender por quê. */
+  ['sem=bumbo',       null, 'ignora peça que não existe'],
+  /* Excluir tudo deixaria a fase sem nada para tocar — a chave se desliga. */
+  ['sem=' + TODAS.join(','), null, 'ignora exclusão de todas as peças'],
+  ['carta=teste',     null, 'sem a chave, o nível manda como sempre'],
+]){
+  const aba = await navegador.newPage({ viewport: { width: 800, height: 600 } });
+  await aba.goto(`http://localhost:${PORTA}/?${chave}`,
+                 { waitUntil: 'commit', timeout: 120000 });
+  await aba.waitForFunction('window.__pronto === true', { timeout: 120000 });
+  const r = await aba.evaluate(`(() => {
+    const J = window.__jogo;
+    const nivel = J.NIVEIS[J.nivelAtual()] || J.NIVEIS.normal;
+    return { sem: J.PECAS_SEM, jog: J.jogaveisAgora(nivel), doNivel: nivel.jogaveis };
+  })()`);
+  /* `esperado === null` quer dizer "a chave não vale": o conjunto tem de ser
+     exatamente o do nível, nem mais nem menos. */
+  const alvo = esperado === null ? r.doNivel : esperado;
+  conf(JSON.stringify(r.jog) === JSON.stringify(alvo), `?${chave} — ${titulo}`,
+       `jogaveis=${JSON.stringify(r.jog)}`);
+  await aba.close();
+}
+
 await navegador.close();
 servidor.close();
 
