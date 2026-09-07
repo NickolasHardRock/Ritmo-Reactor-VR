@@ -120,6 +120,110 @@ function taxa(){
   return hzVisto || 60;
 }
 
+/* ===================== TEMPO DE GPU, DE VERDADE ===========================
+   O tempo de quadro que medimos com `performance.now()` é o intervalo entre
+   quadros: soma nossa lógica, o desenho e a espera. Ele diz que ESTÁ caro,
+   não diz DE QUEM é a conta.
+
+   `EXT_disjoint_timer_query_webgl2` responde isso: cronometra dentro da GPU
+   quanto custou desenhar o quadro. Com os dois números lado a lado a
+   pergunta se resolve sozinha — GPU alta é geometria, pixel e textura; GPU
+   baixa com quadro alto é CPU, e cortar triângulo não vai adiantar nada.
+
+   A LEITURA É ASSÍNCRONA. A GPU responde quadros depois, e por isso as
+   consultas ficam numa fila: abre-se uma por quadro e colhe-se a mais
+   antiga que já esteja pronta. O valor volta em NANOSSEGUNDOS.
+
+   `GPU_DISJOINT_EXT` é obrigatório e não é detalhe: quando o sistema
+   operacional preempta a GPU — outra janela, protetor de tela, o compositor
+   do headset — as medidas daquele intervalo viram lixo. Sem conferir isso,
+   um pico de 400 ms que nunca aconteceu entra no relatório.               */
+const FILA_MAX = 8;
+let gl = null, extGPU = null, consultas = [], medindoGPU = false;
+let renderOriginal = null;
+const gpuMs = [];          // série do tempo de GPU, em milissegundos
+let gpuUltimo = 0, gpuDescartadas = 0;
+
+function iniciarGPU(){
+  if (extGPU !== null) return;                 // já tentou uma vez
+  try {
+    gl = renderer.getContext();
+    extGPU = gl.getExtension('EXT_disjoint_timer_query_webgl2') || false;
+  } catch { extGPU = false; }
+  if (!extGPU) return;
+
+  /* Envolve o `render` em vez de pedir a main.js para chamar mais alguma
+     coisa: a consulta tem de cercar EXATAMENTE o desenho, e quem sabe onde
+     ele começa e termina é o renderer. */
+  renderOriginal = renderer.render.bind(renderer);
+  renderer.render = function(cena, cam){
+    let q = null;
+    if (ligado && !medindoGPU && consultas.length < FILA_MAX){
+      q = gl.createQuery();
+      gl.beginQuery(extGPU.TIME_ELAPSED_EXT, q);
+      medindoGPU = true;
+    }
+    renderOriginal(cena, cam);
+    if (q){
+      gl.endQuery(extGPU.TIME_ELAPSED_EXT);
+      medindoGPU = false;
+      consultas.push(q);
+    }
+  };
+}
+
+/** Colhe o que a GPU já respondeu. Chamar uma vez por quadro. */
+function colherGPU(){
+  if (!extGPU || !consultas.length) return;
+  const q = consultas[0];
+  if (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) return;
+  /* A preempção invalida a medida — descartar é o certo, e contar quantas
+     foram descartadas evita concluir coisa de uma amostra que não existe. */
+  const lixo = gl.getParameter(extGPU.GPU_DISJOINT_EXT);
+  const ns = lixo ? 0 : gl.getQueryParameter(q, gl.QUERY_RESULT);
+  gl.deleteQuery(q);
+  consultas.shift();
+  if (lixo){ gpuDescartadas++; return; }
+  gpuUltimo = ns / 1e6;
+  if (gpuMs.length < TETO) gpuMs.push(gpuUltimo);
+}
+
+/* ===================== TRAVADAS DA THREAD PRINCIPAL =======================
+   Uma "long task" é qualquer trabalho que segurou a thread principal por
+   mais de 50 ms. Num jogo de ritmo isso é sagrado: enquanto ela está presa
+   nada é desenhado E nada é agendado, então uma travada não engasga só a
+   imagem, ela atrasa a batida. O tempo de quadro mostra o buraco; a long
+   task diz quanto tempo durou e de que tipo de trabalho veio.            */
+const travadas = [];
+let obsTravadas = null;
+
+function ligarTravadas(){
+  if (obsTravadas || typeof PerformanceObserver === 'undefined') return;
+  try {
+    obsTravadas = new PerformanceObserver((lista) => {
+      for (const e of lista.getEntries()){
+        if (travadas.length < 2000) travadas.push({ ms: e.duration, t: e.startTime });
+      }
+    });
+    obsTravadas.observe({ type: 'longtask', buffered: true });
+  } catch { obsTravadas = null; }
+}
+
+/* ============================== MEMÓRIA ==================================
+   `performance.memory` é do Chrome, não é padrão, e vem arredondado por
+   segurança — serve para ver CRESCIMENTO, não para auditar bytes. É o
+   bastante para a pergunta que importa aqui: o heap sobe e volta (é o
+   coletor trabalhando, normal) ou sobe e nunca volta (é vazamento)?
+
+   VRAM não aparece: nenhuma API de navegador expõe. Para textura, a conta
+   honesta é a de arquivo — `ferramentas/inventario-modelos.mjs`.          */
+const heapMB = [];
+function amostrarHeap(){
+  const m = performance.memory;
+  if (!m) return;
+  if (heapMB.length < TETO) heapMB.push(m.usedJSHeapSize / 1048576);
+}
+
 /* ------------------------------------------------------------- ligar ----- */
 function criarDom(){
   if (elDom) return;
@@ -151,7 +255,10 @@ function criarPlacaVR(){
 
 export function ligar(v = true){
   ligado = v;
-  if (ligado){ criarDom(); criarPlacaVR(); n = 0; cursor = 0; ultimo = 0; }
+  if (ligado){
+    criarDom(); criarPlacaVR(); n = 0; cursor = 0; ultimo = 0;
+    iniciarGPU(); ligarTravadas();
+  }
   if (elDom)   elDom.style.display  = ligado ? 'block' : 'none';
   if (placaVR) placaVR.visible = ligado;
 }
@@ -181,6 +288,7 @@ function aplicarSemRender(){
 export function medir(){
   if (!ligado) return;
   if (SEM_RENDER) aplicarSemRender();
+  colherGPU();                    // o que a GPU respondeu dos quadros passados
 
   const agora = performance.now();
   if (ultimo){
@@ -195,6 +303,10 @@ export function medir(){
   const seg = agora / 1000;
   if (seg < proximoTexto || n < 8) return;
   proximoTexto = seg + INTERVALO_TEXTO;
+  /* O heap é amostrado no ritmo do texto, ~4x por segundo: ler a cada quadro
+     não acrescentaria nada — o coletor não trabalha nessa escala — e o
+     instrumento não pode custar mais que o que ele mede. */
+  amostrarHeap();
 
   const orden = Array.from(amostras.subarray(0, n)).sort((a, b) => a - b);
   const med  = percentil(orden, 0.50);
@@ -216,6 +328,9 @@ export function medir(){
     `${orc.toFixed(1)} ms  orcamento (${hz} Hz)`,
     `${info.calls} draws  ${(info.triangles/1000).toFixed(0)}k tris${vr ? '  (2 olhos)' : ''}`,
   ];
+  /* A linha que decide onde cortar: quanto do quadro foi GPU. O resto é CPU
+     e espera — e nesse caso mexer em geometria ou textura não muda nada. */
+  if (extGPU && gpuMs.length) linhas.push(`${gpuUltimo.toFixed(1)} ms  GPU`);
   if (SEM_RENDER) linhas.push('SEM RENDER — so CPU');
 
   if (elDom && !vr){
@@ -337,12 +452,33 @@ export function resumo(){
     porFase,
     cena: inventario(),
     ultimoQuadro: { draws: info.calls, triangulos: info.triangles },
+    /* GPU: `null` quando a extensão não existe — e nesse caso não se pode
+       concluir NADA sobre CPU vs GPU, o que é diferente de concluir zero. */
+    gpu: extGPU && gpuMs.length
+      ? { ...estatistica(gpuMs.slice().sort((a, b) => a - b)),
+          descartadas: gpuDescartadas }
+      : null,
+    /* Travadas de thread: quantas, a pior, e quanto tempo somaram. */
+    travadas: travadas.length
+      ? { n: travadas.length,
+          pior: Math.max(...travadas.map(t => t.ms)),
+          somaMs: travadas.reduce((s, t) => s + t.ms, 0) }
+      : { n: 0, pior: 0, somaMs: 0 },
+    /* Heap: o que importa é a forma da curva, não o valor. Primeiro contra
+       último diz se sobe e volta (coletor) ou só sobe (vazamento). */
+    heap: heapMB.length
+      ? { inicioMB: heapMB[0], fimMB: heapMB[heapMB.length - 1],
+          picoMB: Math.max(...heapMB), amostras: heapMB.length }
+      : null,
   };
 }
 
 /** A série crua, para quem conseguir puxá-la (adb, desktop, console). */
-export const serie = () =>
-  ({ ms: serieMs.slice(), fase: serieFase.slice(), rotulos: ROTULOS });
+export const serie = () => ({
+  ms: serieMs.slice(), fase: serieFase.slice(), rotulos: ROTULOS,
+  gpuMs: gpuMs.slice(), heapMB: heapMB.slice(),
+  travadas: travadas.slice(),
+});
 
 /* ------------------------------------------------- o painel do resumo ---- */
 let resumoVisivel = false;
@@ -361,6 +497,20 @@ function linhasResumo(){
   }
   L.push(`TOTAL       p50${num(r.geral.p50)}  p95${num(r.geral.p95)}`
          + `  pior${num(r.geral.pior)}  ${r.geral.n} quadros`);
+  /* A linha do veredito: quanto do quadro é GPU. Sem ela o resumo diz que
+     dói, mas não onde. */
+  if (r.gpu){
+    L.push(`GPU         p50${num(r.gpu.p50)}  p95${num(r.gpu.p95)}`
+           + `  pior${num(r.gpu.pior)}  = ${(100 * r.gpu.p50 / r.geral.p50).toFixed(0)}% do quadro`);
+  }
+  if (r.travadas.n){
+    L.push(`travadas: ${r.travadas.n} · pior ${r.travadas.pior.toFixed(0)} ms`
+           + ` · somam ${(r.travadas.somaMs / 1000).toFixed(1)} s`);
+  }
+  if (r.heap){
+    L.push(`heap ${r.heap.inicioMB.toFixed(0)} -> ${r.heap.fimMB.toFixed(0)} MB`
+           + ` · pico ${r.heap.picoMB.toFixed(0)}`);
+  }
   const c = r.cena.slice(0, 3)
     .map(x => `${x.nome} ${(x.triangulos/1000).toFixed(0)}k`).join(' · ');
   L.push(c || 'cena vazia');

@@ -31,7 +31,8 @@ import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem, calibragem } from './calibragem.js';
-import { NIVEIS, nivelAtual, definirNivel, CARTA_URL } from './config.js';
+import { NIVEIS, nivelAtual, definirNivel, CARTA_URL,
+         PECAS_SEM, jogaveisAgora } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
          telaResultado, calibragem3D } from './ui.js';
@@ -416,6 +417,7 @@ window.__jogo = {
      partida inteira à mão. Foi assim que a tabela de multiplicador e as
      estrelas foram verificadas. */
   atualizarHUD, telaResultado, pontuacao, synth, balanco,
+  NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };
