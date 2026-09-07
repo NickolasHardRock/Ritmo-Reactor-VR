@@ -11,7 +11,7 @@ import * as THREE          from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import { CENARIO, QUALIDADE, AMBIENTE,
+import { CENARIO, QUALIDADE, AMBIENTE, PALCO,
          CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
 
 /* --------------------------------------------------------- cena base ----- */
@@ -107,13 +107,24 @@ function trocarAmbiente(rt){
 trocarAmbiente(ambienteGradiente());
 
 scene.add(new THREE.HemisphereLight(0xbcd4f5, 0x2b3648, 1.15));
-const luzChave = new THREE.DirectionalLight(0xdfeaff, .85);
-luzChave.position.set(2.5, 6, 3.5);
+export const luzChave = new THREE.SpotLight(PALCO.cor, PALCO.intensidade,
+  PALCO.alcance, PALCO.angulo, PALCO.penumbra, PALCO.decaimento);
+luzChave.name = 'luz-palco';
+luzChave.position.set(...PALCO.posicao);
+/* O alvo precisa estar NA CENA. Fora dela o three não atualiza a matriz dele,
+   e o cone aponta para a origem do mundo qualquer que seja este vetor — um
+   defeito que não dá erro, só deixa a luz mirando o lugar errado. */
+luzChave.target.position.set(...PALCO.alvo);
+scene.add(luzChave.target);
+
 luzChave.castShadow = true;
 luzChave.shadow.mapSize.set(512, 512);
-luzChave.shadow.camera.near = .5;  luzChave.shadow.camera.far = 16;
-luzChave.shadow.camera.left = -4;  luzChave.shadow.camera.right = 4;
-luzChave.shadow.camera.top = 6;    luzChave.shadow.camera.bottom = -1;
+/* Sombra de spot usa câmera em PERSPECTIVA, não ortográfica: o `fov` sai do
+   próprio ângulo do cone e os limites left/right/top/bottom da versão
+   anterior não existem mais aqui. `far` curto porque o que projeta sombra
+   está todo a menos de 8 m — cada metro a mais é resolução jogada fora. */
+luzChave.shadow.camera.near = .5;
+luzChave.shadow.camera.far  = 8;
 scene.add(luzChave);
 
 /* --------------------------------------------------------- carregador ---- */
