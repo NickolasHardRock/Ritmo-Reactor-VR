@@ -344,14 +344,55 @@ export const AMBIENTE = {
    passo mais aberto que o de maior contraste porque a 0,38 os pratos das
    pontas caem fora da poça (ride 23,3 contra 26,0 aqui).                  */
 export const PALCO = {
-  posicao: [0.5, 2.4, 1.0],
+  posicao: [0, 3.0, 1.9],
   alvo:    [0, 1.0, 0],
   cor: 0xdfeaff,
-  intensidade: 15,
-  angulo:   0.45,   // radianos: meia-abertura do cone
+  intensidade: 95,
+  angulo:   0.50,   // radianos: meia-abertura do cone
   penumbra: 0.55,   // 0 = borda dura de holofote; 1 = toda esfumada
   alcance:  12,     // metros até apagar de vez
   decaimento: 2,    // 2 = física; 0 = sem queda com a distância
+};
+
+/* ------------------------------------------------ OS DOIS ESTADOS DE LUZ -
+   O tutorial (calibração e eco) acontece com o MAPA CLARO: o jogador está
+   aprendendo onde ficam as sete peças e precisa enxergar a cena. Na entrada
+   da fase de ritmo as luzes caem, sobra a poça de palco, e é isso que separa
+   "estou aprendendo" de "estou tocando".
+
+   `hemisferica` é a intensidade da HemisphereLight; `ambiente` multiplica o
+   reflexo do cubemap (`scene.environmentIntensity`); `palco` é o spot. No
+   show o spot usa o `PALCO.intensidade` acima — um valor só, ajustado no
+   olho, sem cópia para sair de sincronia.
+
+   A transição é interpolada em `cena.js → animarLuzes()`, e não com
+   `setTimeout` em degraus: luz que pula em dois passos lê como bug de
+   carregamento, não como holofote apagando.                                */
+export const LUZ = {
+  transicao: 1.2,          // segundos do fade
+
+  /* `fundo` É PARTE DA LUZ, e essa foi a surpresa da medição. O céu do jogo é
+     `scene.background`, cor chapada: luz nenhuma o atinge. Medindo a região do
+     céu, ela dava 1,1 de luminância com a hemisférica em 1,7 e com ela em 5,0
+     — idêntica. Sem clarear o fundo, "mapa claro" não existe: por mais luz que
+     se ponha, o jogador continua num descampado de céu preto.
+
+     Os números abaixo saíram de medição por região, não de gosto —
+     luminância média de 0 a 255, no mesmo enquadramento:
+
+                                     rocha    kit    céu
+       show                           12,1   49,5    1,1
+       tutorial, 1ª tentativa
+         (1.7 / 3.0, fundo escuro)     6,2   20,6    1,1  <- pior que o show
+       tutorial adotado
+         (5.0 / 7.0, fundo 0x243244)  13,7   30,5    7,7
+
+     O tutorial ficar com a ROCHA mais clara e o KIT menos aceso que no show é
+     o certo, e não um defeito: no tutorial a luz é do ambiente e o mapa todo
+     se vê; no show é uma poça, e o que importa é a bateria. */
+  tutorial: { hemisferica: 5.0, ambiente: 7.0, palco: 18, fundo: 0x243244 },
+  show:     { hemisferica: 0.14, ambiente: 1.0,            fundo: 0x0a0e16 },
+  //          palco do show = PALCO.intensidade
 };
 
 /* Decodificadores de Draco (geometria comprimida) e Basis (texturas KTX2).

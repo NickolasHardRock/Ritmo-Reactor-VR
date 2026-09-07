@@ -103,6 +103,65 @@ export function calibragem3D(linhas, cor = '#00d9ff'){
   painelCentro.visible = true;
 }
 
+
+/* ===================== O AVISO DO CENTRO DA TELA =========================
+   "PREPARE-SE" e a contagem antes da música. Escreve nos DOIS lugares de
+   propósito: o overlay HTML, para quem está no monitor, e o `painelCentro`
+   em 3D, porque dentro do headset nenhum `<div>` aparece — e o jogador de VR
+   não pode ser o único a não saber que a música vai começar.
+
+   É o mesmo painel 3D da calibragem e do resultado. Os três nunca acontecem
+   juntos: um está antes da música, outro na medição de atraso e o terceiro
+   depois do fim.
+
+   O PAINEL 3D SÓ APARECE DENTRO DO VR, e isto é correção de um defeito que
+   só se vê na tela: escrevendo nos dois incondicionalmente, o jogador de
+   monitor lia "prepare-se" e a contagem DUAS vezes — a placa 3D pairando
+   sobre a bateria e o texto de HTML por cima dela. A calibragem e o resultado
+   não sofrem disso porque a versão HTML dos dois é um modal que cobre a cena;
+   este aviso é transparente de propósito, e por isso deixa o 3D à vista.
+
+   Dentro do headset é o inverso: nenhum `<div>` aparece, então lá a placa é a
+   única coisa que existe.
+
+   @param {string[]|null} linhas  [grande, pequena]; null apaga os dois. */
+export function avisoCentro(linhas, cor = '#00d9ff'){
+  const cx = $('centro-aviso'), c1 = $('centro-1'), c2 = $('centro-2');
+  const emVR = renderer.xr.isPresenting;
+  if (!linhas){
+    if (cx) cx.classList.add('hidden');
+    painelCentro.visible = false;
+    return;
+  }
+  const arr = [].concat(linhas);
+  /* Número vai no corpo grande, palavra no menor. Quem está prestes a bater
+     no tempo lê o número de relance e não procura texto. */
+  const numero = /^\d+$/.test(arr[0]);
+  if (c1 && c2){
+    c1.textContent = numero ? (arr[1] || '') : arr[0];
+    c2.textContent = numero ? arr[0] : '';
+    c2.style.color = cor;
+    /* Reinicia a animação de pulso a cada número: sem isto o CSS só anima na
+       primeira aparição e a contagem fica estática de 3 a 1. */
+    if (numero){ c2.style.animation = 'none'; void c2.offsetWidth; c2.style.animation = ''; }
+    cx.classList.remove('hidden');
+  }
+  if (!emVR){ painelCentro.visible = false; return; }
+  painelCentro.userData.pintar(arr, {
+    cor,
+    tams:  arr.length > 1 ? [0.95, 0.42] : [0.8],
+    cores: arr.length > 1 ? [cor, '#e8eef8'] : [cor],
+    borda: 'rgba(0,217,255,.45)',
+  });
+  painelCentro.visible = true;
+}
+
+/** O botão de pular o tutorial. Só existe fora do VR — dentro do headset o
+ *  mesmo salto é o botão A do controle direito (ver docs/vr.md). */
+export function mostrarPular(v){
+  const b = $('btn-pular'); if (b) b.classList.toggle('hidden', !v);
+}
+
 export function telaJogando(){
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
@@ -114,6 +173,10 @@ export function telaInicio(){
   mostrar('tela-inicio', true);
   mostrar('hud', false);
   mostrar('teclas', false);
+  /* Voltar ao menu tem de limpar o que era da partida: sem isto o "Pular" e a
+     contagem ficam pendurados por cima da tela inicial. */
+  mostrarPular(false);
+  avisoCentro(null);
 }
 export function telaCarregada(){
   mostrar('load', false);

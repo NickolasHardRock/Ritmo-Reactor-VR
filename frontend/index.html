@@ -17,70 +17,46 @@
   <div id="load-txt" style="color:#8c9bb5;font-size:13px">modelos/bateria.glb</div>
 </div>
 
-<!-- ---------------- RF01 TELA INICIAL ---------------- -->
+<!-- ---------------- RF01 TELA INICIAL ----------------
+     Enxuta de propósito. A versão anterior tinha 21 linhas de instrução antes
+     do botão de jogar, e ninguém as lia: as teclas já aparecem no canto
+     durante a partida (`#teclas`) e o nome de cada peça flutua sobre o tambor
+     no tutorial. O que ficou aqui é o que é requisito (RF01 a equipe,
+     RF14/RF15 a tarja de VR), o que é condição de uso (o crédito da faixa) e
+     o que é escolha antes de jogar (a dificuldade).
+     Ver claude/estado-menu-e-abertura.md no projeto.                       -->
 <div class="layer hidden" id="tela-inicio">
-  <div class="card">
-    <div class="tag">Bateria em WebXR</div>
-    <h1>Drumfall</h1>
-    <p class="sub">Uma bateria montada a céu aberto, no meio do nada, cercada de amplificadores.
-      Sente-se e toque: no fim, precisão, combo e de zero a cinco estrelas.</p>
+  <div class="card menu">
+    <h1>DRUMFALL</h1>
+    <p class="sub">Bateria em WebXR</p>
+
+    <button id="btn-jogar" class="grande">JOGAR</button>
+
+    <div class="seg" id="seg-nivel" role="group" aria-label="Dificuldade">
+      <button id="btn-nivel-facil">Fácil</button>
+      <button id="btn-nivel-normal">Normal</button>
+    </div>
+
+    <div class="links">
+      <button class="txt" id="btn-livre">Modo livre</button>
+      <button class="txt" id="btn-ajustes">Ajustes</button>
+    </div>
 
     <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
-
-    <h2>Três desafios</h2>
-    <ul>
-      <li><strong>Calibração</strong> — acerte cada peça indicada para mapear o emissor.</li>
-      <li><strong>Eco</strong> — o jogo toca um padrão, você repete. Três rodadas.</li>
-      <li><strong>Ritmo</strong> — acerte as notas no tempo. Combo multiplica os pontos.</li>
-    </ul>
-
-    <h2>Modo navegador</h2>
-    <ul>
-      <li>Teclas <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span>
-          <span class="kbd">F</span> <span class="kbd">J</span> <span class="kbd">K</span>
-          <span class="kbd">L</span> — uma por peça (o nome aparece sobre cada tambor).</li>
-      <li>Ou clique diretamente na peça. Arraste para olhar.</li>
-    </ul>
-
-    <h2>Modo VR</h2>
-    <ul>
-      <li>Seus controles viram <strong>baquetas</strong>. Bata de verdade — a força conta.</li>
-      <li>Alavanca direita <strong>↑ ↓</strong> ajusta a altura da bateria ao seu corpo.</li>
-      <li>Botão <strong>A</strong> (controle direito) pula o tutorial e vai direto para a
-        música. Partida com atalho não entra no ranking.</li>
-      <li>Botão <strong>X</strong> (controle esquerdo) calibra o atraso sem sair do VR —
-        a contagem e o resultado aparecem num painel à sua frente.</li>
-    </ul>
-
-    <h2>Dificuldade</h2>
-    <div class="row" style="margin-top:8px">
-      <button class="ghost" id="btn-nivel-facil">Fácil</button>
-      <button class="ghost" id="btn-nivel-normal">Normal</button>
-      <span class="sub" id="nivel-msg" style="margin:0"></span>
-    </div>
-    <div class="row" style="margin-top:6px">
-      <span class="sub" style="margin:0">Ajuste fino do atraso</span>
-      <button class="ghost" id="btn-atraso-menos" title="o jogo está exigindo cedo demais">− 10 ms</button>
-      <button class="ghost" id="btn-atraso-mais"  title="o jogo está exigindo tarde demais">+ 10 ms</button>
-    </div>
-
-    <div class="row">
-      <button id="btn-jogar">Iniciar missão</button>
-      <button class="ghost" id="btn-livre">Modo livre</button>
-      <button class="ghost" id="btn-musica">Só a música</button>
-      <button class="ghost" id="btn-calibrar">Calibrar atraso</button>
-    </div>
-    <p class="sub" id="inicio-creditos" style="opacity:.75;margin-top:10px"></p>
+    <p class="faixa" id="inicio-creditos"></p>
     <div class="credits">
       <strong>Equipe:</strong> Diego · Nickolas · Bruno · Danilo<br>ADS — Senac Joinville · Profª Claudia Werlich
     </div>
   </div>
 </div>
 
-<!-- ---------------- RF10 RESULTADO ---------------- -->
+<!-- ---------------- AJUSTES (era "Calibrar atraso") ----------------
+     Recebeu o que saiu da tela inicial: a calibragem, que continua sendo o
+     ajuste mais necessário no headset, e o ±10 ms. Nenhum dos dois é decisão
+     de quem está abrindo o jogo pela primeira vez.                        -->
 <div class="layer hidden" id="tela-cal">
   <div class="card">
-    <div class="tag">ajuste</div>
+    <div class="tag">ajustes</div>
     <h1>Calibrar atraso</h1>
     <p class="sub">Entre agendar um som e ele sair do alto-falante existe um atraso
       — placa, sistema, Bluetooth. O navegador mede isso mal, e sem corrigir o
@@ -95,6 +71,12 @@
     <p id="cal-contagem"></p>
     <p class="sub" id="cal-progresso" style="font-variant-numeric:tabular-nums">—</p>
     <p class="sub" id="cal-resultado"></p>
+    <div class="row" style="margin-top:14px">
+      <span class="sub" style="margin:0">Ajuste fino</span>
+      <button class="ghost" id="btn-atraso-menos" title="o jogo está exigindo cedo demais">− 10 ms</button>
+      <button class="ghost" id="btn-atraso-mais"  title="o jogo está exigindo tarde demais">+ 10 ms</button>
+      <span class="sub" id="nivel-msg" style="margin:0"></span>
+    </div>
     <div class="row">
       <button id="cal-comecar">Começar</button>
       <button class="ghost" id="cal-fechar">Fechar</button>
@@ -137,6 +119,19 @@
   <div class="g">
     <div class="box" id="h-fase">Fase 1/3 — Calibração</div>
   </div>
+</div>
+
+<!-- PULAR: vive durante a calibração e o eco de uma partida normal. Some na
+     entrada do ritmo. Em VR não existe <div>, e lá o mesmo salto é o botão A
+     do controle direito (ver docs/vr.md). -->
+<button id="btn-pular" class="hidden">Pular ›</button>
+
+<!-- O momento em que o jogo para para dizer alguma coisa no centro da tela:
+     "PREPARE-SE" e a contagem. A mesma informação vai para o painelCentro em
+     3D, senão quem está de headset não vê nada (ver ui.js -> avisoCentro). -->
+<div id="centro-aviso" class="hidden">
+  <div id="centro-1"></div>
+  <div id="centro-2"></div>
 </div>
 
 <div id="julg"></div>

@@ -28,6 +28,12 @@
    ========================================================================== */
 
 const SONS_BATERIA = ['chimbal','crash','caixa','tom1','tom2','surdo','bumbo','ride'];
+/* Sample que NÃO é peça de bateria. Lista à parte de propósito: `SONS_BATERIA`
+   é percorrida pelo `carregarKit` e pelo `restaurarKit`, que trocam as peças
+   pelo kit declarado na carta. Um efeito de cena não é peça e não pode ser
+   trocado por carta — enfiá-lo naquela lista faria o nome mentir e abriria a
+   porta para uma carta substituir o som do holofote. */
+const SONS_EFEITO = ['holofote'];
 
 export class Synth {
   constructor(){
@@ -98,9 +104,9 @@ export class Synth {
     const d = this.ruido.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = Math.random()*2 - 1;
 
-    // Pré-carregar todos os samples
+    // Pré-carregar todos os samples: as peças e os efeitos de cena
     this._carregando = Promise.all(
-      SONS_BATERIA.map(id =>
+      [...SONS_BATERIA, ...SONS_EFEITO].map(id =>
         fetch(`sounds/${id}.mp3`)
           .then(r => r.arrayBuffer())
           .then(buf => this.ctx.decodeAudioData(buf))
@@ -248,8 +254,11 @@ export class Synth {
     if (this.ctx.state === 'suspended') this.ctx.resume();
     const t = quando ?? this.ctx.currentTime;
 
-    // Sons de bateria → sample
-    if (this.buffers[som] !== undefined || SONS_BATERIA.includes(som)) {
+    /* Sample → caminho de amostra. Vale para peça de bateria E para efeito de
+       cena: os dois são arquivo, e o `_sample` já resolve ganho por força e a
+       variação de afinação de ±1,2%, que num efeito de 2,4 s é inaudível. */
+    if (this.buffers[som] !== undefined
+        || SONS_BATERIA.includes(som) || SONS_EFEITO.includes(som)) {
       return this._sample(som, força, t);
     }
 

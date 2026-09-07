@@ -12,18 +12,18 @@
 
 import * as THREE from 'three';
 import { PECAS, PORID, CARTA_URL,
-         NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora } from './config.js';
+         NIVEIS, nivelAtual, jogaveisAgora } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
 import { registrarBatida } from './calibragem.js';
 import { carregarBichos, desenharBichos, limparBichos,
          ANTECEDENCIA_BICHO } from './bichos.js';
 import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
-import { pistaG, relogio } from './cena.js';
+import { pistaG, relogio, definirLuz } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
-import { msg, julgamento, atualizarHUD, objetivo, statusApi,
+import { msg, julgamento, atualizarHUD, objetivo,
          telaJogando, telaResultado, mostrarCreditos,
-         esconderResultado3D } from './ui.js';
+         esconderResultado3D, avisoCentro, mostrarPular } from './ui.js';
 import { enviarResultado } from './api.js';
 import { baterPeca, acalmarBalanco } from './balanco.js';
 import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
@@ -237,17 +237,18 @@ export async function ritmoIniciar(){
   try {
     const carta = await musica.carregarCarta(CARTA_URL);
     recorte = notasDoRecorte(carta);
-    /* A chave `?sem=` é de teste e NÃO anuncia nada em tela. Mas ela também
-       não pode deixar a tela MENTIR: ligada, o rótulo do nível fácil diria
-       "toque só a CAIXA" justamente quando a caixa é a única que o jogador
-       não toca. Então cai no rótulo neutro do nível, que já existe — nada
-       novo aparece, e nada errado também. */
-    const quais = (!PECAS_SEM.length && jog)
-      ? jog.map(id => (PORID[id]?.nome || id).toUpperCase()).join(' e ')
-      : null;
+    /* SÓ O NOME DA FAIXA. O painel dizia também quais peças tocar ("— toque
+       só a CAIXA") ou o nome do nível, e isso ocupava a maior parte de uma
+       placa que o jogador lê de relance no meio da música. A informação não
+       se perde: a peça que se deve tocar já é indicada pelo bicho que desce
+       sobre o próprio tambor (ver bichos.js), que é retorno mais direto que
+       texto — e o nível é escolha feita no menu, dois cliques antes.
+
+       Isso também apaga uma armadilha: com a chave `?sem=` ligada, o rótulo
+       do nível fácil anunciava "toque só a CAIXA" justamente quando a caixa
+       era a única peça que o jogador NÃO tocava. */
     mostrarCreditos();
-    objetivo((carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo')
-             + (quais ? ` — toque só a ${quais}` : ` — ${nivel.nome}`), '#00d9ff');
+    objetivo(carta.titulo ? `♪ ${carta.titulo}` : 'Acerte no tempo', '#00d9ff');
   } catch (e){
     // Carta ou faixa faltando não pode derrubar a partida: sem a fase 3 o
     // jogador ainda tem calibração e eco, e o resultado é registrado.
@@ -362,15 +363,74 @@ export function ritmoAtualizar(){
   }
 }
 
+/* ======================= A ABERTURA DO SHOW ==============================
+   O que separa "estou aprendendo" de "estou tocando". Chamado nos dois
+   caminhos que levam ao ritmo: terminar o eco, ou apertar Pular.
+
+   A ORDEM IMPORTA. O som de holofote e a queda da luz saem juntos, no mesmo
+   instante; só depois vem a contagem. Disparar a contagem junto com o fade
+   faria o "3" aparecer enquanto a cena ainda está clara, e o gesto inteiro
+   perde a leitura de "apagaram as luzes, vai começar".
+
+   `setTimeout` aqui é legítimo, ao contrário do resto do arquivo: isto é
+   apresentação, não ritmo. O que não pode derrapar é a MÚSICA, e ela é
+   agendada pelo relógio do áudio dentro de `ritmoIniciar()`.              */
+const ESPERA_PREPARE = 1200;   // ms de "PREPARE-SE" enquanto a luz cai
+const PASSO_CONTAGEM = 800;    // ms por número da contagem
+
+export function abrirShow(){
+  destacar(null);
+  mostrarPular(false);
+  objetivo('Prepare-se', '#e8eef8');
+  synth.ligar();
+  synth.tocar('holofote');
+  definirLuz('show');
+  avisoCentro(['PREPARE-SE'], '#e8eef8');
+  setTimeout(() => contagem(3), ESPERA_PREPARE);
+}
+
+function contagem(n){
+  /* Voltar ao menu no meio da contagem é possível (o botão Menu zera
+     `ativo`), e sem esta guarda a música começaria sozinha por cima da tela
+     inicial alguns segundos depois. */
+  if (!jogo.ativo){ avisoCentro(null); return; }
+  if (n <= 0){ avisoCentro(null); ritmoIniciar(); return; }
+  avisoCentro([String(n), 'PREPARE-SE'], '#00d9ff');
+  /* Chimbal, não um bipe: é a contagem que baterista dá, e é a mesma entrada
+     que a calibragem já usa. */
+  synth.tocar('chimbal', .35);
+  setTimeout(() => contagem(n - 1), PASSO_CONTAGEM);
+}
+
+/** O botão Pular, e o A do controle direito em VR. Vai direto para o ritmo
+ *  passando pela mesma abertura de quem terminou o tutorial — pular não é
+ *  entrar pela porta de trás, é abreviar o caminho.
+ *
+ *  DESDE 07/09 A PARTIDA CONTINUA VALENDO PARA O RANKING. Antes o atalho
+ *  ficava fora, porque era chave de teste; agora que pular é parte do fluxo,
+ *  deixar fora significaria que quase ninguém ranqueia. */
+export function pularTutorial(){
+  if (!jogo.ativo || jogo.livre || jogo.fase >= 2) return false;
+  jogo.fase = 2;
+  mostrarRotulos(false);
+  atualizarHUD();
+  abrirShow();
+  return true;
+}
+
 /* ======================== FLUXO DA PARTIDA ================================ */
 function proximaFase(){
   jogo.fase++;
   if (jogo.fase >= 1) mostrarRotulos(false);       // já aprendeu as peças
   if (jogo.fase >= 3){ concluir(); return; }
+  /* A entrada do ritmo não é "mais uma fase": é o show começando. Quem cuida
+     do aviso, do som e do tempo é a abertura, então este caminho sai aqui e
+     não cai no msg/setTimeout genérico abaixo. */
+  if (jogo.fase === 2){ atualizarHUD(); abrirShow(); return; }
   synth.tocar('nivel');
   msg(`Fase ${jogo.fase + 1}: ${FASES[jogo.fase].nome}`, 'gold', 2.4);
   atualizarHUD();
-  setTimeout(() => { jogo.fase === 1 ? ecoIniciar() : ritmoIniciar(); }, 1600);
+  setTimeout(ecoIniciar, 1600);
 }
 
 /** RF02 — inicia uma nova partida.
@@ -388,17 +448,23 @@ export function iniciar(livre = false, direto = false){
   /* O painel 3D de resultado não se esconde sozinho: sem isto o placar da
      partida anterior fica pendurado no ar durante a nova. */
   esconderResultado3D();
+  avisoCentro(null);
   telaJogando();
+  /* Toda partida começa com o MAPA CLARO, sem fade: o tutorial é para
+     enxergar as sete peças. Sem o `imediato`, jogar de novo depois de uma
+     partida começaria no escuro do show anterior e clarearia sozinho. */
+  definirLuz('tutorial', true);
   synth.ligar();
   atualizarHUD();
-  if (livre){ objetivo('Modo livre — toque à vontade', '#8c9bb5'); return; }
+  if (livre){ mostrarPular(false); objetivo('Modo livre — toque à vontade', '#8c9bb5'); return; }
   if (direto){
     jogo.fase = 2;
     mostrarRotulos(false);          // quem vem direto não está aprendendo o kit
     atualizarHUD();
-    ritmoIniciar();
+    abrirShow();
     return;
   }
+  mostrarPular(true);
   objetivo('Fase 1 — Calibração', '#00d9ff');
   calibracaoIniciar();
 }
@@ -408,11 +474,14 @@ export function concluir(){
   jogo.duracao = (performance.now() - jogo.t0) / 1000;
   jogo.ativo = false;
   ritmo.ativo = false;
+  mostrarPular(false);
+  avisoCentro(null);
   telaResultado();
   synth.tocar('nivel');
   setTimeout(() => synth.tocar('ok'), 240);
-  // RN07: só depois de concluída — e só partida completa. Atalho não entra
-  // no ranking, senão as pontuações deixam de ser comparáveis entre si.
-  if (jogo.atalho) statusApi('atalho de teste — não registrado no ranking', 'var(--warn)');
-  else enviarResultado();
+  /* RN07: só depois de concluída. E TODA partida concluída entra — inclusive
+     a de quem pulou o tutorial. Até 07/09 o atalho ficava fora, porque era
+     chave de teste; desde que o Pular passou a ser parte do fluxo, excluí-lo
+     deixaria o ranking quase vazio. Ver docs/testes.md. */
+  enviarResultado();
 }
