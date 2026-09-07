@@ -73,7 +73,19 @@ export const CENARIO = {
    nenhuma peça dava para mover. Ver ferramentas/cortar-peca.mjs e
    src/balanco.js. Peça que este arquivo ainda não separou (os tambores)
    simplesmente não balança, e o jogo segue igual sem ela. */
-export const URL_BATERIA = 'modelos/bateria_pratos.glb';
+export const URL_BATERIA = (() => {
+  /* `?kit=uastc` e `?kit=etc1s` trocam o modelo por versões de teste com as
+     texturas em KTX2, para comparar qualidade sem editar arquivo. São
+     descartáveis: se a comparação não convencer, os dois .glb saem e esta
+     função volta a ser uma linha. Nome desconhecido cai no padrão. */
+  const VARIANTES = {
+    uastc: 'modelos/bateria_uastc.glb',   // tudo em UASTC     13,6 MB · ~17,0 MB de VRAM
+    misto: 'modelos/bateria_misto.glb',   // normal em UASTC    6,6 MB · ~10,7 MB de VRAM
+    etc1s: 'modelos/bateria_etc1s.glb',   // tudo em ETC1S      3,2 MB ·  ~8,4 MB de VRAM
+  };
+  const p = new URLSearchParams(location.search).get('kit');
+  return (p && VARIANTES[p]) || 'modelos/bateria_pratos.glb';
+})();
 /* O modelo JÁ VEM EM METROS: caixa de 35 cm (14"), chimbal de 36 cm (14") e
    ride de 54 cm (21") — medidas de bateria de verdade, conferidas em três
    referências independentes. Por isso escala 1.
