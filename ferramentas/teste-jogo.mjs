@@ -202,15 +202,28 @@ for (const g of custo.cena){
         : ''));
 }
 
-/* Não é asserção, é vigia. Material `transparent` com `DoubleSide` faz o
-   three desenhar a malha duas vezes; o exportador de glTF marca transparente
-   por hábito, e o custo não aparece em lugar nenhum do nosso código. Fica
-   impresso a cada rodada para ninguém precisar redescobrir isso. */
+/* PASSADA DUPLA. Material `transparent` com `DoubleSide` faz o three
+   desenhar a malha duas vezes — dois draw calls, o dobro dos triângulos. O
+   exportador de glTF marca transparente por hábito, e no cenário isso
+   atingia 62 das 88 malhas: 104.939 triângulos por quadro desenhados de
+   graça. `cena.js` desliga a segunda passada onde a transparência é falsa
+   (opacidade 1, sem mapa de alfa).
+
+   Medido no Chrome, A/B no mesmo carregamento e no mesmo viewport: GPU p50
+   de ~14,8 ms para ~10,8 ms, e 126 draw calls para 91. A GPU respondia por
+   ~90% do tempo de quadro, então era o corte mais barato que existia.
+
+   O cenário tem de ficar em ZERO. A bateria mantém 7 malhas com passada
+   dupla e está certo: são de vidro, opacidade 0,1, e ali a ordem das faces
+   se vê — custam 1.120 triângulos, não 105 mil. */
+const porNome = Object.fromEntries(custo.cena.map(g => [g.nome, g]));
+conf(porNome.cenario?.malhasDuplas === 0,
+     'cenário sem passada dupla de material falsamente transparente',
+     `${porNome.cenario?.malhasDuplas} malhas · `
+     + `${porNome.cenario?.triangulosExtras.toLocaleString('pt-BR')} tris extras`);
 const extras = custo.cena.reduce((s, g) => s + g.triangulosExtras, 0);
-if (extras){
-  console.log(`    ⚠ ${extras.toLocaleString('pt-BR')} triângulos por olho vêm da`
-    + ' passada dupla de material transparente + DoubleSide');
-}
+console.log(`    passada dupla restante: ${extras.toLocaleString('pt-BR')} triângulos`
+  + ' por olho (transparência de verdade, deve permanecer)');
 
 conf(custo.draws < 200, 'draw calls dentro do razoável para mobile');
 /* As duas raízes precisam continuar nomeadas: é o nome que separa uma da
