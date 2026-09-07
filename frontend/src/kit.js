@@ -8,10 +8,11 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, URL_BATERIA, ESCALA_KIT, ALTURA_INICIAL_KIT, APOIO_KIT } from './config.js';
+import { PECAS, URL_BATERIA, ESCALA_KIT, ALTURA_INICIAL_KIT, APOIO_KIT,
+         AMBIENTE } from './config.js';
 import { registrarPecasMoveis } from './balanco.js';
 import { scene, loader, afinarTexturas, placa, renderer, player,
-         pistaG, ALTURA_PISTA } from './cena.js';
+         pistaG, ALTURA_PISTA, aoTrocarAmbiente } from './cena.js';
 
 export const kit = new THREE.Group(); kit.name = 'bateria'; scene.add(kit);
 
@@ -112,6 +113,83 @@ export function ajustarAltura(d, aoMudar){
   return alturaKit;
 }
 
+/* ================================ O BRILHO DE METAL DOS PRATOS ===========
+   `envMapIntensity` é o número que decide se um prato lê como metal ou como
+   plástico perolado. Para poder mexer nele SÓ nos pratos, primeiro é preciso
+   que os pratos tenham material próprio — e no scan eles não têm.
+
+   O `bateria_pratos.glb` traz quatro nodes (`kit_resto`, `ride`, `chimbal`,
+   `crash`) e UM material para os quatro. É consequência de como eles foram
+   separados: o `cortar-peca.mjs` recorta GEOMETRIA a partir de uma malha
+   fundida, e geometria recortada continua apontando para o material de
+   origem. Sem o clone abaixo, subir o brilho dos pratos subia junto os
+   163.903 triângulos do corpo do kit, as ferragens e a caveira do bumbo.
+
+   O clone é barato: `Material.clone()` copia os parâmetros e REAPROVEITA as
+   referências de textura, então os três JPEG 2048² continuam sendo três na
+   VRAM, não seis. Os nodes já eram malhas separadas, então também não nasce
+   draw call nova — e como os defines do shader não mudam, os dois materiais
+   compartilham o mesmo programa compilado.
+
+   Só clona se o material dos pratos for MESMO compartilhado com o resto. Se
+   um dia o modelo vier com material por peça, esta função sai do caminho
+   sozinha em vez de reunir de volta o que já estava separado.             */
+const PRATOS = new Set(['ride', 'crash', 'chimbal']);
+
+function separarMaterialDosPratos(raiz){
+  const pratos = [], resto = [];
+  raiz.traverse(o => { if (o.isMesh) (PRATOS.has(o.name) ? pratos : resto).push(o); });
+  if (!pratos.length) return 0;
+
+  const usadoNoResto = new Set(
+    resto.flatMap(o => [].concat(o.material)).filter(Boolean).map(m => m.uuid));
+
+  const clones = new Map();   // uuid do original -> clone dos pratos
+  let trocados = 0;
+  for (const o of pratos){
+    const mat = [].concat(o.material)[0];
+    if (!mat || !usadoNoResto.has(mat.uuid)) continue;   // já é só dos pratos
+    let c = clones.get(mat.uuid);
+    if (!c){
+      c = mat.clone();
+      c.name = (mat.name || 'material') + '_pratos';
+      clones.set(mat.uuid, c);
+    }
+    o.material = c;
+    trocados++;
+  }
+  return trocados;
+}
+
+/* O `envMapIntensity` SÓ VALE PARA O `envMap` DO PRÓPRIO MATERIAL. Quando o
+   reflexo vem do `scene.environment`, o número é simplesmente ignorado — e
+   ignorado em silêncio, que é o pior jeito de uma opção não funcionar.
+
+   Medido aqui, na região do ride, com ambiente branco e todo o resto igual:
+   `envMapIntensity` 0, 1, 4 e 16 deram TODOS 61,16 de luminância média. Com
+   a mesma textura copiada para `material.envMap`, os mesmos valores deram
+   17,88 / 18,37 / 19,83. Aí sim o número faz alguma coisa.
+
+   Por isso esta função copia a textura do ambiente para o `envMap` de cada
+   material do kit. Não custa VRAM — é a mesma textura, por referência — e é
+   o que permite ter um número para os pratos e outro para o corpo do kit.
+   (`scene.environmentIntensity` também funciona e foi medido junto, mas é um
+   número só para a cena inteira, cenário incluído.)
+
+   Chamada depois de `separarMaterialDosPratos`, senão o segundo número
+   sobrescreve o primeiro: até ali é tudo o mesmo material.                */
+export function aplicarIntensidadeAmbiente(raiz, ambiente = scene.environment){
+  raiz.traverse(o => {
+    if (!o.isMesh) return;
+    const i = PRATOS.has(o.name) ? AMBIENTE.intensidadePratos : AMBIENTE.intensidadeKit;
+    for (const m of [].concat(o.material)){
+      if (!m || !('envMapIntensity' in m)) continue;
+      if (m.envMap !== ambiente){ m.envMap = ambiente; m.needsUpdate = true; }
+      m.envMapIntensity = i;
+    }
+  });
+}
+
 /* ------------------------------------------------- modelo da bateria ----- */
 /** @param {(ok:boolean)=>void} aoTerminar chamado com true/false */
 export function carregarBateria(aoTerminar, aoProgredir){
@@ -132,12 +210,21 @@ export function carregarBateria(aoTerminar, aoProgredir){
       m.traverse(o => { if (o.isMesh){
         o.castShadow = false; o.receiveShadow = true; o.userData.kit = true; } });
       afinarTexturas(m);
+      const pratosSeparados = separarMaterialDosPratos(m);
+      /* O ambiente definitivo pode chegar depois deste modelo. Reagir à troca
+         sai mais barato e mais seguro que tentar ordenar dois carregamentos. */
+      aoTrocarAmbiente(tex => aplicarIntensidadeAmbiente(m, tex));
       kit.add(m);
       /* Quais peças o GLB trouxe separadas. Log de propósito: é a única
          forma de saber, sem abrir o arquivo, se o corte de uma peça nova
          chegou ao jogo. */
       const moveis = registrarPecasMoveis(m, zonas);
       console.info(`[kit] peças que balançam: ${moveis.join(', ') || 'nenhuma'}`);
+      console.info(`[kit] material dos pratos: ${pratosSeparados
+        ? pratosSeparados + ' malhas clonadas do material do kit'
+        : 'já era próprio, nada a clonar'}`
+        + ` — envMapIntensity ${AMBIENTE.intensidadePratos} nos pratos,`
+        + ` ${AMBIENTE.intensidadeKit} no resto`);
       aoTerminar(true);
     },
     aoProgredir,

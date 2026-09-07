@@ -215,6 +215,84 @@ export const QUALIDADE = {
   anisotropia: 8,
 };
 
+/* -------------------------------------------------------- O AMBIENTE -----
+   De onde vem o reflexo dos pratos.
+
+   Até 06/09 vinha do `RoomEnvironment` do three: um estúdio branco com
+   luminárias retangulares, o padrão de quem quer material apresentável sem
+   pensar no assunto. Só que o jogo se passa numa paisagem rochosa a céu
+   aberto, e prato é METAL — o material que mais depende do que está
+   refletido. Os pratos refletiam uma sala de estúdio que não existe e liam
+   como plástico perolado. Não era falta de reflexo: era reflexo do lugar
+   errado.
+
+   Agora o ambiente é gerado da PRÓPRIA CENA. Depois que o `cenario.glb`
+   carrega, seis faces são renderizadas UMA vez a partir da posição do kit e
+   viram o `scene.environment`. Custo: zero de download, seis renders na
+   carga, e nada por quadro depois. Ver cena.js → gerarAmbienteDaCena().
+
+   `?amb=0` na URL volta para o ambiente provisório de gradiente, para
+   comparar lado a lado sem editar arquivo. É a única forma honesta de
+   ajustar isto: cada número aqui precisa de um "ficou bom?" na tela.     */
+export const AMBIENTE = {
+  ligado: new URLSearchParams(location.search).get('amb') !== '0',
+
+  /* Resolução de CADA face do cubo, antes do PMREM. 256 é bastante: o que
+     sai daqui vira reflexo borrado num prato curvo, não um espelho. Subir
+     para 512 quadruplica o custo da captura e não aparece na tela.       */
+  resolucao: 256,
+
+  /* Altura da câmera de captura, em metros do MUNDO (não do kit). Com o kit
+     na altura inicial os pratos ficam entre 1,07 e 1,27 m; capturar no meio
+     deles é o que põe a linha do horizonte no lugar certo no reflexo. Não
+     acompanha o ajuste de altura do jogador de propósito — regerar o cubemap
+     a cada toque na alavanca seria seis renders por toque.               */
+  altura: 1.15,
+
+  /* O BOTÃO QUE DECIDE SE PRATO LÊ COMO METAL OU COMO PLÁSTICO.
+
+     ATENÇÃO, E ISTO CUSTA TEMPO SE FOR DESCOBERTO NA MARRA: o scan é UM
+     material só. Os quatro nodes do `bateria_pratos.glb` — `kit_resto`,
+     `ride`, `chimbal`, `crash` — compartilhavam o mesmo `MeshStandardMaterial`,
+     porque o `cortar-peca.mjs` separa GEOMETRIA, não material. Mexer no
+     envMapIntensity mexia nos três pratos E nos 163.903 triângulos do corpo
+     do kit ao mesmo tempo. `kit.js` agora clona o material para os pratos,
+     e é por isso que existem dois números aqui em vez de um.
+
+     1.0 é o que o glTF já traz. Comece comparando com `?amb=0` antes de
+     mexer: o ambiente novo sozinho já muda muito, e subir intensidade em
+     cima de um reflexo que já está certo é como acrescentar luz por cima de
+     scan — piora e disfarça.                                             */
+  intensidadePratos: 1.0,
+  intensidadeKit:    1.0,
+
+  /* A COR DO CÉU DURANTE A CAPTURA — e este é o número que mais pesa.
+
+     Numa paisagem a céu aberto o céu é a maior fonte de luz que existe, e
+     ele ocupa metade do cubo. Só que aqui o `scene.background` é `0x0a0e16`,
+     quase preto: o que o jogador LÊ como céu no horizonte é a névoa
+     (`0x2a3446`), e névoa não ilumina nada — ela é descartada na captura,
+     senão vira um borrão cinza uniforme.
+
+     Medido na região central do ride, variando só esta cor, com tudo o mais
+     igual — quanto do brilho do prato vem do ambiente:
+
+         0x0a0e16 (o fundo cru)     2,4%
+         0x1c2740                   5,9%
+         0x2a3446 (a cor da névoa)  ~9%
+         0x3a4a63                  14,6%
+         0x8fa3c4                  45,4%
+
+     Com o fundo cru o reflexo existe e não se vê: 2,4% é ruído. O padrão é a
+     cor da NÉVOA, porque é a que o jogador de fato enxerga no horizonte —
+     capturar o `0x0a0e16` seria refletir um céu que ninguém vê.
+
+     Subir daqui é decisão de arte, não de correção: clareia a cena inteira e
+     afasta o jogo do visual escuro que ele tem hoje. `null` captura o fundo
+     como está.                                                            */
+  corDoCeu: 0x2a3446,
+};
+
 /* Decodificadores de Draco (geometria comprimida) e Basis (texturas KTX2).
    Servidos do PRÓPRIO domínio, não de CDN: rede que bloqueia CDN externo
    — e rede de faculdade bloqueia — faria nenhum modelo carregar.
