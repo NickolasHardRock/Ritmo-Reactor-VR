@@ -72,7 +72,7 @@ A barra volta a zero a cada degrau alcançado — ela mede o caminho até o
 
 | Item | Como verificar | OK? |
 |---|---|---|
-| Botões | Iniciar, Modo livre, Só a música, Calibrar, Jogar novamente, Menu | |
+| Botões | Jogar, Modo livre, Ajustes, Pular (durante o tutorial), Jogar novamente, Menu | |
 | Tela inicial | nome do jogo, instruções, equipe, professora | |
 | HUD | pontos, combo e **multiplicador** atualizam durante a partida | |
 | Crédito da faixa | autoria e licença da música aparecem na tela inicial | |

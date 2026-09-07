@@ -11,7 +11,7 @@ import * as THREE          from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import { CENARIO, QUALIDADE, AMBIENTE, PALCO,
+import { CENARIO, QUALIDADE, AMBIENTE, PALCO, LUZ,
          CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
 
 /* --------------------------------------------------------- cena base ----- */
@@ -106,8 +106,12 @@ function trocarAmbiente(rt){
 }
 trocarAmbiente(ambienteGradiente());
 
-scene.add(new THREE.HemisphereLight(0xbcd4f5, 0x2b3648, 1.15));
-export const luzChave = new THREE.SpotLight(PALCO.cor, PALCO.intensidade,
+/* Exportada porque a intensidade dela é metade da transição tutorial→show. */
+export const luzAmbiente = new THREE.HemisphereLight(0xbcd4f5, 0x2b3648, LUZ.tutorial.hemisferica);
+scene.add(luzAmbiente);
+/* Nasce no nível do TUTORIAL, não no do show: a partida começa clara. O
+   valor do show é o `PALCO.intensidade`, aplicado por `definirLuz('show')`. */
+export const luzChave = new THREE.SpotLight(PALCO.cor, LUZ.tutorial.palco,
   PALCO.alcance, PALCO.angulo, PALCO.penumbra, PALCO.decaimento);
 luzChave.name = 'luz-palco';
 luzChave.position.set(...PALCO.posicao);
@@ -126,6 +130,79 @@ luzChave.shadow.mapSize.set(512, 512);
 luzChave.shadow.camera.near = .5;
 luzChave.shadow.camera.far  = 8;
 scene.add(luzChave);
+
+
+/* ======================= TUTORIAL CLARO, SHOW ESCURO =====================
+   Dois estados de luz e uma interpolação entre eles. No tutorial o jogador
+   está aprendendo onde ficam as sete peças e precisa ver a cena; na entrada
+   do ritmo as luzes caem e sobra a poça de palco.
+
+   POR QUE INTERPOLADO E NÃO EM DEGRAUS: luz que pula de um valor a outro em
+   dois ou três `setTimeout` lê como engasgo de carregamento, não como
+   holofote apagando. Aqui o fade tem duração exata (`LUZ.transicao`) porque o
+   progresso é um `t` de 0 a 1 alimentado pelo `dt` do laço, e não um passo
+   proporcional à diferença que fica se aproximando do alvo para sempre.
+
+   `animarLuzes(dt)` sai de graça quando não há transição em curso — é o caso
+   em 99% dos quadros de uma partida.                                      */
+const _de    = { hemi:0, palco:0, amb:0 };
+const _para  = { hemi:0, palco:0, amb:0 };
+const _atual = { hemi:0, palco:0, amb:0 };
+/* Cor do céu: as duas pontas e a interpolada. `scene.background` aponta para
+   `_corAtual` e é MUTADA no lugar — trocar o objeto a cada quadro daria lixo
+   para o coletor 60 vezes por segundo, e a captura do cubemap guarda e devolve
+   esta referência (ver gerarAmbienteDaCena). */
+const _corDe   = new THREE.Color();
+const _corPara = new THREE.Color();
+const _corAtual = new THREE.Color();
+let _t = 1;
+
+function _estado(nome){
+  return nome === 'show'
+    ? { hemi: LUZ.show.hemisferica,     palco: PALCO.intensidade,  amb: LUZ.show.ambiente,
+        fundo: LUZ.show.fundo }
+    : { hemi: LUZ.tutorial.hemisferica, palco: LUZ.tutorial.palco, amb: LUZ.tutorial.ambiente,
+        fundo: LUZ.tutorial.fundo };
+}
+function _aplicar(){
+  luzAmbiente.intensity = _atual.hemi;
+  luzChave.intensity    = _atual.palco;
+  /* `environmentIntensity` da CENA, e não `envMapIntensity` do material: aqui
+     se quer mexer no reflexo de tudo de uma vez, cenário incluído. O caminho
+     por material existe e é outro — ver kit.js. */
+  scene.environmentIntensity = _atual.amb;
+  scene.background = _corAtual;
+}
+
+/** @param {'tutorial'|'show'} nome
+ *  @param {boolean} imediato sem fade — usado no início da partida, onde não
+ *         há transição a mostrar, só um ponto de partida a fixar. */
+export function definirLuz(nome, imediato = false){
+  const alvo = _estado(nome);
+  Object.assign(_de, _atual);
+  Object.assign(_para, alvo);
+  _corDe.copy(_corAtual);
+  _corPara.set(alvo.fundo);
+  _t = imediato ? 1 : 0;
+  if (imediato){
+    Object.assign(_atual, alvo);
+    _corAtual.copy(_corPara);
+    _aplicar();
+  }
+}
+
+/** Chamar uma vez por quadro, com o dt do laço. */
+export function animarLuzes(dt){
+  if (_t >= 1) return;
+  _t = Math.min(1, _t + dt / LUZ.transicao);
+  const e = _t * _t * (3 - 2 * _t);              // smoothstep
+  for (const k of ['hemi', 'palco', 'amb'])
+    _atual[k] = _de[k] + (_para[k] - _de[k]) * e;
+  _corAtual.lerpColors(_corDe, _corPara, e);
+  _aplicar();
+}
+
+definirLuz('tutorial', true);
 
 /* --------------------------------------------------------- carregador ---- */
 export const loader = new GLTFLoader();

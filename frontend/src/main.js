@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit,
-         carregarCenario, gerarAmbienteDaCena,
+         carregarCenario, gerarAmbienteDaCena, animarLuzes, definirLuz,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import { carregarBichos } from './bichos.js';
 import { medir as medirDesempenho, alternarResumo } from './desempenho.js';
@@ -25,7 +25,8 @@ const { animarBalanco } = balanco;
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
          ajustarAltura, mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
-import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar } from './fases.js';
+import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar,
+         pularTutorial } from './fases.js';
 import { musica, Musica } from './musica.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
@@ -119,7 +120,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   let ok = false;
   try { ok = await navigator.xr.isSessionSupported('immersive-vr'); } catch { /* ignora */ }
   if (ok){
-    statusXR(true, 'VR disponível — as baquetas são seus controles');
+    statusXR(true, 'VR disponível');
     $('vr-slot').appendChild(VRButton.createButton(renderer));
   } else {
     statusXR(false, 'sem immersive-vr aqui (precisa de headset + HTTPS) — modo teclado liberado');
@@ -162,6 +163,7 @@ renderer.setAnimationLoop(() => {
   ritmoAtualizar();
   animarZonas(dt, t);
   animarBalanco(dt);
+  animarLuzes(dt);                // transição tutorial → show, quando há uma
 
   camera.getWorldPosition(_v);
   painelHUD.lookAt(_v);
@@ -190,19 +192,18 @@ renderer.setAnimationLoop(() => {
          que sobra no caminho de quem já viu. O atalho existia ("Só a música"),
          mas em HTML: dava para clicar antes de entrar no VR e não depois.
 
-         Reaproveita `iniciar(false, true)`, o mesmo caminho do botão, então o
-         `atalho` fica marcado e a partida não entra no ranking — pular o
-         tutorial não pode render pontuação comparável com quem jogou inteiro.
+         Chama o MESMO `pularTutorial()` do botão da tela, e não
+         `iniciar(false, true)`: reiniciar a partida jogava fora os pontos da
+         calibração que o jogador já tinha feito, e o A é justamente para quem
+         está no meio dela. A partida segue valendo para o ranking desde
+         07/09 (ver fases.js).
 
-         Só age nas fases 0 e 1: na fase de ritmo, A reiniciaria a música na
-         cara de quem está tocando. */
+         Só age nas fases 0 e 1 — `pularTutorial` já garante isso, porque na
+         fase de ritmo o A reiniciaria a música na cara de quem está tocando. */
       if (src.handedness === 'right' && g.buttons?.[4]?.pressed && aPronto){
         aPronto = false;
         setTimeout(() => { aPronto = true; }, 700);
-        if (jogo.fase < 2){
-          iniciar(false, true);
-          msg('Pulando para a música', 'gold', 1.6);
-        }
+        if (pularTutorial()) msg('Pulando para a música', 'gold', 1.6);
       }
 
       /* X DO CONTROLE ESQUERDO INICIA A CALIBRAGEM.
@@ -254,7 +255,11 @@ renderer.setAnimationLoop(() => {
 /* ------------------------------------------------------------ botões ----- */
 $('btn-jogar').onclick = () => iniciar(false);
 $('btn-livre').onclick = () => iniciar(true);
-$('btn-musica').onclick = () => iniciar(false, true);   // direto na fase de ritmo
+/* "Só a música" saiu do menu em 07/09. O mesmo salto virou o botão PULAR, que
+   aparece durante o tutorial — no momento em que a vontade de pular existe, e
+   não antes de o jogo começar. O caminho `iniciar(false, true)` continua no
+   código, exposto em `window.__jogo` para os testes. */
+$('btn-pular').onclick = () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); };
 $('btn-again').onclick = () => iniciar(false);
 $('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
 
@@ -264,8 +269,10 @@ function pintarNivel(){
   const k = nivelAtual();
   for (const [id, chave] of [['btn-nivel-facil','facil'], ['btn-nivel-normal','normal']]){
     const b = $(id); if (!b) continue;
-    b.style.borderColor = chave === k ? 'var(--cyan)' : 'var(--line)';
-    b.style.color       = chave === k ? 'var(--cyan)' : 'var(--ink)';
+    /* Classe, não estilo inline: o controle é segmentado agora, e o estado
+       ativo é preenchimento em vez de borda — decidir isso no CSS deixa o
+       visual num lugar só. */
+    b.classList.toggle('on', chave === k);
   }
   const c = Musica.calibragem;
   const m = $('nivel-msg');
@@ -302,7 +309,7 @@ function limparContagem(){
   el.classList.remove('vai');
 }
 
-$('btn-calibrar').onclick = () => {
+$('btn-ajustes').onclick = () => {
   $('cal-progresso').textContent = '—';
   $('cal-resultado').textContent = '';
   limparContagem();
@@ -431,6 +438,11 @@ window.__jogo = {
      é a função avisar "sem cenário na cena" enquanto o cenário está na tela. */
   gerarAmbienteDaCena,
   NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
+  pularTutorial,
+  /* A transição de luz é movida pelo `dt` do laço, e laço de render para
+     quando a aba perde o foco. Expor as duas permite conferir o fade
+     passando o tempo na mão, sem depender de a janela estar visível. */
+  definirLuz, animarLuzes,
   simularBatidaVR: (id, vel, dt, desvio) => simularBatida(id, bater, vel, dt, desvio),
   testeIngenuo,
 };

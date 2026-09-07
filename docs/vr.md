@@ -4,7 +4,7 @@
 
 1. Abra a URL do jogo no **Meta Quest Browser** (o navegador do headset).
 2. Se o dispositivo suportar, a tarja na tela inicial fica verde:
-   *"VR disponível — as baquetas são seus controles"*.
+   *"VR disponível"*.
 3. Toque no botão **ENTER VR** e autorize, se for pedido.
 4. Para sair, use o gesto/botão do sistema; o jogo volta ao modo navegador
    sozinho.
