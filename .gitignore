@@ -53,3 +53,13 @@ frontend/public/modelos/world_of_metal_*.glb
 
 # Saidas de sessao do assistente
 Claude outputs/
+
+# As tres variantes de textura da bateria em KTX2 (uastc, misto, etc1s), que
+# a chave `?kit=` do config.js seleciona. Sao 24 MB de arquivo DESCARTAVEL:
+# existem para comparar qualidade no Quest 3 e, escolhida uma, ela vira o
+# `bateria_pratos.glb` e as outras duas somem junto com a chave. Versiona-las
+# deixaria os 24 MB no historico para sempre, inclusive das duas perdedoras.
+# Quem precisar testar pede os arquivos a equipe.
+frontend/public/modelos/bateria_uastc.glb
+frontend/public/modelos/bateria_misto.glb
+frontend/public/modelos/bateria_etc1s.glb
