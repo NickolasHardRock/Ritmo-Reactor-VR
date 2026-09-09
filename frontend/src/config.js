@@ -108,6 +108,65 @@ export const APOIO_KIT = 0.494;
    O jogador ainda ajusta ±45 cm a partir daqui (alavanca direita / [ ]).  */
 export const ALTURA_INICIAL_KIT = 0.35;
 
+/* ------------------------------------------------------- AS BAQUETAS -----
+   COMO A BAQUETA FICA PRESA À MÃO.
+
+   Até 09/09 a baqueta pendurava no `getController(i)`, que é o espaço do
+   RAIO DE MIRA (`targetRaySpace`) — a direção para onde o controle APONTA,
+   a mesma que desenha o ponteiro dos botões 3D. Só que ninguém segura uma
+   baqueta alinhada com a mira: o WebXR tem um espaço separado justamente
+   para isto, o `gripSpace`, definido como "a direção de uma vareta reta
+   segurada na mão". É por isso que a baqueta saía reta demais na tela.
+
+   Agora ela pendura no `getControllerGrip(i)`, e por cima disso ficam dois
+   ângulos de gosto, que são o que um baterista de verdade faz com o pulso:
+
+     inclinacao    a ponta cai um pouco abaixo do eixo da mão
+     convergencia  as duas pontas se aproximam, apontando para o centro do kit
+
+   ISTO É TRABALHO DE OLHO e nenhum número aqui vem de cálculo. Por isso os
+   dois estão na URL — dá para ajustar de dentro do headset, sem editar
+   arquivo e sem tirar o óculos:
+
+     ?baq=18           inclina 18° em vez dos 12° padrão
+     ?conv=0           baquetas paralelas
+     ?punho=0          VOLTA AO COMPORTAMENTO ANTIGO (baqueta no raio de mira)
+
+   A última é a saída de emergência: se em algum controle o `gripSpace` vier
+   com outra orientação e a baqueta apontar para um lugar estranho, `?punho=0`
+   devolve o jogo jogável na hora. Sem `gripSpace` (mão rastreada, por
+   exemplo) o código cai sozinho nesse caminho e soma a `compensacaoDoRaio`,
+   porque o raio de mira já nasce inclinado em relação à mão.
+
+   MEXER AQUI MEXE NO JOGO, não só no visual: quem o jogo mede é a PONTA, e
+   girar a haste move a ponta. Depois de mudar, vale conferir se as peças
+   ainda são alcançadas com conforto.                                      */
+function grausDaURL(chave, padrao){
+  const p = new URLSearchParams(location.search).get(chave);
+  if (p === null) return padrao;
+  const g = Number(p);
+  if (Number.isFinite(g) && g >= -60 && g <= 60) return g;
+  console.warn(`[config] ?${chave}= ignorado: use um número de -60 a 60 (graus).`
+    + ` Recebi "${p}". Seguindo com ${padrao}.`);
+  return padrao;
+}
+
+export const BAQUETA = {
+  /* 38 cm é baqueta 5A de verdade (a medida real é 40,6 cm; os 2 cm a menos
+     descontam a parte que fica dentro da mão). */
+  comprimento: 0.38,
+  /* Pendura no punho. `?punho=0` volta para o raio de mira. */
+  usarPunho: new URLSearchParams(location.search).get('punho') !== '0',
+  /* Graus. Positivo = ponta para BAIXO. */
+  inclinacao: grausDaURL('baq', 12),
+  /* Graus. Positivo = pontas convergindo para o centro. */
+  convergencia: grausDaURL('conv', 8),
+  /* Somado à inclinação só quando a haste tem de pendurar no raio de mira,
+     que já aponta mais para baixo que a mão. Chute honesto: só serve de
+     ponto de partida, e só é usado no caminho de exceção. */
+  compensacaoDoRaio: 15,
+};
+
 /* --------------------------------------------------------- A CARTA -------
    A fase de ritmo lê uma "carta": um JSON com os tempos de cada nota, em
    segundos da faixa. Trocar de música é trocar este caminho — nada no

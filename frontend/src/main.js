@@ -15,18 +15,19 @@ import { VRButton }      from 'three/addons/webxr/VRButton.js';
 import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
-         molduraDesktop, molduraVR, registrarOrbit,
+         molduraDesktop, molduraVR, registrarOrbit, ajustarVisao, ajustarAvanco,
          carregarCenario, gerarAmbienteDaCena, animarLuzes, definirLuz,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
+import * as menu3d from './menu3d.js';
 import { carregarBichos } from './bichos.js';
 import { medir as medirDesempenho, alternarResumo } from './desempenho.js';
 import * as balanco from './balanco.js';
 const { animarBalanco } = balanco;
 import { kit, zonas, baquetas, carregarBateria, animarZonas,
-         ajustarAltura, mostrarRotulos, destacar } from './kit.js';
+         mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar,
-         pularTutorial } from './fases.js';
+         pularTutorial, abandonar } from './fases.js';
 import { musica, Musica } from './musica.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
@@ -36,7 +37,7 @@ import { NIVEIS, nivelAtual, definirNivel, cartaAgora,
          PECAS_SEM, jogaveisAgora } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
-         telaResultado, calibragem3D } from './ui.js';
+         telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -79,15 +80,22 @@ $('teclas').innerHTML =
   PECAS.map(p => `<span class="kbd">${p.tecla.replace('Key','')}</span> ${p.nome}`).join('<br>')
   + '<br><span class="kbd">[</span> <span class="kbd">]</span> altura';
 
+/* O texto continua falando da BATERIA porque é isso que o jogador vê mudar —
+   quem de fato sobe e desce é ele (ver `ajustarVisao`, em cena.js). */
 function alturaMudou(a){
   msg(`Altura da bateria: ${a >= 0 ? '+' : ''}${a.toFixed(2)} m`, 'ok', 1.1);
+}
+/* Aqui o número é a DISTÂNCIA de verdade, em metros do centro do kit, e não
+   o deslocamento: "0,53 m" diz onde você está; "+0,03" não diria nada. */
+function distanciaMudou(d){
+  msg(`Distância da bateria: ${d.toFixed(2)} m`, 'ok', 1.1);
 }
 
 addEventListener('keydown', e => {
   if (registrarBatida()) return;   // calibragem em curso
   if (e.repeat) return;
-  if (e.code === 'BracketLeft'){  ajustarAltura(-.03, alturaMudou); return; }
-  if (e.code === 'BracketRight'){ ajustarAltura(+.03, alturaMudou); return; }
+  if (e.code === 'BracketLeft'){  ajustarVisao(-.03, alturaMudou); return; }
+  if (e.code === 'BracketRight'){ ajustarVisao(+.03, alturaMudou); return; }
   const p = PECAS.find(p => p.tecla === e.code);
   if (!p) return;
   e.preventDefault();
@@ -127,20 +135,37 @@ renderer.domElement.addEventListener('pointerup', e => {
   }
 })();
 
+/* ENTRAR EM VR NÃO COMEÇA A PARTIDA.
+   Até 08/09 este bloco terminava em `if (!jogo.ativo) iniciar(false)`: quem
+   tocava em ENTER VR na tela inicial era despejado no meio da fase 1 sem ter
+   escolhido nível nem calibrado nada, e sem ter visto menu nenhum. O menu
+   existia — em HTML, que não aparece dentro do headset.
+
+   Agora entrar em VR leva ao MENU, o mesmo menu, desenhado em 3D
+   (menu3d.js). Quem já estava jogando no monitor e colocou o headset no meio
+   da partida continua de onde estava: aí a partida existe, e interrompê-la
+   seria o defeito simétrico. */
 renderer.xr.addEventListener('sessionstart', () => {
   orbit.enabled = false;
-  telaInicio(); $('tela-inicio').classList.add('hidden');
+  $('tela-inicio').classList.add('hidden');
+  $('tela-fim').classList.add('hidden');
+  $('tela-cal').classList.add('hidden');
   $('hud').classList.add('hidden'); $('teclas').classList.add('hidden');
+  $('btn-pular').classList.add('hidden'); $('btn-sair').classList.add('hidden');
   baquetas.forEach(b => { b.temAnterior = false; });
   molduraVR();
-  if (!jogo.ativo) iniciar(false);
+  menu3d.mostrar(jogo.ativo ? 'jogo' : 'menu');
+  menu3d.revisar();
 });
 renderer.xr.addEventListener('sessionend', () => {
   orbit.enabled = true;
   molduraDesktop();
+  menu3d.revisar();              // fora do VR nada disto se desenha
   if (jogo.ativo){
     $('hud').classList.remove('hidden');
     $('teclas').classList.remove('hidden');
+    $('btn-sair').classList.remove('hidden');
+    if (jogo.fase < 2 && !jogo.livre) $('btn-pular').classList.remove('hidden');
   } else telaInicio();
 });
 
@@ -150,6 +175,7 @@ renderer.xr.addEventListener('sessionend', () => {
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 let giroPronto = true;
+let avancoPronto = true;
 let xPronto = true;
 let aPronto = true;
 let bPronto = true;
@@ -172,6 +198,11 @@ renderer.setAnimationLoop(() => {
   zonas.forEach(z => z.rotulo.quaternion.copy(_q));
 
   if (renderer.xr.isPresenting){
+    /* O ponteiro dos botões 3D. Um raycast contra no máximo oito planos por
+       controle — desprezível ao lado do resto do quadro, e ele mesmo sai de
+       graça quando não há botão visível. */
+    menu3d.atualizarPonteiros();
+
     for (const src of (renderer.xr.getSession()?.inputSources || [])){
       const g = src.gamepad;
       if (!g) continue;
@@ -181,8 +212,22 @@ renderer.setAnimationLoop(() => {
         const y = g.axes?.[3] || 0;
         if (Math.abs(y) > .7 && giroPronto){
           giroPronto = false;
-          ajustarAltura(y < 0 ? .03 : -.03, alturaMudou);
+          ajustarVisao(y < 0 ? .03 : -.03, alturaMudou);
           setTimeout(() => { giroPronto = true; }, 140);
+        }
+      }
+
+      /* ALAVANCA ESQUERDA ↑↓ APROXIMA E AFASTA — a outra metade da mesma
+         ideia. A direita ajusta a altura desde sempre; faltava a distância,
+         que é a outra medida de corpo que muda de pessoa para pessoa. O
+         posto padrão encostou no bumbo em 09/09, então na prática este
+         ajuste serve para AFASTAR: à frente sobram 3 cm. */
+      if (src.handedness === 'left'){
+        const y = g.axes?.[3] || 0;
+        if (Math.abs(y) > .7 && avancoPronto){
+          avancoPronto = false;
+          ajustarAvanco(y < 0 ? .03 : -.03, distanciaMudou);
+          setTimeout(() => { avancoPronto = true; }, 140);
         }
       }
 
@@ -261,7 +306,31 @@ $('btn-livre').onclick = () => iniciar(true);
    código, exposto em `window.__jogo` para os testes. */
 $('btn-pular').onclick = () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); };
 $('btn-again').onclick = () => iniciar(false);
-$('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
+/* `esconderResultado3D` junto: o placar 3D não some com a tela de HTML, e
+   quem voltasse ao menu depois de uma partida o deixava pendurado no ar. */
+$('btn-menu').onclick  = () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); };
+$('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); };
+
+/* ------------------------------------------- os mesmos botões, em 3D -----
+   O menu3d não importa nada de `fases.js`: fecharia o ciclo
+   fases → ui → menu3d → fases. Quem conhece as duas pontas é este arquivo,
+   que já era o lugar onde todo botão de HTML é ligado. Cada ação abaixo é a
+   MESMA função do botão equivalente na tela — o jogo não tem dois caminhos,
+   tem duas maneiras de apertar o mesmo. */
+menu3d.definirAcoes({
+  jogar:    () => iniciar(false),
+  livre:    () => iniciar(true),
+  nivel:    (chave) => { definirNivel(chave); pintarNivel(); lerCarta(); },
+  calibrar:  () => comecarCalibragem(),
+  fecharCal: () => fecharAjustes(),
+  pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
+  sair:     () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); },
+  denovo:   () => iniciar(false),
+  menu:     () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); },
+});
+/* A lista de níveis sai de `NIVEIS`, não de uma cópia à mão: mesmo contrato
+   do `pintarNivel` e dos ids `btn-nivel-<chave>` no HTML. */
+menu3d.montarNiveis(Object.keys(NIVEIS).map(c => ({ chave:c, nome:NIVEIS[c].nome })));
 
 
 /* ------------------------------------------------- nível e calibragem ----- */
@@ -279,15 +348,17 @@ function pintarNivel(){
   }
   const c = Musica.calibragem;
   const m = $('nivel-msg');
-  if (m){
-    /* Antes do primeiro toque não existe AudioContext, então o navegador ainda
-       não tem número nenhum para dar — dizer "0 ms" ali seria inventar. */
-    const auto = musica.latencia;
-    m.textContent = c !== null
-      ? `atraso: ${Math.round(c*1000)} ms`
-      : (auto > 0 ? `atraso não calibrado — usando ${Math.round(auto*1000)} ms do navegador`
-                  : 'atraso ainda não calibrado');
-  }
+  /* Antes do primeiro toque não existe AudioContext, então o navegador ainda
+     não tem número nenhum para dar — dizer "0 ms" ali seria inventar. */
+  const auto = musica.latencia;
+  const texto = c !== null
+    ? `atraso: ${Math.round(c*1000)} ms`
+    : (auto > 0 ? `atraso não calibrado — usando ${Math.round(auto*1000)} ms do navegador`
+                : 'atraso ainda não calibrado');
+  if (m) m.textContent = texto;
+  /* O mesmo estado no menu 3D. Curto ali: a placa é lida a 2,6 m. */
+  menu3d.pintarMenu(k, `${NIVEIS[k]?.nome || ''} · `
+    + (c !== null ? `atraso ${Math.round(c*1000)} ms` : 'atraso não calibrado'));
 }
 /* AJUSTE FINO. Calibração medida é a base; o resto é gosto e reflexo de cada
    um, e ninguém acerta isso por cálculo — acerta jogando. Dez em dez
@@ -324,7 +395,9 @@ $('btn-ajustes').onclick = () => {
   limparContagem();
   document.getElementById('tela-cal').classList.remove('hidden');
 };
-$('cal-fechar').onclick = () => {
+/* Com nome porque tem dois gatilhos, como o `comecarCalibragem`: o X da tela
+   e o botão Fechar em 3D, para quem mediu de dentro do headset. */
+function fecharAjustes(){
   /* Fechar no meio da medição não pode jogar fora o que já foi medido: se
      houver amostras suficientes, conclui antes de cancelar. Antes daqui, dez
      batidas boas e um clique no X davam em nada — sem aviso. */
@@ -333,12 +406,18 @@ $('cal-fechar').onclick = () => {
   limparContagem();
   calibragem3D(null);
   document.getElementById('tela-cal').classList.add('hidden');
+  if (menu3d.telaAtual() === 'cal') menu3d.mostrar('menu');
   pintarNivel();
-};
+}
+$('cal-fechar').onclick = fecharAjustes;
 /* Com nome porque agora tem DOIS gatilhos: o botão da tela e o X do controle
    esquerdo, para quem está dentro do headset e não vê botão de HTML. */
 function comecarCalibragem(){
   if (calibragem.ativa) return;
+  /* Dentro do VR a medição é desenhada no `painelCentro`, que está ATRÁS do
+     menu 3D. Sem trocar de tela, a contagem apareceria escondida pelos
+     próprios botões. Ver o grupo 'cal' em menu3d.js. */
+  if (menu3d.telaAtual() === 'menu') menu3d.mostrar('cal');
   $('cal-resultado').textContent = '';
   $('cal-progresso').textContent = '—';
   $('cal-comecar').disabled = true;
@@ -457,7 +536,13 @@ window.__jogo = {
      é a função avisar "sem cenário na cena" enquanto o cenário está na tela. */
   gerarAmbienteDaCena,
   NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
-  pularTutorial,
+  pularTutorial, abandonar,
+  /* A interface 3D e o ajuste de altura ficam expostos porque nenhum dos dois
+     dá para exercitar sem headset. `menu3d.forcarForaDoVR(true)` seguido de
+     `menu3d.mostrar('menu')` desenha os painéis no monitor, para conferir
+     texto e alinhamento; `ajustarVisao` mostra de fora que quem se move é o
+     jogador, e não a bateria. */
+  menu3d, ajustarVisao, ajustarAvanco,
   /* A transição de luz é movida pelo `dt` do laço, e laço de render para
      quando a aba perde o foco. Expor as duas permite conferir o fade
      passando o tempo na mão, sem depender de a janela estar visível. */

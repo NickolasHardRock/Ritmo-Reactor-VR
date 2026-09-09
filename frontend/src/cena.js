@@ -44,17 +44,114 @@ export const relogio = new THREE.Clock();
    - em VR ele precisa estar ao alcance do braço, no lugar do baterista.
    Mantendo o `player` na origem fora do VR, o espaço local vira igual ao
    mundo e o OrbitControls funciona sem surpresas.                          */
-export const POSTO = new THREE.Vector3(0, 0, 0.62);
+/* ONDE O BATERISTA FICA. Era 0,62 m atrás do centro do kit, e o teste de
+   09/09 disse que dali só se alcança o ride esticando o braço. Medido no
+   modelo REAL, o alcance exigido do ombro (já descontada a baqueta de 38 cm):
+
+     peça       z=0,62   z=0,50
+     ride        0,54     0,45     ← o pior caso, e o que doía
+     crash       0,48     0,37
+     chimbal     0,44     0,36
+     tom 1 e 2   0,40     0,30
+     surdo       0,28     0,21
+     caixa       0,24     0,17
+
+   Braço de adulto vai a ~0,62 m com o ombro travado; 0,54 é esticar de
+   verdade, 0,45 é confortável.
+
+   0,50 NÃO É ARREDONDAMENTO: é o limite. Medindo a malha do kit na faixa
+   |x| < 30 cm, que é a que fica na frente do corpo, ela avança até z=0,445
+   (o bumbo, abaixo de 40 cm) e z=0,398 na altura do peito. Abaixo de 0,50 o
+   jogador começa a ficar DENTRO da bateria — que é invisível de cabeça
+   erguida e constrangedor ao olhar para baixo. Daí também o limite de
+   aproximação do ajuste fino, logo abaixo.
+
+   Mexer aqui mexe no cenário junto: `encaixarCenario` posiciona a paisagem a
+   partir do POSTO, para o jogador continuar em cima da mesma pedra.        */
+export const POSTO = new THREE.Vector3(0, 0, 0.50);
 let _orbit = null;
 export function registrarOrbit(o){ _orbit = o; }
 
+/* ------------------------------------------- distância, no ajuste fino ---
+   Como a altura, isto é medida de corpo e muda de pessoa para pessoa. A
+   alavanca ESQUERDA ↑↓ aproxima e afasta; a direita já cuidava da altura.
+
+   O curso é assimétrico de propósito, e não por descuido: o padrão já está
+   encostado no bumbo, então para a frente sobram 3 cm e para trás sobram 30.
+   Quem quiser espaço tem para onde ir; quem quiser chegar mais perto já
+   chegou.
+
+   Só vale em VR. No navegador a distância é o zoom do OrbitControls, que já
+   existe e é melhor — a roda do mouse faz isto desde sempre.               */
+export let avancoVisao = 0;              // metros à frente do POSTO
+const AVANCO_MAX =  .03;
+const AVANCO_MIN = -.30;
+
+/** @param {number} d metros; positivo aproxima o jogador da bateria.
+ *  @param {(a:number)=>void} [aoMudar] recebe a distância resultante, em
+ *         metros do centro do kit — que é o número que significa algo. */
+export function ajustarAvanco(d, aoMudar){
+  const antes = avancoVisao;
+  avancoVisao = THREE.MathUtils.clamp(avancoVisao + d, AVANCO_MIN, AVANCO_MAX);
+  if (avancoVisao !== antes && renderer.xr.isPresenting){
+    player.position.z = POSTO.z - avancoVisao;
+  }
+  if (aoMudar) aoMudar(POSTO.z - avancoVisao);
+  return avancoVisao;
+}
+
+/* ==================== A ALTURA: QUEM SOBE E DESCE É O JOGADOR ============
+   Até 08/09 o ajuste de altura movia a BATERIA (`kit.position.y`). Parecia a
+   mesma coisa e não é: a bateria pousa direto na pedra do cenário — não há
+   estrado, ver claude/estado-ambiente-da-cena.md — então descer o kit o
+   ENTERRA no chão. No teste do Quest foi exatamente isso que apareceu: quem
+   é mais alto precisa da bateria mais baixa, e mais baixa quer dizer meio
+   tambor dentro da rocha.
+
+   O ajuste agora move o JOGADOR, que é o que a diferença de altura de fato é.
+   O kit fica onde o cenário o apoia, e `deteccao.js` deixa de depender de um
+   valor que muda no meio da partida.
+
+   O SINAL NÃO MUDOU, de propósito: `alturaVisao` continua sendo "a bateria,
+   em relação a mim" — positivo é kit mais alto, e para isso quem desce é o
+   jogador. As chamadas de fora (`[`/`]`, alavanca direita) seguem iguais, e a
+   mensagem na tela continua dizendo a mesma coisa que o jogador vê.
+
+   MEXER NA CÂMERA DENTRO DO VR É PROIBIDO (a posição dela é ditada pelo
+   headset e mexer nela dá náusea), e por isso quem se move é o grupo
+   `player` — a regra de ouro do topo do arquivo. Fora do VR quem manda na
+   câmera é o OrbitControls, que a recalcula a cada `update()` a partir do
+   alvo: ali o deslocamento tem de ir na CÂMERA E NO ALVO juntos, senão o
+   OrbitControls desfaz no quadro seguinte — ou, pior, gira o ângulo que o
+   jogador tinha escolhido. */
+export let alturaVisao = 0;
+const LIMITE_VISAO = .45;
+
+/** @param {number} d metros; positivo sobe a bateria em relação ao jogador.
+ *  @param {(a:number)=>void} [aoMudar] */
+export function ajustarVisao(d, aoMudar){
+  const antes = alturaVisao;
+  alturaVisao = THREE.MathUtils.clamp(alturaVisao + d, -LIMITE_VISAO, LIMITE_VISAO);
+  const real = alturaVisao - antes;          // no fim do curso o clamp come o passo
+  if (real !== 0){
+    if (renderer.xr.isPresenting) player.position.y = -alturaVisao;
+    else {
+      camera.position.y -= real;
+      if (_orbit){ _orbit.target.y -= real; _orbit.update(); }
+    }
+  }
+  if (aoMudar) aoMudar(alturaVisao);
+  return alturaVisao;
+}
+
 export function molduraDesktop(){
   player.position.set(0,0,0); player.rotation.set(0,0,0);
-  camera.position.set(0, 1.42, 2.05);
-  if (_orbit){ _orbit.target.set(0, 1.05, 0); _orbit.update(); }
+  camera.position.set(0, 1.42 - alturaVisao, 2.05);
+  if (_orbit){ _orbit.target.set(0, 1.05 - alturaVisao, 0); _orbit.update(); }
 }
 export function molduraVR(){
-  player.position.copy(POSTO); player.rotation.set(0,0,0);
+  player.position.set(POSTO.x, -alturaVisao, POSTO.z - avancoVisao);
+  player.rotation.set(0,0,0);
 }
 
 /* ------------------------------------------------------------- luz ------- */

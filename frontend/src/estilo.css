@@ -131,6 +131,15 @@ button.txt:hover{color:var(--ink);filter:none}
   border-radius:11px;backdrop-filter:blur(6px)}
 #btn-pular:hover{filter:none;border-color:var(--cyan);color:var(--cyan)}
 
+/* SAIR fica no canto INFERIOR ESQUERDO, sozinho: o centro de baixo já tem o
+   Pular, o ENTER VR e o `#msg`, e o topo é do HUD. Também é discreto de
+   propósito — é uma saída, não um convite. */
+#btn-sair{position:fixed;bottom:18px;left:18px;z-index:7;
+  background:rgba(17,24,38,.82);border:1px solid var(--line);color:var(--muted);
+  font-size:13px;font-weight:600;padding:9px 16px;
+  border-radius:9px;backdrop-filter:blur(6px)}
+#btn-sair:hover{filter:none;border-color:var(--bad);color:var(--bad)}
+
 /* -------------------------------------------------- AVISO CENTRAL --------
    "PREPARE-SE" e a contagem. Centro da tela e corpo grande porque é para ser
    lido de relance por quem está prestes a bater no tempo — o mesmo critério

@@ -6,8 +6,14 @@
 2. Se o dispositivo suportar, a tarja na tela inicial fica verde:
    *"VR disponível"*.
 3. Toque no botão **ENTER VR** e autorize, se for pedido.
-4. Para sair, use o gesto/botão do sistema; o jogo volta ao modo navegador
+4. Você cai no **menu**, em 3D, à sua frente — não no meio de uma partida.
+   Aponte um controle e aperte o gatilho para escolher.
+5. Para sair, use o gesto/botão do sistema; o jogo volta ao modo navegador
    sozinho.
+
+Quem já estava jogando no monitor e coloca o headset no meio da partida
+continua de onde estava: aí a partida existe, e interrompê-la para mostrar um
+menu seria o defeito ao contrário.
 
 **Não é preciso conta de desenvolvedor da Meta.** O jogo é uma página web.
 
@@ -29,6 +35,41 @@ duplo clique (`file://`) nunca ativa o VR.
 Os controles viram **baquetas**: um cilindro com uma esfera na ponta,
 presos ao grupo do jogador.
 
+### A baqueta pende da mão, não da mira
+
+O WebXR entrega **duas** poses por controle, e a diferença entre elas é o que
+fazia a baqueta parecer reta demais:
+
+| Espaço | O que é | Onde é usado |
+|---|---|---|
+| `targetRaySpace` (`getController`) | para onde o controle **aponta** | o ponteiro dos botões 3D, e os eventos do gatilho |
+| `gripSpace` (`getControllerGrip`) | como a **mão** segura um objeto | a baqueta |
+
+A especificação define o −Z do `gripSpace` como *a direção de uma vareta reta
+segurada na mão*. É literalmente a definição de baqueta. Até 09/09 a haste
+pendurava na **mira**, que é outra coisa — daí ela sair alinhada com o
+ponteiro em vez de com o punho.
+
+Por cima disso vêm dois ângulos de gosto, no `BAQUETA` do `config.js`: a
+**inclinação** (a ponta cai um pouco abaixo do eixo da mão, 12° por padrão) e
+a **convergência** (as pontas se aproximam, 8°). Nenhum dos dois vem de
+cálculo, então os dois estão na URL e se ajustam de dentro do headset:
+
+```
+?baq=18     inclina 18° em vez de 12
+?conv=0     baquetas paralelas
+?punho=0    volta a pendurar a haste na mira (saída de emergência)
+```
+
+`?punho=0` existe porque, se algum controle expuser o `gripSpace` com outra
+orientação, a baqueta apontaria para um lugar estranho e o jogo ficaria
+injogável até alguém editar arquivo. Controles sem `gripSpace` — mão
+rastreada, por exemplo — caem sozinhos nesse caminho, somando a
+`compensacaoDoRaio`, porque a mira já nasce mais inclinada que a mão.
+
+**Mexer nesses ângulos mexe no jogo, não só no visual:** quem o jogo mede é a
+ponta, e girar a haste move a ponta.
+
 O que o jogo mede é a posição da **ponta** a cada quadro — e a posição dela
 no quadro **anterior**. Se o segmento entre as duas cruzou o plano de uma
 pele, de cima para baixo, dentro do raio, é batida.
@@ -47,24 +88,25 @@ as fortes. Medição em [testes.md](testes.md), CT-02.
 | Entrada | Ação |
 |---|---|
 | Movimento do controle | mover a baqueta |
-| Alavanca direita ↑↓ | ajustar a altura da bateria ao corpo |
-| Botão **A** (direito) | pular o tutorial e ir direto para a música |
-| Botão **X** (esquerdo) | abrir a calibragem de atraso |
-| Vibração (saída) | retorno tátil proporcional à força da batida |
+| **Gatilho** | acionar o botão 3D para o qual o controle aponta |
+| Alavanca direita ↑↓ | ajustar a altura da bateria em relação a você |
+| Alavanca esquerda ↑↓ | aproximar ou afastar você da bateria |
+| Botão **A** (direito) | atalho: pular o tutorial (o mesmo do botão 3D) |
+| Botão **X** (esquerdo) | atalho: abrir a calibragem de atraso |
+| Vibração (saída) | retorno tátil da batida e do foco nos botões |
 
 **Bater não usa botão nenhum** — é gesto, e era esse o ponto do projeto. O
-gatilho e o *grip* seguem livres de propósito.
+*grip* segue livre.
 
-Os dois botões existem porque tirar o headset para clicar na tela quebra a
-sessão. **A** salta o tutorial de sete peças, que é útil na primeira vez e
-cansativo da segunda em diante; ele só age nas fases 0 e 1, porque durante a
-música reiniciaria a faixa na cara de quem está tocando. **X** abre a
-calibragem, que é justamente o ajuste mais necessário no headset (veja
-abaixo). Ambos têm anti-repique de ~0,7 s: um botão de VR lido a cada quadro
-dispara dezenas de vezes num toque.
+O **gatilho** só serve para os botões 3D, e só quando o controle está
+apontando para um: apertá-lo no meio da música, sem mirar, não faz nada. Não
+há conflito com a batida, porque batida é movimento.
 
-Índice 4 no perfil `xr-standard` do Touch é o X/A. Nenhum botão era lido
-antes, então não há conflito com nada.
+**A** e **X** deixaram de ser a única porta e viraram atalhos. Continuam
+valendo para quem já os conhece, com o mesmo anti-repique de ~0,7 s — um botão
+de VR lido a cada quadro dispara dezenas de vezes num toque. Índice 4 no perfil
+`xr-standard` do Touch é o X/A; índice 5 é o B/Y, que abre o resumo de
+desempenho quando o jogo roda com `?perf=1`.
 
 ## Interface dentro do VR
 
@@ -77,6 +119,41 @@ Nenhum `<div>` aparece dentro do headset. Toda informação visível em VR é um
 - Painel central: **resultado da partida** e **calibragem**, que antes só
   existiam em HTML e eram invisíveis para quem estava de headset
 - Aviso volante: segue o olhar quando algo precisa ser dito na hora
+
+### Os botões (`menu3d.js`)
+
+Até 08/09 as placas só serviam para LER. Tudo que exigia uma decisão do
+jogador — começar, escolher o nível, pular o tutorial, voltar ao menu — ou
+acontecia antes de entrar no VR, no HTML, ou virava botão de controle. O teste
+no Quest mostrou o preço: entrar em VR jogava direto no meio de uma partida
+não escolhida, e terminar a música deixava o jogador preso no placar.
+
+São quatro conjuntos, e nunca dois ao mesmo tempo:
+
+| Quando | Botões |
+|---|---|
+| antes da partida | JOGAR · Modo livre · Fácil/Normal/Profissa · Calibrar atraso |
+| durante a partida | **Pular ›** (fases 0 e 1) e **Sair**, à direita |
+| durante a calibragem | Fechar |
+| no fim | Jogar de novo · Menu |
+
+Pular e Sair ficam **à direita**, na altura dos painéis: o centro é por onde a
+baqueta desce, e um botão no caminho da mão seria acertado sem querer.
+
+**Por que o gatilho e não a baqueta.** Bater no botão seria mais coerente com
+o jogo, e é exatamente o problema: a detecção de batida reconhece qualquer
+trajeto de cima para baixo dentro do raio, e quem toca bateria move as mãos o
+tempo todo. Botão de menu não pode ter falso positivo.
+
+O ponteiro não fica sempre ligado. Com o menu ou o placar abertos ele aparece
+sempre — é a hora de apontar. Durante a partida ele só acende quando o
+controle encontra um botão, para não atravessar a bateria a cada braçada.
+
+### A lista de níveis não está escrita duas vezes
+
+O menu 3D monta um botão por chave de `NIVEIS`, como o HTML faz pelos ids
+`btn-nivel-<chave>`. É o mesmo contrato de `claude/nivel-profissa.md`: nível
+novo aparece nos dois lugares sem ninguém lembrar de copiar.
 
 As placas se ajustam sozinhas ao texto: cada linha encolhe até 55% e só
 depois é cortada com reticências. Sem isso a linha de crédito da faixa saía
@@ -100,6 +177,61 @@ Os três pratos são nodes próprios, recortados do scan, girados por um
 oscilador amortecido (`balanco.js`). Em VR isso importa mais que no monitor:
 sem retorno tátil de verdade, o movimento do prato é boa parte da confirmação
 de que a batida valeu.
+
+## A altura: quem sobe e desce é o jogador
+
+A alavanca direita ajusta a bateria à altura de quem joga. Até 08/09 ela movia
+mesmo a **bateria** (`kit.position.y`), e isso tinha um defeito que só aparece
+no headset: a bateria pousa direto na pedra do cenário, sem estrado, então
+descê-la a **enterra no chão** — e descer é justamente o que uma pessoa alta
+precisa fazer.
+
+Agora quem se move é o **jogador** (`cena.js` → `ajustarVisao`): o grupo
+`player` sobe ou desce, o kit fica onde o cenário o apoia. Do ponto de vista
+de quem joga é a mesma coisa; a diferença é que nada afunda na rocha.
+
+O sinal do controle não mudou — para cima ainda é "bateria mais alta". E há um
+ganho de brinde: `deteccao.js` soma `kit.position.y` em toda batida, e esse
+valor deixou de mudar no meio da partida.
+
+Dentro do VR mexer na **câmera** é proibido (a posição dela é do headset;
+mexer nela dá náusea), e por isso quem se move é o grupo. No monitor, quem
+manda na câmera é o `OrbitControls`, e ali o deslocamento vai na câmera **e no
+alvo** juntos — senão o controle desfaz no quadro seguinte, ou gira o ângulo
+que o jogador tinha escolhido.
+
+O curso é de ±45 cm.
+
+## A distância: o posto encostou no bumbo
+
+O baterista ficava a 62 cm do centro do kit, e de lá o **ride** só era
+alcançado esticando o braço. Medido no modelo real, o quanto o ombro precisa
+avançar para cada peça (já descontada a baqueta de 38 cm):
+
+| peça | a 62 cm | a 50 cm |
+|---|---|---|
+| **ride** | **0,54 m** | **0,45 m** |
+| crash | 0,48 | 0,37 |
+| chimbal | 0,44 | 0,36 |
+| tom 1 e 2 | 0,40 | 0,30 |
+| surdo | 0,28 | 0,21 |
+| caixa | 0,24 | 0,17 |
+
+Braço de adulto chega a uns 0,62 m com o ombro parado: 0,54 é esticar de
+verdade, 0,45 é confortável. O posto passou para **0,50 m**.
+
+**Não é arredondamento, é o limite.** A malha do kit, na faixa de 30 cm à
+frente do corpo, avança até z = 0,445 (o bumbo, abaixo de 40 cm de altura) e
+z = 0,398 na altura do peito. Abaixo de 0,50 o jogador começa a ficar *dentro*
+da bateria — invisível de cabeça erguida, constrangedor ao olhar para baixo.
+
+Por isso o ajuste da alavanca esquerda tem curso **assimétrico**: 3 cm para a
+frente e 30 cm para trás. O padrão já é o mais perto que dá; quem quiser
+espaço é que tem para onde ir. No navegador este ajuste não existe — lá a
+distância é o zoom do OrbitControls, que a roda do mouse já faz melhor.
+
+Mexer no posto move o cenário junto: `encaixarCenario` posiciona a paisagem a
+partir dele, para o jogador continuar em cima da mesma pedra.
 
 ## Ajustes de qualidade
 
@@ -151,9 +283,10 @@ do headset, e não antes de colocá-lo:
 2. a latência do headset não é a mesma do desktop — calibrar no monitor e
    entrar em VR mede a cadeia errada.
 
-Daí o botão **X**. A medida fica salva em `localStorage` e o ajuste fino de
-±10 ms continua disponível na tela inicial. Detalhes da conta em
-[tecnica.md](tecnica.md).
+Daí o **Calibrar atraso** no menu 3D — e o botão **X**, que continua como
+atalho para começar a medição sem passar pelo menu. A medida fica salva em
+`localStorage` e o ajuste fino de ±10 ms continua disponível na tela inicial.
+Detalhes da conta em [tecnica.md](tecnica.md).
 
 ## Dispositivos usados nos testes
 

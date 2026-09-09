@@ -16,6 +16,11 @@ import { painelHUD, painelObj, painelCentro, flash, flashEstado,
 import { multiplicador, progressoDoDegrau, estrelas,
          estrelasEmTexto, veredito } from './pontuacao.js';
 import { musica } from './musica.js';
+/* As três telas de HTML têm agora uma contraparte em 3D, para quem está de
+   headset. Elas são trocadas SEMPRE JUNTAS, daqui — foi a lição do teste de
+   08/09, em que o jogador de VR caía numa partida sem ter visto menu nenhum e
+   terminava a música sem nenhuma saída. Ver menu3d.js. */
+import * as menu3d from './menu3d.js';
 
 export const $ = id => document.getElementById(id);
 const mostrar = (id, v) => $(id).classList.toggle('hidden', !v);
@@ -78,7 +83,11 @@ export function objetivo(txt, cor = '#e8eef8'){
 /* ------------------------------------------------------------- telas ----- */
 /** Some com o painel central — chamado ao começar outra partida, senão o
  *  placar da anterior fica pendurado no ar durante a nova. */
-export function esconderResultado3D(){ painelCentro.visible = false; }
+export function esconderResultado3D(){
+  painelCentro.visible = false;
+  /* Os botões do resultado moram fora do painel e não somem com ele. */
+  if (menu3d.telaAtual() === 'fim') menu3d.mostrar(null);
+}
 
 /** Desenha a calibragem no painel central, para quem está no headset.
  *
@@ -156,10 +165,22 @@ export function avisoCentro(linhas, cor = '#00d9ff'){
   painelCentro.visible = true;
 }
 
-/** O botão de pular o tutorial. Só existe fora do VR — dentro do headset o
- *  mesmo salto é o botão A do controle direito (ver docs/vr.md). */
+/** O botão de pular o tutorial, nos DOIS lugares.
+ *
+ *  Ele era só de HTML, e em VR o mesmo salto era o botão A do controle
+ *  direito — o que só existe para quem leu o `docs/vr.md`. Desde 09/09 o
+ *  Pular é um botão 3D de verdade, apontado com o controle (menu3d.js). O A
+ *  continua valendo como atalho para quem já o conhece. */
 export function mostrarPular(v){
   const b = $('btn-pular'); if (b) b.classList.toggle('hidden', !v);
+  menu3d.mostrarPular3D(v);
+}
+
+/** Sair no meio da partida. Não existia: uma vez começada, a única saída era
+ *  terminar a música ou recarregar a página — e de dentro do headset nem
+ *  recarregar dá. */
+export function mostrarSair(v){
+  const b = $('btn-sair'); if (b) b.classList.toggle('hidden', !v);
 }
 
 export function telaJogando(){
@@ -167,6 +188,8 @@ export function telaJogando(){
   mostrar('tela-fim', false);
   mostrar('hud', true);
   mostrar('teclas', true);
+  mostrarSair(true);
+  menu3d.mostrar('jogo');
 }
 export function telaInicio(){
   mostrar('tela-fim', false);
@@ -176,7 +199,9 @@ export function telaInicio(){
   /* Voltar ao menu tem de limpar o que era da partida: sem isto o "Pular" e a
      contagem ficam pendurados por cima da tela inicial. */
   mostrarPular(false);
+  mostrarSair(false);
   avisoCentro(null);
+  menu3d.mostrar('menu');
 }
 export function telaCarregada(){
   mostrar('load', false);
@@ -251,6 +276,11 @@ export function telaResultado(){
     borda: 'rgba(0,217,255,.45)',
   });
   painelCentro.visible = true;
+  /* JOGAR DE NOVO e MENU em 3D, logo abaixo do placar. Sem eles o jogador de
+     headset lia o resultado e ficava preso ali: os dois botões equivalentes
+     de HTML não aparecem dentro do VR. */
+  mostrarSair(false);
+  menu3d.mostrar('fim');
 
   if (!renderer.xr.isPresenting){
     mostrar('tela-fim', true);
