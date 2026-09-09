@@ -213,7 +213,7 @@ function montarPista(){
 
 function limparNotas(){
   pararAuto();
-  limparBichos();          // uma malha só para todos: nada a descartar
+  limparBichos();          // zera o count das sete malhas: nada a descartar
   ritmo.notas = [];
 }
 
@@ -345,7 +345,10 @@ export function ritmoAtualizar(){
     }
     restantes++;
     const p = PORID[n.id];
-    if (p) visiveis.push({ x:p.x, y:p.y, z:p.z, dt, semente:n.semente });
+    /* O `id` vai junto porque agora é ele que escolhe a caveira: uma por
+       peça, na cor da peça (ver bichos.js). Sem ele o bicho não sabe com
+       qual malha se desenhar. */
+    if (p) visiveis.push({ id:n.id, x:p.x, y:p.y, z:p.z, dt, semente:n.semente });
   }
   /* Mais perto primeiro: se passar do teto de instâncias, quem cai fora é o
      bicho mais distante, que é o que menos importa agora. */
