@@ -113,21 +113,85 @@ export const ALTURA_INICIAL_KIT = 0.35;
    segundos da faixa. Trocar de música é trocar este caminho — nada no
    código do jogo sabe qual faixa está tocando.
    Ver ferramentas/midi-para-carta.mjs e frontend/public/cartas/.        */
-export const CARTA_URL = (() => {
-  /* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
-     Serve para comparar cartas e para testar faixa que nao vai para o
-     repositorio. O sanitize evita montar caminho a partir da URL.
+/* O PADRAO e a Colour Me Red: e a carta que mostra o jogo como ele e --
+   musica de banda de verdade, kit gravado na mesma sala, dinamica tirada da
+   propria gravacao. Ela traz caixa e chimbal para o jogador; bumbo e crash
+   vao na trilha automatica. */
+const CARTA_PADRAO = 'colour-me-red';
 
-     O PADRAO e a Colour Me Red: e a carta que mostra o jogo como ele e --
-     musica de banda de verdade, kit gravado na mesma sala, dinamica tirada
-     da propria gravacao. A `teste.json` continua em `?carta=teste`, e vale
-     manter: e a UNICA que dispara as sete pecas. A Colour Me Red usa quatro
-     (caixa, chimbal, bumbo, crash), entao tom, surdo e ride so tem cobertura
-     por ela.                                                              */
-  const PADRAO = 'colour-me-red';
+/* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
+   Serve para comparar cartas e para testar faixa que nao vai para o
+   repositorio. O sanitize evita montar caminho a partir da URL.
+
+   `null` quando ninguem pediu — e essa distincao importa, porque a chave
+   PRECISA vencer a carta do nivel (ver `cartaAgora`). Quem digitou `?carta=`
+   na barra de endereco quer aquela carta, nao a que o nivel escolheria. */
+export const CARTA_PEDIDA = (() => {
   const p = new URLSearchParams(location.search).get('carta');
-  const nome = (p || PADRAO).replace(/[^\w-]/g, '');
-  return `cartas/${nome || PADRAO}.json`;
+  const nome = (p || '').replace(/[^\w-]/g, '');
+  return nome || null;
+})();
+
+const caminhoCarta = (nome) => `cartas/${nome}.json`;
+
+/** A carta que vale agora. Precedencia: `?carta=` > carta do nivel > padrao.
+ *
+ *  POR QUE O NIVEL PODE ESCOLHER A CARTA. Ate aqui o nivel so mexia em QUAIS
+ *  pecas o jogador toca e em quao larga e a janela — e isso nao basta para um
+ *  nivel de kit inteiro, porque `jogaveis:null` libera "tudo o que a carta
+ *  trouxer", e a carta padrao so traz duas pecas. Nenhum ajuste de nivel
+ *  inventa nota que a carta nao tem. Entao o nivel Profissa aponta para a
+ *  `colour-me-red-cheio`: mesma musica, mesmo recorte, mesmo kit, mas com as
+ *  sete pecas na parte do jogador.
+ *
+ *  @param {{carta?:string}} [nivel] o nivel corrente (NIVEIS[nivelAtual()]) */
+export function cartaAgora(nivel){
+  if (CARTA_PEDIDA) return caminhoCarta(CARTA_PEDIDA);
+  return caminhoCarta((nivel && nivel.carta) || CARTA_PADRAO);
+}
+
+
+/* ------------------------------------------- SINCRONIA DO BICHO ----------
+   Viés de tempo do encoste da caveira na pele. O PADRÃO É ZERO, e o certo é
+   que continue zero: o encoste já cai no tempo da nota por construção (ver
+   `bichos.js`, que apoia a caveira pelo QUEIXO e não pelo centro). Isto aqui
+   é só a régua para ajustar de gosto dentro do headset.
+
+   A HISTÓRIA, PORQUE ELA EXPLICA O NÚMERO. O caminho do bicho punha o CENTRO
+   da caveira na altura da pele — ou seja, metade dela enterrada no tambor. O
+   instante em que ela VISUALMENTE tocava vinha antes disso, quando o centro
+   ainda estava a uma meia-altura de distância: 7,5 cm nas caveiras de 15 cm,
+   e a 36,7 cm/s isso dá **205 ms ANTES da nota**. Quem joga sincroniza pelo
+   toque, não pelo esmagamento, e por isso a batida saía adiantada — foi o
+   que o Diego observou no headset, e a conta bate com o que ele viu.
+
+   A correção foi geométrica, não de relógio: apoiar pelo queixo. Assim o
+   toque cai em `dt = 0` para CADA caveira, com a meia-altura dela — o que
+   também apaga um viés por peça, porque a do tom2 tem 12,4 cm de altura e as
+   outras 15,0, e uma constante global as faria tocar em tempos diferentes.
+
+   NADA AQUI MEXE NO JULGAMENTO. A batida continua medida contra o tempo da
+   carta (ver `ritmoBatida`, em fases.js). Isto é onde o visual põe a
+   referência para o corpo de quem joga, e nada mais.
+
+     ?encoste=60       o toque acontece 60 ms DEPOIS da nota
+     ?encoste=-40      40 ms antes
+     ?encoste=0        o padrão: no tempo da nota
+
+   O TETO DE +500 ms não é arbitrário: a nota é descartada como PERDEU em
+   `JANELA_PERDA * janela` depois do tempo dela — 260 ms no Normal, 208 ms no
+   Profissa. Viés positivo maior que isso faria a caveira ser recolhida ANTES
+   de tocar, e o pouso não aconteceria na tela. O fases.js avisa no console
+   quando os dois números se cruzam. O piso de -300 ms existe só para o
+   denominador `ANTECEDENCIA + VIES` nunca chegar a zero.               */
+export const VIES_ENCOSTE = (() => {
+  const p = new URLSearchParams(location.search).get('encoste');
+  if (p === null) return 0;
+  const ms = Number(p);
+  if (Number.isFinite(ms) && ms >= -300 && ms <= 500) return ms / 1000;
+  console.warn(`[config] ?encoste= ignorado: use um número de -300 a 500 (ms).`
+    + ` Recebi "${p}". Seguindo sem viés.`);
+  return 0;
 })();
 
 
@@ -147,11 +211,32 @@ export const CARTA_URL = (() => {
    90 para 162 ms, que perdoa falta de prática sem virar automático.       */
 export const NIVEIS = {
   facil:  { nome:'Fácil',  jogaveis:['caixa'], janela:1.8 },
-  /* `jogaveis: null` = o jogador toca TUDO que a carta traz. É o caso geral,
-     e é por isso que existe só este nível além do fácil: um nível com lista
-     fixa de peças nunca pediria tom, surdo, crash ou ride, e travaria
-     qualquer carta que os tenha. */
+  /* `jogaveis: null` = o jogador toca TUDO que a carta traz. É o caso geral:
+     um nível com lista fixa de peças nunca pediria tom, surdo, crash ou ride,
+     e travaria qualquer carta que os tenha. */
   normal: { nome:'Normal', jogaveis:null,      janela:1.0 },
+
+  /* O KIT INTEIRO. E aqui está o detalhe que confunde: `jogaveis:null` já é
+     o do Normal, e mesmo assim o Normal pede duas peças. Não é o nível que
+     limita — é a CARTA. A `colour-me-red` só tem notas de caixa e chimbal;
+     crash e bumbo dela já nascem na trilha automática. Nenhum ajuste de
+     nível inventa nota que a carta não tem.
+
+     Por isso este nível traz `carta` (ver `cartaAgora`): a
+     `colour-me-red-cheio` é a mesma faixa, o mesmo recorte e o mesmo kit,
+     com as sete peças jogáveis — 116 de chimbal, 254 de caixa, 85 de ride,
+     58 de crash e 17 de cada tom e do surdo.
+
+     A janela é 0,8 e não 1,0 porque o kit inteiro já é a dificuldade nova;
+     apertar demais o tempo em cima disso vira sorte. Em 0,8 o PERFEITO cai
+     de 90 para 72 ms.
+
+     UM AVISO SOBRE O SOM. O `kit` da carta declara amostra só para bumbo,
+     caixa, chimbal e crash. Tom, surdo e ride caem na biblioteca do projeto
+     (`sounds/<peca>.mp3`), que é outra bateria — soam, mas com timbre de
+     outro kit. Some junto se um dia alguém gravar as três peças que faltam. */
+  profissa: { nome:'Profissa', jogaveis:null, janela:0.8,
+              carta:'colour-me-red-cheio' },
 };
 /* ------------------------------------------ MODO DE TESTE: `?sem=peca` ---
    Tira peças da PARTE DO JOGADOR na fase de ritmo, para exercitar as outras
@@ -170,12 +255,16 @@ export const NIVEIS = {
    continua valendo — a chave mexe em QUAIS peças, não em quão difícil é.
 
    NOTA SOBRE A CARTA. Uma peça só é tocável se a carta tiver notas dela. A
-   `colour-me-red`, que é a padrão, traz caixa, chimbal, bumbo e crash — o
-   bumbo nem é peça jogável. Então `?sem=caixa` sozinho deixa você com
-   chimbal e crash, e não com seis instrumentos. Para exercitar as sete de
-   verdade a carta tem de ser a `teste`, a única que dispara todas:
+   `colour-me-red`, que é a padrão, traz caixa e chimbal para o jogador
+   (bumbo e crash dela já nascem na trilha automática). Então `?sem=caixa`
+   sozinho deixa você só com o chimbal, e não com seis instrumentos. Para
+   exercitar as sete de verdade a carta tem de ser uma que as dispare —
+   `teste` ou `colour-me-red-cheio`:
 
      ?carta=teste&sem=caixa
+     ?carta=colour-me-red-cheio&sem=caixa
+
+   Ou, sem chave nenhuma, o nível Profissa: ele já usa a `-cheio`.
 
    O QUE ELE NÃO MUDA: a calibração e o eco seguem pedindo todas as peças, e
    a RN06 continua valendo — bater na peça excluída ainda conta erro e zera o

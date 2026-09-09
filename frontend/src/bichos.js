@@ -37,7 +37,7 @@
 
 import * as THREE from 'three';
 import { loader, afinarTexturas } from './cena.js';
-import { PECAS } from './config.js';
+import { PECAS, VIES_ENCOSTE } from './config.js';
 
 /* Quanto tempo de aviso o jogador tem. Menos que 1 s não dá para levar a
    baqueta; muito mais e o bicho nasce longe demais para caber no campo de
@@ -71,6 +71,12 @@ const TAMANHO = 0.15;
    sumir. */
 const MAX = 28;
 
+/* Quanto do bicho se perde no esmagamento do atraso, por cima do achatamento
+   do pouso. Com 0,6, o pouso leva a escala Y a 0,78 e o atraso cheio a
+   0,31 — bem baixinho, sem virar panqueca e sem sumir: o alvo tem de
+   continuar legível justamente para quem está chegando tarde. */
+const ESMAGA_ATRASO = 0.6;
+
 /* id da peça → entrada. Duas peças PODEM apontar para a mesma entrada,
    quando uma delas caiu na reserva; por isso o contador vive na entrada e
    não numa tabela paralela indexada por peça. */
@@ -100,6 +106,22 @@ function montar(gltf, paiDoKit){
   geo.center();
   geo.computeBoundingSphere();
 
+  /* A MEIA-ALTURA, e ela é o número que faz o bicho encostar na hora certa.
+     `center()` põe a origem no meio da malha, então pôr a origem na altura da
+     pele enterra METADE da caveira no tambor. O instante em que ela
+     visualmente TOCA vem antes disso — quando a origem ainda está a uma
+     meia-altura de distância. Sem corrigir, o toque acontecia 205 ms antes da
+     nota nas caveiras de 15 cm, e quem joga sincroniza pelo toque: a batida
+     saía adiantada.
+
+     Guardo por MALHA, e não uma constante para todas, porque as caveiras não
+     têm a mesma proporção: a normalização acima usa o maior eixo, que na
+     maioria é chifre-a-chifre, e sobra altura diferente para cada uma —
+     15,0 cm em cinco delas, 13,9 na do ride, 12,4 na do tom2. Uma constante
+     global faria cada peça tocar em um tempo diferente. */
+  geo.computeBoundingBox();
+  const meiaAltura = geo.boundingBox.max.y;
+
   /* O exportador do Meshy marca doubleSided em tudo. Numa caveira fechada
      isso só paga o dobro de trabalho de pixel: não existe face de dentro
      para ver. (O aviso do CLAUDE.md contra desligar doubleSided é sobre o
@@ -114,7 +136,7 @@ function montar(gltf, paiDoKit){
   malha.count = 0;
   paiDoKit.add(malha);
 
-  const entrada = { malha, n: 0 };
+  const entrada = { malha, n: 0, meiaAltura };
   entradas.push(entrada);
   return entrada;
 }
@@ -164,10 +186,12 @@ export function bichosProntos(){ return entradas.length > 0; }
 
 /**
  * Posiciona um bicho por nota visível. Chamar a cada quadro.
- * @param {Array<{id:string,x:number,y:number,z:number,dt:number,semente:number}>} lista
+ * @param {Array<{id:string,x:number,y:number,z:number,dt:number,semente:number,
+ *                 atraso?:number}>} lista
  *        id da PEÇA (é ele que escolhe a caveira), posição da PELE em
- *        coordenadas do kit, tempo que falta, e uma semente por nota para as
- *        animações não ficarem em uníssono
+ *        coordenadas do kit, tempo que falta, uma semente por nota para as
+ *        animações não ficarem em uníssono, e `atraso` de 0 a 1 — quanto da
+ *        janela de perda já passou, que é o que esmaga o bicho
  * @param {number} t relógio para as animações
  */
 export function desenharBichos(lista, t){
@@ -181,24 +205,59 @@ export function desenharBichos(lista, t){
     const entrada = porPeca.get(b.id);
     if (!entrada || entrada.n >= MAX) continue;
 
-    /* 0 quando chega na pele, 1 quando nasce. */
-    const p = THREE.MathUtils.clamp(b.dt / ANTECEDENCIA_BICHO, 0, 1);
+    /* 0 quando o QUEIXO encosta na pele, 1 quando nasce. Com viés zero, o
+       encoste é exatamente em `dt = 0`: o tempo da nota. O `VIES_ENCOSTE` só
+       existe para ajustar de gosto no headset (ver config.js). */
+    const p = THREE.MathUtils.clamp(
+      (b.dt + VIES_ENCOSTE) / (ANTECEDENCIA_BICHO + VIES_ENCOSTE), 0, 1);
 
-    molde.position.set(b.x, b.y + ALTURA * p, b.z + AFRENTE * p);
-
-    /* Flutuar e girar. A amplitude cai perto da pele: nos últimos instantes
-       o jogador está mirando, e alvo que mexe atrapalha. */
-    const s = b.semente;
-    molde.position.y += Math.sin(t * 3.1 + s) * 0.012 * p;
-    molde.position.x += Math.sin(t * 2.3 + s * 1.7) * 0.010 * p;
-    molde.rotation.set(0, Math.sin(t * 0.9 + s) * 0.5, Math.sin(t * 2.6 + s) * 0.07);
+    /* A ESCALA VEM ANTES DA POSIÇÃO, e essa ordem não é estilo: a altura
+       depende de quanto a malha está achatada neste quadro. */
 
     /* Nasce pequeno e cresce nos primeiros 20% do caminho — aparecer do
        tamanho final, do nada, lê como falha de desenho. */
     const cresce = THREE.MathUtils.smoothstep(1 - p, 0, 0.2);
     /* E achata de leve ao encostar, como se pousasse. */
-    const achata = 1 - THREE.MathUtils.smoothstep(1 - p, 0.88, 1) * 0.22;
-    molde.scale.set(cresce * (1 + (1 - achata) * 0.5), cresce * achata, cresce);
+    const pouso = 1 - THREE.MathUtils.smoothstep(1 - p, 0.88, 1) * 0.22;
+
+    /* ESMAGAR ENQUANTO ATRASA. Depois de encostar, o bicho não fica só
+       esperando: ele vai sendo achatado conforme o jogador demora, e chega
+       esmagado no instante em que a nota se perde. É o retorno que faltava
+       nesse intervalo — antes ele era tempo morto, com a caveira parada na
+       pele e nada dizendo que a hora estava passando.
+
+       O `atraso` vem do fases.js já normalizado pela janela de perda do
+       nível (0 = na hora, 1 = perdendo agora). Quem chamar sem ele — um
+       arnês, por exemplo — recebe o comportamento de antes. */
+    const atraso = b.atraso || 0;
+    const achata = pouso * (1 - ESMAGA_ATRASO * atraso);
+    const escalaY = cresce * achata;
+    molde.scale.set(cresce * (1 + (1 - achata) * 0.5), escalaY, cresce);
+
+    /* O QUEIXO É A REFERÊNCIA, NÃO O CENTRO. A origem da malha está no meio
+       dela (`center()`, no montar), então somar a meia-altura VEZES A ESCALA
+       DO QUADRO põe o queixo — e não o miolo — no ponto do caminho. Duas
+       coisas saem de graça daí:
+
+         • em p = 0 o queixo fica na pele, e a caveira não afunda no tambor;
+         • o achatamento esmaga PARA BAIXO. Encolher uma malha centrada
+           levantaria o queixo, e a caveira esmagaria flutuando um dedo acima
+           do couro; com a escala aqui dentro, o queixo não desencosta.
+
+       O curso é `ALTURA - meiaAltura` porque o topo do caminho continua a
+       0,55 m: o que muda é onde ele termina embaixo, não onde começa. */
+    const meia = entrada.meiaAltura;
+    molde.position.set(b.x,
+                       b.y + (ALTURA - meia) * p + meia * escalaY,
+                       b.z + AFRENTE * p);
+
+    /* Flutuar e girar. A amplitude cai perto da pele: nos últimos instantes
+       o jogador está mirando, e alvo que mexe atrapalha. Em p = 0 os dois
+       deslocamentos são zero, então a caveira pousada não tremula. */
+    const s = b.semente;
+    molde.position.y += Math.sin(t * 3.1 + s) * 0.012 * p;
+    molde.position.x += Math.sin(t * 2.3 + s * 1.7) * 0.010 * p;
+    molde.rotation.set(0, Math.sin(t * 0.9 + s) * 0.5, Math.sin(t * 2.6 + s) * 0.07);
 
     molde.updateMatrix();
     entrada.malha.setMatrixAt(entrada.n++, molde.matrix);
