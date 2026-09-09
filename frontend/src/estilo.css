@@ -95,9 +95,10 @@
 .card.menu > button.grande,
 .card.menu > .seg{width:100%}
 button.grande{padding:16px;font-size:16px;letter-spacing:.02em;margin-top:26px}
-/* Controle segmentado da dificuldade. Um `div` com dois botões dentro em vez
-   de dois botões soltos: eles são UMA escolha, e a borda compartilhada é o
-   que diz isso sem precisar de rótulo. */
+/* Controle segmentado da dificuldade. Um `div` com os botões dentro em vez
+   de botões soltos: eles são UMA escolha, e a borda compartilhada é o que diz
+   isso sem precisar de rótulo. O `flex:1` reparte a largura entre quantos
+   forem — são três desde o Profissa. */
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;
   overflow:hidden;margin-top:12px}
 .seg button{flex:1;background:transparent;color:var(--muted);border:0;border-radius:0;
