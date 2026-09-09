@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import { PECAS, URL_BATERIA, ESCALA_KIT, ALTURA_INICIAL_KIT, APOIO_KIT,
-         AMBIENTE } from './config.js';
+         AMBIENTE, BAQUETA } from './config.js';
 import { registrarPecasMoveis } from './balanco.js';
 import { scene, loader, afinarTexturas, placa, renderer, player,
          pistaG, ALTURA_PISTA, aoTrocarAmbiente } from './cena.js';
@@ -92,26 +92,18 @@ export function animarZonas(dt, t){
 
 /* ----------------------------------------------------- altura do kit -----
    O modelo vem montado baixo; ALTURA_INICIAL_KIT o coloca na altura de quem
-   joga em pé. O ajuste do jogador acontece a partir daí, não do chão.
+   joga em pé. NÃO existe estrado: a bateria pousa direto na pedra do cenário.
 
-   NÃO existe estrado: a bateria pousa direto na pedra do cenário. Só a
-   mancha de sombra fica no chão, e ela NÃO acompanha o ajuste de altura —
-   sombra não sobe junto com o objeto.                                    */
-let alturaKit = ALTURA_INICIAL_KIT;
-kit.position.y = alturaKit;
-pistaG.position.y = ALTURA_PISTA + alturaKit;
+   A ALTURA DO KIT É FIXA DESDE 09/09, e é justamente por causa da pedra.
+   `ajustarAltura` morava aqui e movia `kit.position.y`; descer a bateria a
+   enterrava no chão, que foi o defeito visto no teste do Quest. Quem se
+   ajusta agora é o jogador — `ajustarVisao`, em cena.js.
+
+   Consequência boa de graça: `deteccao.js` soma `kit.position.y` em toda
+   batida e esse valor deixou de mudar no meio da partida. */
+kit.position.y = ALTURA_INICIAL_KIT;
+pistaG.position.y = ALTURA_PISTA + ALTURA_INICIAL_KIT;
 mancha.position.y = ALTURA_INICIAL_KIT + .012;
-
-/** Pessoas têm alturas diferentes e a bateria precisa cair na altura da
- *  cintura de quem joga. Alavanca direita ↑↓ em VR, `[` `]` no teclado. */
-export function ajustarAltura(d, aoMudar){
-  alturaKit = THREE.MathUtils.clamp(alturaKit + d,
-    ALTURA_INICIAL_KIT - .45, ALTURA_INICIAL_KIT + .45);
-  kit.position.y = alturaKit;
-  pistaG.position.y = ALTURA_PISTA + alturaKit;
-  if (aoMudar) aoMudar(alturaKit);
-  return alturaKit;
-}
 
 /* ================================ O BRILHO DE METAL DOS PRATOS ===========
    `envMapIntensity` é o número que decide se um prato lê como metal ou como
@@ -235,32 +227,83 @@ export function carregarBateria(aoTerminar, aoProgredir){
 /* ===================================================== AS BAQUETAS (VR) ==
    Cada controle vira uma baqueta. O que importa para o jogo é a posição da
    PONTA a cada quadro — e a posição dela no quadro ANTERIOR (ver deteccao.js).
+
+   DOIS ESPAÇOS, E A DIFERENÇA ENTRE ELES ERA O DEFEITO. O WebXR entrega duas
+   poses por controle:
+
+     targetRaySpace  (`getController`)      para onde o controle APONTA
+     gripSpace       (`getControllerGrip`)  como a MÃO segura um objeto
+
+   O −Z do gripSpace é definido pela especificação como a direção de uma
+   vareta reta segurada na mão. É literalmente a definição de baqueta. A
+   haste pendurava no targetRaySpace, que é a mira — daí ela sair reta demais,
+   alinhada com o ponteiro em vez de com o punho.
+
+   O RAIO DOS BOTÕES CONTINUA NO `ctrl`, e é o certo: ali o que se quer é
+   justamente a mira (ver menu3d.js). Cada espaço no seu papel.
+
+   A inclinação e a convergência vêm do `BAQUETA` do config.js, ajustáveis
+   pela URL, porque ângulo de baqueta é decisão de olho e não de cálculo.
    ========================================================================= */
-const COMP_BAQUETA = 0.38;
+const GRAU = Math.PI / 180;
 export const baquetas = [];
 
+/** Aplica os dois ângulos de gosto na haste. Separada porque a mão só se
+ *  sabe no evento `connected` — a convergência depende de qual é qual. */
+function inclinarBaqueta(b){
+  const extra = b.noPunho ? 0 : BAQUETA.compensacaoDoRaio;
+  const conv  = BAQUETA.convergencia * GRAU;
+  b.haste.rotation.set(
+    -(BAQUETA.inclinacao + extra) * GRAU,          // ponta para baixo
+    b.mao === 'left' ? -conv : b.mao === 'right' ? conv : 0,
+    0);
+}
+
 for (let i = 0; i < 2; i++){
-  const ctrl = renderer.xr.getController(i);
+  const ctrl  = renderer.xr.getController(i);       // mira: eventos e ponteiro
+  const punho = renderer.xr.getControllerGrip(i);   // mão: a baqueta
   player.add(ctrl);                        // a mão vive no player, não na cena
+  player.add(punho);
+
+  /* Corpo e ponta num grupo só: assim a inclinação é UMA rotação, e a ponta
+     acompanha sem ninguém precisar recalcular onde ela foi parar. */
+  const haste = new THREE.Group(); haste.name = 'baqueta';
 
   const corpo = new THREE.Mesh(
-    new THREE.CylinderGeometry(.008, .012, COMP_BAQUETA, 10),
+    new THREE.CylinderGeometry(.008, .012, BAQUETA.comprimento, 10),
     new THREE.MeshStandardMaterial({ color:0xd9c9a8, roughness:.55 }));
   corpo.rotation.x = -Math.PI/2;
-  corpo.position.z = -COMP_BAQUETA/2;
+  corpo.position.z = -BAQUETA.comprimento/2;
   corpo.castShadow = true;
-  ctrl.add(corpo);
+  haste.add(corpo);
 
   const ponta = new THREE.Mesh(
     new THREE.SphereGeometry(.016, 12, 12),
     new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0x334455, roughness:.4 }));
-  ponta.position.z = -COMP_BAQUETA;
-  ctrl.add(ponta);
+  ponta.position.z = -BAQUETA.comprimento;
+  haste.add(ponta);
 
-  baquetas.push({
-    ctrl, ponta,
+  const b = {
+    ctrl, punho, haste, ponta,
+    base: ctrl,          // de quem a haste pendura AGORA — ver deteccao.js
+    noPunho: false,
     atual: new THREE.Vector3(), anterior: new THREE.Vector3(),
     temAnterior: false, mao: null,
+  };
+  ctrl.add(haste);       // ponto de partida seguro até o controle se anunciar
+  inclinarBaqueta(b);
+  baquetas.push(b);
+
+  /* O `connected` é o único lugar que sabe DUAS coisas de que a haste
+     precisa: qual mão é (para a convergência) e se este controle expõe
+     `gripSpace` (mão rastreada, por exemplo, pode não expor). Sem punho, a
+     haste fica na mira mesmo, com a compensação — melhor que uma baqueta
+     parada no chão. */
+  ctrl.addEventListener('connected', e => {
+    b.mao = e.data.handedness;
+    b.noPunho = BAQUETA.usarPunho && !!e.data.gripSpace;
+    b.base = b.noPunho ? punho : ctrl;
+    if (haste.parent !== b.base) b.base.add(haste);
+    inclinarBaqueta(b);
   });
-  ctrl.addEventListener('connected', e => { baquetas[i].mao = e.data.handedness; });
 }

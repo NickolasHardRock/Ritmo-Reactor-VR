@@ -91,6 +91,14 @@ export function processarPonta(b, dt, aoBater){
 export function detectarBatidas(dt, aoBater){
   if (!renderer.xr.isPresenting) return;
   for (const b of baquetas){
+    /* SEM POSE NESTE QUADRO NÃO HÁ TRAJETO. O three deixa `visible = false`
+       no espaço do controle enquanto ele não tem pose — desligado, fora do
+       campo das câmeras, ou ainda não anunciado — e a matriz dele fica parada
+       na origem do jogador. Seguir isso registraria uma batida fantasma no
+       instante em que o rastreio voltasse, porque o segmento iria da origem
+       até a mão de uma vez só. Passou a importar quando a baqueta mudou de
+       pai: o punho é anunciado um pouco depois da mira. */
+    if (!b.base.visible){ b.temAnterior = false; continue; }
     b.ponta.getWorldPosition(b.atual);
     if (!b.temAnterior){ b.anterior.copy(b.atual); b.temAnterior = true; continue; }
     processarPonta(b, dt, aoBater);

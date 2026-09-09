@@ -97,8 +97,9 @@ frontend/src/
   pontuacao.js      regra de pontuação — módulo PURO, conferível com node
   calibragem.js     mede o atraso de saída do equipamento do jogador
   desempenho.js     contador de tempo de quadro (ver abaixo)
-  cena.js           renderer, câmera, luzes, cenário, placas 3D
+  cena.js           renderer, câmera, luzes, cenário, placas 3D, altura do jogador
   kit.js            bateria, zonas de acerto, baquetas
+  menu3d.js         os botões que existem dentro do headset (ponteiro + gatilho)
   balanco.js        balanço dos pratos (oscilador amortecido)
   bichos.js         indicador de nota que desce sobre a peça
   fases.js          as regras das três fases

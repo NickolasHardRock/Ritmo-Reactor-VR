@@ -125,9 +125,14 @@
 </div>
 
 <!-- PULAR: vive durante a calibração e o eco de uma partida normal. Some na
-     entrada do ritmo. Em VR não existe <div>, e lá o mesmo salto é o botão A
-     do controle direito (ver docs/vr.md). -->
+     entrada do ritmo. Em VR o mesmo botão existe em 3D, apontado com o
+     controle (menu3d.js); o A do controle direito segue como atalho. -->
 <button id="btn-pular" class="hidden">Pular ›</button>
+
+<!-- SAIR: a porta que não existia. Uma vez começada, a partida só acabava com
+     a música — e de dentro do headset não dá nem para recarregar a página.
+     Vive durante as três fases, e tem gêmeo em 3D. -->
+<button id="btn-sair" class="hidden">‹ Sair</button>
 
 <!-- O momento em que o jogo para para dizer alguma coisa no centro da tela:
      "PREPARE-SE" e a contagem. A mesma informação vai para o painelCentro em

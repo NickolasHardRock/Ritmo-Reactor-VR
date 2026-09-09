@@ -22,7 +22,7 @@ import { synth } from './synth.js';
 import { pistaG, relogio, definirLuz } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo,
-         telaJogando, telaResultado, mostrarCreditos,
+         telaJogando, telaResultado, telaInicio, mostrarCreditos,
          esconderResultado3D, avisoCentro, mostrarPular } from './ui.js';
 import { enviarResultado } from './api.js';
 import { baterPeca, acalmarBalanco } from './balanco.js';
@@ -296,6 +296,12 @@ export async function ritmoIniciar(){
   ritmo.iAuto = 0;
   ritmo.fim   = recorte.fim;
 
+  /* ESTA FUNÇÃO É ASSÍNCRONA e o jogador pode ter saído durante o `await` da
+     carta — o botão Sair existe desde 09/09. Sem esta guarda a música
+     começaria alguns segundos depois, por cima do menu, sem nada na tela que
+     explicasse de onde veio. Mesmo motivo da guarda em `contagem()`. */
+  if (!jogo.ativo) return;
+
   musica.tocar(recorte.inicio, ESPERA_INICIAL);
   agendarAuto();
   ritmo.ativo = true;
@@ -496,6 +502,37 @@ export function iniciar(livre = false, direto = false){
   mostrarPular(true);
   objetivo('Fase 1 — Calibração', '#00d9ff');
   calibracaoIniciar();
+}
+
+/** SAIR NO MEIO. Abandona a partida e volta ao menu, nos dois modos.
+ *
+ *  Não existia saída nenhuma: uma vez começada, o jogo só terminava com a
+ *  música — e de dentro do headset não dá nem para recarregar a página. Era o
+ *  caminho sem porta apontado no teste de 08/09.
+ *
+ *  NÃO chama `concluir()`, e a diferença importa: partida abandonada não tem
+ *  resultado, não mostra placar e NÃO vai para o ranking (RN07 — só o que foi
+ *  concluído é registrado). Quem sai desiste; não é uma partida ruim, é uma
+ *  partida que não houve.
+ *
+ *  O que precisa ser desfeito à mão é tudo que continua sozinho depois que
+ *  `jogo.ativo` cai: a faixa tocando, a trilha automática JÁ AGENDADA no
+ *  relógio do áudio (que ignora o estado do jogo e soaria no menu), as
+ *  caveiras no ar e a luz de show. */
+export function abandonar(){
+  if (!jogo.ativo) return false;
+  jogo.ativo  = false;
+  ritmo.ativo = false;
+  pararAuto();
+  limparBichos();
+  musica.parar();
+  destacar(null);
+  mostrarRotulos(false);
+  acalmarBalanco();
+  esconderResultado3D();
+  definirLuz('tutorial', true);      // o menu não é lugar de luz de palco
+  telaInicio();                      // já apaga Pular, Sair e o aviso central
+  return true;
 }
 
 /** RF09/RF10 — fecha a partida, mostra o placar e só ENTÃO registra (RN07). */
