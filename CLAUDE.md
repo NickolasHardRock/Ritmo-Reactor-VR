@@ -54,6 +54,38 @@ código 1 se falhar. **Rode antes de qualquer push.**
   modificados com zero linhas de diferença (CRLF do Windows).
 - **A fonte do cenário não vem no clone.** `world_of_metal_otimizado.glb`
   está no `.gitignore`. Peça à equipe se precisar refazer o `cenario.glb`.
+- **`gltf-transform uastc --slots '{normalTexture}'` não casa com nada.** A
+  expansão de chaves precisa de MAIS DE UM item. A passada roda sem erro, não
+  converte ninguém, e o `etc1s` seguinte engole o mapa normal junto com o
+  resto. Único sintoma: o inventário diz `KTX2/ETC1S` onde devia dizer
+  `KTX2/UASTC`, e o relevo da superfície some. Use sempre o par que o
+  `otimizar-cenario.mjs` já usa: `'{normalTexture,clearcoatNormalTexture}'`.
+- **Não rode o `gltf-transform` em paralelo no mesmo diretório.** Ele grava
+  texturas intermediárias com nome FIXO (`baseColor_1.ktx2`, `normal_1.ktx2`)
+  ao lado da saída. Dois processos no mesmo lugar se sobrescrevem e saem com
+  a textura do vizinho, sem erro nenhum. O sintoma é arquivo de saída com
+  tamanho quase idêntico entre modelos diferentes. Cada job na sua pasta.
+- **`config.js` não é importável por ferramenta de linha de comando.** Ele lê
+  `location.search` e tem um `import.meta.env.DEV` no `API_BASE`, que só
+  existe dentro do Vite. Fora do bundler o módulo explode antes da primeira
+  linha útil. Quem precisar dele num script de `ferramentas/` tem de dublar
+  `location`/`localStorage` e neutralizar aquela linha numa cópia.
+- **Teste que mede escala não pode usar `Matrix4.decompose`.** Ele tem um
+  atalho para matriz degenerada — `if (det === 0) scale.set(1,1,1)` — e a
+  escala É zero em pontos legítimos do jogo (o bicho no nascimento, antes de
+  crescer). Ou seja, reporta 1 onde o valor real é 0, justamente no extremo
+  que se quer medir. Leia pelo comprimento das colunas:
+  `Math.hypot(e[4],e[5],e[6])`.
+- **Dois `.glb` da pasta `modelos/` estão sem uso no código e NÃO devem ser
+  apagados.** `bateria_old.glb` é a bateria antiga do candidato 3 abaixo —
+  medida: 85.983 triângulos, 9 primitivas, zero textura. Apagá-la fecha uma
+  porta que este documento diz estar aberta. E `bateria.glb` é a malha
+  fundida de onde o `bateria_pratos.glb` foi recortado com o
+  `cortar-peca.mjs`. Sem uso pelo código não quer dizer sem uso.
+- **O atalho `?kit=uastc|misto|etc1s` está quebrado.** O `config.js` aponta
+  para `bateria_{uastc,misto,etc1s}.glb` e nenhum dos três existe na pasta —
+  eram descartáveis e foram descartados. Nome desconhecido cai no padrão,
+  então isso falha em silêncio, servindo o kit normal.
 
 ## Onde as coisas estão
 
@@ -133,6 +165,18 @@ Candidatos, na ordem em que eu apostaria:
 
 Em VR, `renderer.info` conta **os dois olhos** — não divida por dois para
 comparar com o desktop; compare VR com VR.
+
+**O que os bichos passaram a custar.** São sete caveiras agora, uma por peça,
+cada uma em 3.500 triângulos e 1,2 MB de VRAM de textura (medido, com o
+`inventario-modelos.mjs`). Somando: **8,4 MB de VRAM** contra 1,2 MB do
+fantasma único, e **+3,4 MB no download inicial**. Esse último é o número que
+mais incomoda, e carregar sob demanda é a saída óbvia quando incomodar.
+
+Em triângulo o custo é dinâmico, não de arquivo: 3.500 × notas visíveis, o
+que num compasso normal são uma ou duas. Sete peças pedindo nota ao mesmo
+tempo dão 24.500. E **peça sem nota na tela não emite draw call** — o
+`renderInstances` do `WebGLRenderer` começa com `if (primcount === 0) return`,
+então as sete malhas não custam sete chamadas fixas.
 
 ## Regras de trabalho neste repositório
 
