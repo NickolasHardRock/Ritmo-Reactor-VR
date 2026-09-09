@@ -11,7 +11,7 @@
    ========================================================================== */
 
 import * as THREE from 'three';
-import { PECAS, PORID, CARTA_URL,
+import { PECAS, PORID, cartaAgora, VIES_ENCOSTE,
          NIVEIS, nivelAtual, jogaveisAgora } from './config.js';
 import { musica, notasDoRecorte } from './musica.js';
 import { registrarBatida } from './calibragem.js';
@@ -213,7 +213,7 @@ function montarPista(){
 
 function limparNotas(){
   pararAuto();
-  limparBichos();          // uma malha só para todos: nada a descartar
+  limparBichos();          // zera o count das sete malhas: nada a descartar
   ritmo.notas = [];
 }
 
@@ -233,9 +233,26 @@ export async function ritmoIniciar(){
   JB = JANELA_BOM      * nivel.janela;
   JX = JANELA_PERDA    * nivel.janela;
 
+  /* Com viés zero — o padrão — a caveira encosta no tempo da nota e nada
+     disto importa. Mas `?encoste=` positivo empurra o encoste para depois da
+     nota, e a nota é recolhida como PERDEU em `-JX`. Se o segundo vier
+     primeiro, o pouso nunca aparece: a caveira some no ar, a um dedo do
+     tambor. Nenhuma das duas pontas sabe da outra — o viés é do visual e a
+     janela é da regra — então o aviso mora aqui, que é o único lugar onde os
+     dois números se encontram. */
+  if (VIES_ENCOSTE > 0 && JX <= VIES_ENCOSTE){
+    console.warn(`[fases] a caveira não vai encostar: o ?encoste= a atrasa em`
+      + ` ${Math.round(VIES_ENCOSTE*1000)} ms, mas a nota é descartada em`
+      + ` ${Math.round(JX*1000)} ms (JANELA_PERDA × janela ${nivel.janela}).`
+      + ` Baixe o ?encoste=.`);
+  }
+
   let recorte;
   try {
-    const carta = await musica.carregarCarta(CARTA_URL);
+    /* A carta sai do NÍVEL, não de uma constante: o Profissa toca a
+       `colour-me-red-cheio`, que é a mesma faixa com as sete peças na parte
+       do jogador. O `?carta=` continua vencendo os dois (ver `cartaAgora`). */
+    const carta = await musica.carregarCarta(cartaAgora(nivel));
     recorte = notasDoRecorte(carta);
     /* SÓ O NOME DA FAIXA. O painel dizia também quais peças tocar ("— toque
        só a CAIXA") ou o nome do nível, e isso ocupava a maior parte de uma
@@ -345,7 +362,19 @@ export function ritmoAtualizar(){
     }
     restantes++;
     const p = PORID[n.id];
-    if (p) visiveis.push({ x:p.x, y:p.y, z:p.z, dt, semente:n.semente });
+    /* O `id` vai junto porque agora é ele que escolhe a caveira: uma por
+       peça, na cor da peça (ver bichos.js). Sem ele o bicho não sabe com
+       qual malha se desenhar.
+
+       O `atraso` é quanto o jogador já deixou passar, de 0 (na hora) a 1 (a
+       nota está para ser perdida agora). Serve de retorno: o bicho vai sendo
+       ESMAGADO conforme atrasa, e chega esmagado por completo no instante em
+       que a nota se perde. Sai calculado AQUI, e não no bichos.js, porque o
+       divisor é o `JX` — a janela de perda, que é regra e depende do nível.
+       Assim o esmagamento se ajusta sozinho a cada nível: em 468 ms no
+       Fácil, em 208 ms no Profissa. */
+    if (p) visiveis.push({ id:n.id, x:p.x, y:p.y, z:p.z, dt, semente:n.semente,
+                           atraso: JX > 0 ? Math.min(Math.max(-dt / JX, 0), 1) : 0 });
   }
   /* Mais perto primeiro: se passar do teto de instâncias, quem cai fora é o
      bicho mais distante, que é o que menos importa agora. */

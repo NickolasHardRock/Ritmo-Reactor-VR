@@ -32,7 +32,7 @@ import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem, calibragem } from './calibragem.js';
-import { NIVEIS, nivelAtual, definirNivel, CARTA_URL,
+import { NIVEIS, nivelAtual, definirNivel, cartaAgora,
          PECAS_SEM, jogaveisAgora } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
@@ -267,8 +267,11 @@ $('btn-menu').onclick  = () => { telaInicio(); jogo.ativo = false; };
 /* ------------------------------------------------- nível e calibragem ----- */
 function pintarNivel(){
   const k = nivelAtual();
-  for (const [id, chave] of [['btn-nivel-facil','facil'], ['btn-nivel-normal','normal']]){
-    const b = $(id); if (!b) continue;
+  /* Varre as chaves de NIVEIS em vez de uma lista escrita à mão: nível novo
+     passa a precisar só de um botão com id `btn-nivel-<chave>` no HTML. A
+     lista fixa daqui já tinha ficado desatualizada uma vez. */
+  for (const chave of Object.keys(NIVEIS)){
+    const b = $(`btn-nivel-${chave}`); if (!b) continue;
     /* Classe, não estilo inline: o controle é segmentado agora, e o estado
        ativo é preenchimento em vez de borda — decidir isso no CSS deixa o
        visual num lugar só. */
@@ -299,8 +302,14 @@ function nudge(ms){
 $('btn-atraso-menos').onclick = () => nudge(-10);
 $('btn-atraso-mais').onclick  = () => nudge(+10);
 
-$('btn-nivel-facil').onclick  = () => { definirNivel('facil');  pintarNivel(); };
-$('btn-nivel-normal').onclick = () => { definirNivel('normal'); pintarNivel(); };
+/* Mesma varredura do `pintarNivel`, e pela mesma razão. O `lerCarta()` no
+   fim entra porque o nível agora pode TROCAR de carta: sem ele, escolher
+   Profissa no menu deixaria o crédito e o kit da carta anterior na tela até
+   alguém recarregar a página. */
+for (const chave of Object.keys(NIVEIS)){
+  const b = $(`btn-nivel-${chave}`); if (!b) continue;
+  b.onclick = () => { definirNivel(chave); pintarNivel(); lerCarta(); };
+}
 
 function limparContagem(){
   const el = $('cal-contagem');
@@ -390,26 +399,36 @@ function comecarCalibragem(){
     });
 }
 $('cal-comecar').onclick = comecarCalibragem;
-pintarNivel();
 
 /* Crédito da faixa já na abertura, sem esperar a fase de ritmo carregar: quem
    emprestou a música merece aparecer antes de o jogo começar, não só depois.
-   Falha em silêncio — carta ausente é caso normal (ver `CARTA_URL`). */
-fetch(CARTA_URL)
-  .then(r => r.ok ? r.json() : null)
-  .then(c => {
-    if (!c) return;
-    if (c.creditos){
-      const el = $('inicio-creditos');
-      if (el) el.textContent = c.titulo ? `♪ ${c.titulo} — ${c.creditos}` : c.creditos;
-    }
-    /* Kit da carta pedido JÁ na abertura, e não quando a fase de ritmo
-       começa: assim as três fases usam o mesmo kit e a bateria não troca de
-       som no meio da partida. O synth guarda o pedido se o áudio ainda não
-       existir — ele só nasce no primeiro toque do jogador. */
-    synth.definirKit(c.kit || null);
-  })
-  .catch(() => {});
+   Falha em silêncio — carta ausente é caso normal (ver `cartaAgora`).
+
+   VIROU FUNÇÃO porque o nível pode trocar de carta, e aí isto precisa rodar
+   de novo ao escolher outro nível. Note que quem chama é o clique no nível, e
+   NÃO o `pintarNivel`: este último também roda a cada toque no ajuste fino de
+   atraso, e buscar a carta a cada 10 ms de nudge seria uma requisição por
+   clique sem nenhum motivo. */
+function lerCarta(){
+  fetch(cartaAgora(NIVEIS[nivelAtual()]))
+    .then(r => r.ok ? r.json() : null)
+    .then(c => {
+      if (!c) return;
+      if (c.creditos){
+        const el = $('inicio-creditos');
+        if (el) el.textContent = c.titulo ? `♪ ${c.titulo} — ${c.creditos}` : c.creditos;
+      }
+      /* Kit da carta pedido JÁ na abertura, e não quando a fase de ritmo
+         começa: assim as três fases usam o mesmo kit e a bateria não troca de
+         som no meio da partida. O synth guarda o pedido se o áudio ainda não
+         existir — ele só nasce no primeiro toque do jogador. */
+      synth.definirKit(c.kit || null);
+    })
+    .catch(() => {});
+}
+
+pintarNivel();
+lerCarta();
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
