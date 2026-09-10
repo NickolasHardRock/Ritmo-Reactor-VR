@@ -65,8 +65,11 @@ export function atualizarHUD(){
      é a informação de momento que o jogador precisa: quantos acertos faltam
      para dobrar. */
   $('mult-i').style.width   = (progressoDoDegrau(jogo.combo) * 100) + '%';
+  /* No modo livre o HUD diz O QUE ESTÁ TOCANDO, quando há faixa. É a única
+     informação de estado que sobra ali: não há fase, não há nota e a
+     precisão não significa nada quando ninguém está julgando. */
   $('h-fase').textContent   = jogo.livre
-    ? 'Modo livre'
+    ? (jogo.trilha ? `Modo livre — ♪ ${jogo.trilha}` : 'Modo livre')
     : `Fase ${jogo.fase + 1}/3 — ${FASES[jogo.fase].nome}`;
 
   painelHUD.userData.pintar(
@@ -186,13 +189,36 @@ export function mostrarSair(v){
 export function telaJogando(){
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
+  mostrar('tela-livre', false);
   mostrar('hud', true);
   mostrar('teclas', true);
   mostrarSair(true);
   menu3d.mostrar('jogo');
 }
+
+/** A LISTA DO MODO LIVRE. Mais um menu, e não uma tela de partida: dá para
+ *  chegar aqui do menu principal (escolhendo o modo livre) e também do FIM de
+ *  uma faixa, com a partida livre ainda em curso — quem acabou de tocar uma
+ *  costuma querer outra.
+ *
+ *  Por isso o SAIR de partida sai daqui: a lista tem a saída dela, que serve
+ *  aos dois casos (ver `voltarDaLista` no main.js). Dois botões de sair na
+ *  mesma tela, um deles fora do alcance do controle, seria pior que um. */
+export function telaLivre(){
+  mostrar('tela-inicio', false);
+  mostrar('tela-fim', false);
+  mostrar('tela-livre', true);
+  mostrar('hud', false);
+  mostrar('teclas', false);
+  mostrarPular(false);
+  mostrarSair(false);
+  avisoCentro(null);
+  menu3d.mostrar('livre');
+}
+
 export function telaInicio(){
   mostrar('tela-fim', false);
+  mostrar('tela-livre', false);
   mostrar('tela-inicio', true);
   mostrar('hud', false);
   mostrar('teclas', false);

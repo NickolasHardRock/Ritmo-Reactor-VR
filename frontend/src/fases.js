@@ -22,7 +22,7 @@ import { synth } from './synth.js';
 import { pistaG, relogio, definirLuz } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo,
-         telaJogando, telaResultado, telaInicio, mostrarCreditos,
+         telaJogando, telaResultado, telaInicio, telaLivre, mostrarCreditos,
          esconderResultado3D, avisoCentro, mostrarPular } from './ui.js';
 import { enviarResultado } from './api.js';
 import { baterPeca, acalmarBalanco } from './balanco.js';
@@ -413,7 +413,17 @@ export function ritmoAtualizar(){
 const ESPERA_PREPARE = 1200;   // ms de "PREPARE-SE" enquanto a luz cai
 const PASSO_CONTAGEM = 800;    // ms por número da contagem
 
-export function abrirShow(){
+/** A abertura do show: holofote, luz caindo, "PREPARE-SE" e a contagem.
+ *
+ *  RECEBE O QUE VEM DEPOIS em vez de chamar `ritmoIniciar()` direto, porque
+ *  desde o modo livre com faixa (09/09) existem DOIS finais possíveis para a
+ *  mesma contagem: a fase de ritmo, com carta e julgamento, e uma trilha do
+ *  modo livre, que só toca. Escrever a abertura duas vezes seria garantir que
+ *  um dia as duas deixem de ser iguais — e o pedido era justamente que o modo
+ *  livre siga "o mesmo procedimento de apagar as luzes e iniciar a contagem".
+ *
+ *  @param {() => void} [aoTerminar] o que a contagem dispara no zero. */
+export function abrirShow(aoTerminar = ritmoIniciar){
   destacar(null);
   mostrarPular(false);
   objetivo('Prepare-se', '#e8eef8');
@@ -421,20 +431,100 @@ export function abrirShow(){
   synth.tocar('holofote');
   definirLuz('show');
   avisoCentro(['PREPARE-SE'], '#e8eef8');
-  setTimeout(() => contagem(3), ESPERA_PREPARE);
+  setTimeout(() => contagem(3, aoTerminar), ESPERA_PREPARE);
 }
 
-function contagem(n){
+function contagem(n, aoTerminar){
   /* Voltar ao menu no meio da contagem é possível (o botão Menu zera
      `ativo`), e sem esta guarda a música começaria sozinha por cima da tela
      inicial alguns segundos depois. */
   if (!jogo.ativo){ avisoCentro(null); return; }
-  if (n <= 0){ avisoCentro(null); ritmoIniciar(); return; }
+  if (n <= 0){ avisoCentro(null); aoTerminar(); return; }
   avisoCentro([String(n), 'PREPARE-SE'], '#00d9ff');
   /* Chimbal, não um bipe: é a contagem que baterista dá, e é a mesma entrada
      que a calibragem já usa. */
   synth.tocar('chimbal', .35);
-  setTimeout(() => contagem(n - 1), PASSO_CONTAGEM);
+  setTimeout(() => contagem(n - 1, aoTerminar), PASSO_CONTAGEM);
+}
+
+/* ====================== MODO LIVRE COM FAIXA =============================
+   Para quem SABE tocar. A faixa vem sem bateria, o jogador põe a bateria, e
+   o jogo não julga nada: não há carta, não há nota, não há caveira caindo em
+   cima do tambor e nada disto vai para o ranking. É o pedido do Diego —
+   "livre pra quem sabe tocar e não precisa do ritmo dos bichos caindo".
+
+   O que ele PRECISA ter igual à partida é a entrada: apagar as luzes e
+   contar. Isso está garantido por construção, porque é a mesma `abrirShow()`.
+
+   A ORDEM É: carregar → apagar a luz → contar → tocar. E não pode ser outra.
+   Uma faixa de quatro minutos são uns 8 MB pela rede e alguns segundos de
+   decodificação; se o download entrasse depois da contagem, o "1" cairia no
+   silêncio e a música entraria quando quisesse. Então o carregamento é ANTES,
+   com aviso na tela, e a contagem só começa quando o áudio já está em
+   memória — aí o zero e o primeiro compasso caem juntos.                   */
+
+/* Quem pediu a trilha mais recente. Duas coisas podem acontecer durante os
+   segundos de download: o jogador desiste e sai, ou escolhe OUTRA faixa. Nos
+   dois casos a carga antiga chega ao fim e não pode começar a tocar. Um
+   contador resolve os dois — a carga confere se ainda é a vez dela. */
+let geracaoLivre = 0;
+
+/** Toca uma trilha do modo livre. Ver o cabeçalho da seção.
+ *  @param {{titulo:string,faixa:string,inicio?:number,volume?:number}} trilha */
+export async function livreIniciar(trilha){
+  if (!jogo.ativo || !jogo.livre || !trilha) return;
+  const minha = ++geracaoLivre;
+  const valho = () => jogo.ativo && jogo.livre && geracaoLivre === minha;
+
+  jogo.trilha = trilha.titulo;
+  atualizarHUD();
+  objetivo(`Carregando ${trilha.titulo}…`, '#8c9bb5');
+
+  try {
+    /* O progresso vai por `msg` e não por uma barra nova: a `msg` já escreve
+       nos dois lugares (o texto de HTML e a placa 3D do headset), que é
+       exatamente o problema que uma barra nova teria de resolver de novo. */
+    let ultimo = -1;
+    await musica.carregar(trilha.faixa, (p) => {
+      const pct = Math.round(p * 100);
+      if (pct >= ultimo + 10){ ultimo = pct; msg(`Carregando a faixa… ${pct}%`, 'ok', 1.4); }
+    });
+  } catch (e){
+    console.warn('[livre] faixa não carregou:', e);
+    if (valho()){
+      msg('A faixa não carregou', 'bad', 2.4);
+      objetivo('Modo livre — toque à vontade', '#8c9bb5');
+      jogo.trilha = null;
+      atualizarHUD();
+    }
+    return;
+  }
+
+  if (!valho()) return;             // saiu, ou trocou de faixa, no meio
+
+  abrirShow(() => {
+    if (!valho()) return;
+    musica.tocar(trilha.inicio || 0, 0, () => fimDaTrilha(minha));
+    musica.volume = trilha.volume ?? .85;
+    objetivo(`♪ ${trilha.titulo}`, '#00d9ff');
+    atualizarHUD();
+  });
+}
+
+/** A faixa chegou ao fim SOZINHA (parar() no meio não passa por aqui — ver
+ *  `Musica.parar`). Volta para a lista em vez de para o menu principal: quem
+ *  acabou de tocar uma provavelmente quer outra, e sair do modo livre para
+ *  entrar de novo seria três cliques para nada. A luz volta com o fade, que é
+ *  o inverso exato da abertura. */
+function fimDaTrilha(geracao){
+  if (geracao !== geracaoLivre || !jogo.ativo || !jogo.livre) return;
+  musica.parar();
+  definirLuz('tutorial');
+  jogo.trilha = null;
+  atualizarHUD();
+  msg('Fim da faixa', 'gold', 2.4);
+  objetivo('Escolha outra faixa', '#8c9bb5');
+  telaLivre();
 }
 
 /** O botão Pular, e o A do controle direito em VR. Vai direto para o ritmo
@@ -473,8 +563,11 @@ function proximaFase(){
  *  @param direto pula calibração e eco e cai na fase de ritmo. Serve para
  *         testar a música sem jogar 40 segundos antes, e para demonstrar em
  *         sala. Uma partida assim NÃO vai para o ranking: ela pulou dois
- *         terços do jogo e a pontuação não é comparável com as completas. */
-export function iniciar(livre = false, direto = false){
+ *         terços do jogo e a pontuação não é comparável com as completas.
+ *  @param trilha faixa sem bateria para acompanhar, do modo livre. Só faz
+ *         sentido com `livre`; sem ela o modo livre é o de sempre, a bateria
+ *         solta e nada tocando. Ver `livreIniciar`. */
+export function iniciar(livre = false, direto = false, trilha = null){
   reiniciarEstado(livre, direto);
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
@@ -491,7 +584,15 @@ export function iniciar(livre = false, direto = false){
   definirLuz('tutorial', true);
   synth.ligar();
   atualizarHUD();
-  if (livre){ mostrarPular(false); objetivo('Modo livre — toque à vontade', '#8c9bb5'); return; }
+  if (livre){
+    mostrarPular(false);
+    /* Com faixa escolhida a luz de tutorial acima é só o estado de partida:
+       o `abrirShow` de `livreIniciar` a derruba em seguida, e é justamente
+       essa queda que o jogador tem de ver. */
+    if (trilha){ livreIniciar(trilha); return; }
+    objetivo('Modo livre — toque à vontade', '#8c9bb5');
+    return;
+  }
   if (direto){
     jogo.fase = 2;
     mostrarRotulos(false);          // quem vem direto não está aprendendo o kit
@@ -522,6 +623,7 @@ export function iniciar(livre = false, direto = false){
 export function abandonar(){
   if (!jogo.ativo) return false;
   jogo.ativo  = false;
+  jogo.trilha = null;
   ritmo.ativo = false;
   pararAuto();
   limparBichos();

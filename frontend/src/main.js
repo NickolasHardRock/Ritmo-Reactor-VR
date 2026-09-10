@@ -27,7 +27,7 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
          mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar,
-         pularTutorial, abandonar } from './fases.js';
+         pularTutorial, abandonar, livreIniciar } from './fases.js';
 import { musica, Musica } from './musica.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
@@ -35,9 +35,10 @@ import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem, calibragem } from './calibragem.js';
 import { NIVEIS, nivelAtual, definirNivel, cartaAgora,
          PECAS_SEM, jogaveisAgora } from './config.js';
-import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
+import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
          statusXR, falhaCarregamento, progressoCarregamento,
          telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
+import { carregarTrilhas } from './trilhas.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -299,7 +300,11 @@ renderer.setAnimationLoop(() => {
 
 /* ------------------------------------------------------------ botões ----- */
 $('btn-jogar').onclick = () => iniciar(false);
-$('btn-livre').onclick = () => iniciar(true);
+/* MODO LIVRE ABRE A LISTA, não a partida. Ele caía direto na bateria solta;
+   agora a escolha "só bateria ou uma faixa para acompanhar" acontece antes,
+   e "só bateria" é o primeiro item da lista — o caminho antigo, com um clique
+   a mais e nenhuma surpresa. */
+$('btn-livre').onclick = () => abrirLivre();
 /* "Só a música" saiu do menu em 07/09. O mesmo salto virou o botão PULAR, que
    aparece durante o tutorial — no momento em que a vontade de pular existe, e
    não antes de o jogo começar. O caminho `iniciar(false, true)` continua no
@@ -310,6 +315,7 @@ $('btn-again').onclick = () => iniciar(false);
    quem voltasse ao menu depois de uma partida o deixava pendurado no ar. */
 $('btn-menu').onclick  = () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); };
 $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); };
+$('btn-livre-voltar').onclick = () => voltarDaLista();
 
 /* ------------------------------------------- os mesmos botões, em 3D -----
    O menu3d não importa nada de `fases.js`: fecharia o ciclo
@@ -319,7 +325,12 @@ $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad
    tem duas maneiras de apertar o mesmo. */
 menu3d.definirAcoes({
   jogar:    () => iniciar(false),
-  livre:    () => iniciar(true),
+  livre:    () => abrirLivre(),
+  /* A lista do modo livre, dentro do headset. As três ações são as mesmas
+     que os botões de HTML disparam — o jogo não tem dois caminhos. */
+  livreSemFaixa: () => iniciar(true),
+  trilha:      (id) => { const t = porTrilha(id); if (t) iniciar(true, false, t); },
+  voltarLivre:   () => voltarDaLista(),
   nivel:    (chave) => { definirNivel(chave); pintarNivel(); lerCarta(); },
   calibrar:  () => comecarCalibragem(),
   fecharCal: () => fecharAjustes(),
@@ -331,6 +342,87 @@ menu3d.definirAcoes({
 /* A lista de níveis sai de `NIVEIS`, não de uma cópia à mão: mesmo contrato
    do `pintarNivel` e dos ids `btn-nivel-<chave>` no HTML. */
 menu3d.montarNiveis(Object.keys(NIVEIS).map(c => ({ chave:c, nome:NIVEIS[c].nome })));
+
+
+/* =================== A LISTA DO MODO LIVRE ================================
+   Faixas SEM BATERIA, para quem sabe tocar acompanhar. O manifesto é
+   `public/trilhas.json` (ver trilhas.js); os botões saem dele, nos dois
+   lugares — na tela e em 3D — e nunca de uma cópia escrita à mão. Foi a lição
+   dos níveis: a lista fixa é o que fica para trás quando alguém acrescenta
+   uma faixa, e acrescentar faixa é justamente o que se vai fazer aqui.
+
+   O manifesto é carregado uma vez, na abertura, e é 400 bytes de JSON — nada
+   do áudio vem agora. Cada faixa só é baixada quando alguém a escolhe (ver
+   `livreIniciar`, em fases.js).                                            */
+let trilhas = [];
+const porTrilha = (id) => trilhas.find(t => t.id === id) || null;
+
+function abrirLivre(){ telaLivre(); }
+
+/** A SAÍDA DA LISTA, e ela tem de servir aos dois jeitos de chegar nela.
+ *
+ *  Vindo do menu, não há partida: é só voltar. Vindo do FIM de uma faixa, a
+ *  partida livre continua ativa — e sair da lista sem abandoná-la deixaria o
+ *  jogo tocando por baixo da tela inicial, com o HUD escondido e sem nenhum
+ *  botão que o encerre. As duas pontas caem no menu; a diferença é o que
+ *  precisa ser desligado no caminho. */
+function voltarDaLista(){
+  if (jogo.ativo) abandonar();
+  else telaInicio();
+}
+
+function montarListaLivre(){
+  const el = $('livre-lista');
+  if (!el) return;
+  el.textContent = '';
+
+  /* "SÓ BATERIA" NO TOPO, e com a cor de ação: é o modo livre como ele era
+     antes de existir faixa nenhuma, o único item que não depende de baixar
+     nada, e o que alguém que só quer bater no tambor está procurando. */
+  const b0 = document.createElement('button');
+  b0.className = 'principal';
+  b0.dataset.trilha = '';
+  b0.appendChild(document.createTextNode('Só bateria'));
+  const s0 = document.createElement('small');
+  s0.textContent = 'sem faixa — entra direto, como o modo livre de sempre';
+  b0.appendChild(s0);
+  b0.onclick = () => iniciar(true);
+  el.appendChild(b0);
+
+  for (const t of trilhas){
+    const b = document.createElement('button');
+    b.dataset.trilha = t.id;
+    /* `textContent` e não `innerHTML`: o manifesto é nosso, mas título e
+       crédito são texto de arquivo, e texto de arquivo não vira marcação. */
+    b.appendChild(document.createTextNode(t.titulo));
+    if (t.creditos){
+      const s = document.createElement('small');
+      s.textContent = t.creditos;
+      b.appendChild(s);
+    }
+    b.onclick = () => iniciar(true, false, t);
+    el.appendChild(b);
+  }
+
+  if (!trilhas.length){
+    const p = document.createElement('p');
+    p.className = 'vazio';
+    p.textContent = 'Nenhuma faixa cadastrada ainda. Coloque o MP3 em '
+      + 'public/sounds/livre/ e acrescente a entrada em public/trilhas.json.';
+    el.appendChild(p);
+  }
+}
+
+/* Desenhada JÁ, com a lista vazia, e redesenhada quando o manifesto chega:
+   assim a tela nunca existe sem o "Só bateria" — que é o item que funciona
+   mesmo se o manifesto não carregar. */
+montarListaLivre();
+menu3d.montarTrilhas([]);
+carregarTrilhas().then(l => {
+  trilhas = l;
+  montarListaLivre();
+  menu3d.montarTrilhas(l);
+});
 
 
 /* ------------------------------------------------- nível e calibragem ----- */
@@ -537,6 +629,10 @@ window.__jogo = {
   gerarAmbienteDaCena,
   NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
   pularTutorial, abandonar,
+  /* A lista do modo livre. `trilhas` é um getter porque o manifesto chega
+     depois: exposta por valor, a ponte guardaria o array vazio da abertura. */
+  get trilhas(){ return trilhas; },
+  abrirLivre, voltarDaLista, montarListaLivre, livreIniciar,
   /* A interface 3D e o ajuste de altura ficam expostos porque nenhum dos dois
      dá para exercitar sem headset. `menu3d.forcarForaDoVR(true)` seguido de
      `menu3d.mostrar('menu')` desenha os painéis no monitor, para conferir
