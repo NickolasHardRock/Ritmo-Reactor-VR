@@ -27,6 +27,7 @@ const CHAVE_CALIBRAGEM = 'rrvr.calibragem';
 export class Musica {
   constructor(){
     this.buffer   = null;    // AudioBuffer da faixa
+    this._urlBuffer = null;  // de qual URL o buffer veio (ver `carregar`)
     this.fonte    = null;    // AudioBufferSourceNode em reprodução
     this.ganho    = null;
     this._t0      = 0;       // currentTime em que a reprodução começou
@@ -66,9 +67,19 @@ export class Musica {
   /* ---------------------------------------------------------- carregar ---- */
   /** Baixa e decodifica a faixa. Decodificar é caro (uma faixa de 4 minutos
    *  vira ~50 MB de PCM na memória), então isto acontece uma vez só, antes
-   *  da fase começar, nunca no meio. */
+   *  da fase começar, nunca no meio.
+   *
+   *  A MESMA FAIXA NÃO É BAIXADA DUAS VEZES. O modo livre trouxe um caminho
+   *  que a fase de ritmo não tinha: o jogador toca uma faixa, ela acaba, ele
+   *  escolhe a MESMA de novo. Sem esta guarda seriam 8 MB pela rede e uns
+   *  segundos de decodificação a cada rodada — no Quest, pela rede local, o
+   *  bastante para parecer travamento.
+   *
+   *  É UM SLOT SÓ, de propósito: guardar duas faixas decodificadas são ~90 MB
+   *  de PCM na memória do headset, e o jogo só toca uma por vez. */
   async carregar(url, aoProgredir){
     await synth.ligar();
+    if (this.buffer && this._urlBuffer === url) return this.buffer.duration;
     const ctx = synth.ctx;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`${url}: HTTP ${resp.status}`);
@@ -95,6 +106,7 @@ export class Musica {
     }
 
     this.buffer = await ctx.decodeAudioData(dados);
+    this._urlBuffer = url;
     return this.buffer.duration;
   }
 
@@ -111,7 +123,9 @@ export class Musica {
     });
     normalizarCarta(carta);
     if (carta.faixa) await this.carregar(carta.faixa, aoProgredir);
-    else { await synth.ligar(); this.buffer = null; }
+    /* Carta sem faixa zera o slot JUNTO com o buffer: senão a próxima carga
+       da faixa que estava ali seria dada por pronta e a música não sairia. */
+    else { await synth.ligar(); this.buffer = null; this._urlBuffer = null; }
     this.carta = carta;
     return carta;
   }
@@ -119,8 +133,18 @@ export class Musica {
   /* ------------------------------------------------------------ tocar ----- */
   /** @param {number} desde segundo da faixa em que começar
    *  @param {number} atraso espera antes de começar, para dar tempo das
-   *         primeiras notas descerem a pista antes do som entrar */
-  tocar(desde = 0, atraso = 0){
+   *         primeiras notas descerem a pista antes do som entrar
+   *  @param {(()=>void)|null} aoTerminar chamado quando a faixa chega ao FIM
+   *         sozinha. Não é chamado quando `parar()` a interrompe — sair no
+   *         meio não é a faixa acabar, e tratar os dois iguais faria o botão
+   *         Sair cair no "fim da faixa" em vez de no menu.
+   *
+   *  O callback é PARÂMETRO e não propriedade do objeto porque `musica` é um
+   *  singleton compartilhado com a fase de ritmo: guardado no objeto, o
+   *  handler do modo livre sobreviveria e dispararia no fim da música de uma
+   *  partida normal. Passando aqui, cada `tocar` declara o seu — e quem não
+   *  declara nada não herda o anterior. */
+  tocar(desde = 0, atraso = 0, aoTerminar = null){
     this.parar();
     const ctx = synth.ctx;
     const quando = ctx.currentTime + atraso;
@@ -135,7 +159,10 @@ export class Musica {
       this.fonte.connect(this.ganho);
       this.ganho.connect(ctx.destination);
       this.fonte.start(quando, desde);
-      this.fonte.onended = () => { this.tocando = false; };
+      this.fonte.onended = () => {
+        this.tocando = false;
+        if (aoTerminar) aoTerminar();
+      };
     }
     this._t0 = quando;
     this._desde = desde;
@@ -144,6 +171,12 @@ export class Musica {
 
   parar(){
     if (this.fonte){
+      /* O HANDLER SAI ANTES DO `stop()`, e a ordem é a coisa toda: `stop()`
+         também dispara `onended`, e ele chega num tique DEPOIS — nenhuma
+         bandeira síncrona daqui estaria mais de pé quando ele rodasse. Sem
+         isto, abandonar a partida no meio da faixa acabaria caindo no
+         "fim da faixa" do modo livre, que reabre a lista por cima do menu. */
+      this.fonte.onended = null;
       try { this.fonte.stop(); } catch { /* já parou */ }
       this.fonte.disconnect();
       this.fonte = null;

@@ -53,6 +53,31 @@
   </div>
 </div>
 
+<!-- ---------------- MODO LIVRE: A LISTA DE FAIXAS ----------------
+     O modo livre era um botão que caía direto na bateria solta. Agora é uma
+     escolha: "Só bateria" (o que ele sempre foi) ou uma faixa SEM BATERIA
+     para acompanhar — para quem sabe tocar e não precisa de caveira caindo
+     em cima do tambor para saber onde vai a caixa.
+
+     A lista é montada pelo main.js a partir de `public/trilhas.json`; aqui
+     fica só o lugar dela. Cada botão sai com `data-trilha="<id>"`, que é o
+     contrato usado pelos testes e o mesmo id do manifesto.
+
+     A saída daqui é o "‹ Voltar": quando se chega nesta tela pelo FIM de uma
+     faixa, a partida livre ainda está em curso, e é ele que a abandona.
+     Ver ui.js -> telaLivre e claude/modo-livre-com-faixa.md.              -->
+<div class="layer hidden" id="tela-livre">
+  <div class="card menu">
+    <h1>MODO LIVRE</h1>
+    <p class="sub">Escolha uma faixa e toque por cima. Aqui não há nota caindo,
+      nem julgamento, nem placar — a bateria é sua.</p>
+    <div id="livre-lista" class="lista"></div>
+    <div class="links">
+      <button class="txt" id="btn-livre-voltar">‹ Voltar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ---------------- AJUSTES (era "Calibrar atraso") ----------------
      Recebeu o que saiu da tela inicial: a calibragem, que continua sendo o
      ajuste mais necessário no headset, e o ±10 ms. Nenhum dos dois é decisão

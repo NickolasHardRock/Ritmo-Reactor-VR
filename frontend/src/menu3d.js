@@ -24,6 +24,7 @@
 
    ONDE CADA GRUPO APARECE, e nunca dois ao mesmo tempo:
      'menu'  antes da partida — espelha a tela inicial de HTML
+     'livre' a lista de faixas sem bateria do modo livre
      'jogo'  durante a partida — PULAR (só nas fases 0 e 1) e SAIR
      'cal'   durante a calibragem aberta pelo menu — só FECHAR
      'fim'   sobre o painel de resultado — JOGAR DE NOVO e MENU
@@ -143,6 +144,78 @@ export function pintarMenu(chaveAtual, subtitulo = ''){
   subMenu.userData.pintar([subtitulo], { fundo:false, tam:.62, cor:'#8c9bb5' });
 }
 
+/* ---- 'livre': a lista de faixas sem bateria -----------------------------
+   O modo livre virou uma ESCOLHA, e não um botão só: "Só bateria" (o que ele
+   sempre foi) mais uma faixa por trilha do manifesto. A lista precisa existir
+   aqui porque é dentro do headset que ela mais serve — quem sabe tocar vai
+   querer acompanhar de baqueta na mão, e nenhum `<div>` aparece lá.
+
+   Os botões são montados a partir da lista que o main.js entrega, pelo mesmo
+   motivo dos níveis: manifesto é arquivo que se edita para acrescentar faixa,
+   e uma cópia à mão aqui ficaria para trás na primeira vez que isso
+   acontecesse.                                                             */
+const grupoLivre = new THREE.Group(); grupoLivre.name = 'livre-vr'; uiVR.add(grupoLivre);
+
+const tituloLivre = texto(['MODO LIVRE'], 1.5, .24, { tam:.82, cor:'#00d9ff' });
+tituloLivre.position.set(0, 2.34, Z); grupoLivre.add(tituloLivre);
+
+const subLivre = texto(['faixas sem bateria — a bateria é sua'], 1.7, .14,
+                       { tam:.66, cor:'#8c9bb5' });
+subLivre.position.set(0, 2.16, Z); grupoLivre.add(subLivre);
+
+/* A pilha começa aqui e desce, empilhando por ALTURA e não por passo fixo:
+   o primeiro botão é mais alto que os outros, como o JOGAR é no menu, e um
+   passo fixo o faria colidir com o vizinho ou deixar um vão.
+
+   O TETO É TRÊS FAIXAS, e o número não é chute: o painel está em z=−2,00, ou
+   seja ATRÁS do kit visto do posto do jogador, e o elemento mais baixo do menu
+   principal está em y=0,88 — abaixo disso a bateria começa a tampar o botão.
+   Com "Só bateria" (0,24) mais três faixas e o Voltar (0,19 cada), a pilha
+   termina em y≈0,85. A quarta faixa entraria atrás do surdo.
+
+   Quando o manifesto passar de três, a lista 3D precisa de página ou de duas
+   colunas. Até lá, as demais aparecem no navegador e o console avisa — melhor
+   que desenhar um botão onde ninguém consegue apontar. */
+const Y_PILHA = 2.02, VAO_PILHA = .035, TETO_TRILHAS = 3;
+const grupoPilha = new THREE.Group(); grupoLivre.add(grupoPilha);
+
+/** @param {{id:string,titulo:string}[]} lista */
+export function montarTrilhas(lista){
+  for (const b of [...grupoPilha.children]){
+    grupoPilha.remove(b);
+    b.geometry.dispose();
+  }
+  const trilhas = lista.slice(0, TETO_TRILHAS);
+  if (lista.length > TETO_TRILHAS){
+    console.warn(`[menu3d] a lista do modo livre em VR mostra ${TETO_TRILHAS}`
+      + ` faixas e o manifesto tem ${lista.length}. As demais só aparecem no`
+      + ` navegador — a pilha 3D não tem altura para elas.`);
+  }
+  /* "Só bateria" no TOPO e MAIOR, pelo mesmo motivo que o JOGAR é maior que o
+     resto do menu: é o modo livre como ele era antes de existir faixa, o
+     único item que não depende de baixar nada, e o que a maioria procura. */
+  const itens = [
+    { rotulo:'Só bateria', h:.24, tam:.56, acao:() => disparar('livreSemFaixa')() },
+    ...trilhas.map(t => ({ rotulo:t.titulo, h:.19, tam:.50,
+                           acao:() => disparar('trilha')(t.id) })),
+    { rotulo:'‹ Voltar',   h:.19, tam:.50, acao:() => disparar('voltarLivre')() },
+  ];
+  let y = Y_PILHA;
+  for (const it of itens){
+    const b = botao(it.rotulo, 1.30, it.h, it.acao, it.tam);
+    y -= it.h / 2;
+    b.position.set(0, y, Z);
+    y -= it.h / 2 + VAO_PILHA;
+    grupoPilha.add(b);
+  }
+  /* A mesma dica do menu, e ela é necessária de novo: quem chega aqui pelo
+     FIM de uma faixa não passou pelo menu nesta sessão. */
+  const dica = texto(['aponte o controle e aperte o gatilho'], 1.5, .11,
+                     { tam:.72, cor:'#6f7f96' });
+  dica.position.set(0, y - .05, Z);
+  grupoPilha.add(dica);
+}
+
 /* ---- 'jogo': o que o jogador precisa no meio da partida ----------------- */
 const grupoJogo = new THREE.Group(); grupoJogo.name = 'jogo-vr'; uiVR.add(grupoJogo);
 
@@ -188,16 +261,17 @@ let _forcar = false;       // ver forcarForaDoVR()
  *  desenhar os dois deixaria a tela com dois menus empilhados. */
 function aplicar(){
   const emVR = renderer.xr.isPresenting || _forcar;
-  grupoMenu.visible = emVR && _tela === 'menu';
-  grupoJogo.visible = emVR && _tela === 'jogo';
-  grupoFim.visible  = emVR && _tela === 'fim';
-  grupoCal.visible  = emVR && _tela === 'cal';
-  btPular.visible   = _pular;
-  if (!grupoMenu.visible && !grupoJogo.visible
-      && !grupoFim.visible && !grupoCal.visible) limparFoco();
+  grupoMenu.visible  = emVR && _tela === 'menu';
+  grupoJogo.visible  = emVR && _tela === 'jogo';
+  grupoFim.visible   = emVR && _tela === 'fim';
+  grupoCal.visible   = emVR && _tela === 'cal';
+  grupoLivre.visible = emVR && _tela === 'livre';
+  btPular.visible    = _pular;
+  if (!grupoMenu.visible && !grupoJogo.visible && !grupoFim.visible
+      && !grupoCal.visible && !grupoLivre.visible) limparFoco();
 }
 
-/** @param {'menu'|'jogo'|'fim'|'cal'|null} qual */
+/** @param {'menu'|'livre'|'jogo'|'fim'|'cal'|null} qual */
 export function mostrar(qual){ _tela = qual; aplicar(); }
 export function mostrarPular3D(v){ _pular = !!v; aplicar(); }
 export function telaAtual(){ return _tela; }
@@ -241,7 +315,7 @@ function limparFoco(){
 
 function alvosVisiveis(){
   const r = [];
-  for (const g of [grupoMenu, grupoJogo, grupoFim, grupoCal]){
+  for (const g of [grupoMenu, grupoLivre, grupoJogo, grupoFim, grupoCal]){
     if (!g.visible) continue;
     for (const o of g.children){
       if (o.userData?.acao && o.visible) r.push(o);
@@ -258,7 +332,8 @@ export function atualizarPonteiros(){
 
   /* Com menu ou resultado abertos o raio fica visível mesmo sem acertar nada:
      é o único jeito de o jogador descobrir para onde está apontando. */
-  const sempre = grupoMenu.visible || grupoFim.visible || grupoCal.visible;
+  const sempre = grupoMenu.visible || grupoLivre.visible
+              || grupoFim.visible  || grupoCal.visible;
   let novo = null, melhorDist = Infinity;
 
   for (const p of ponteiros){

@@ -11,6 +11,10 @@ import { precisaoPonderada } from './pontuacao.js';
 export const jogo = {
   ativo: false,
   livre: false,      // modo livre: toca à vontade, sem pontuar
+  /* Título da faixa escolhida no modo livre, ou null para "só bateria".
+     Serve só para o HUD dizer o que está tocando — a faixa em si é do
+     `musica`, e nada aqui é julgado nem enviado para a API. */
+  trilha: null,
   atalho: false,     // pulou calibração e eco: não entra no ranking
   fase: 0,
   pontos: 0,
@@ -45,7 +49,8 @@ export const ritmo = { notas: [], auto: [], iAuto: 0, fim: 0, fontesAuto: [],
 /** Zera tudo para uma nova partida (RF02). */
 export function reiniciarEstado(livre = false, atalho = false){
   Object.assign(jogo, {
-    ativo: true, livre, atalho, fase: 0, pontos: 0, combo: 0, comboMax: 0,
+    ativo: true, livre, atalho, trilha: null,
+    fase: 0, pontos: 0, combo: 0, comboMax: 0,
     perfeitas: 0, boas: 0, erros: 0, t0: performance.now(),
     duracao: 0,
   });

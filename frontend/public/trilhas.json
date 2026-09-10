@@ -1,0 +1,21 @@
+{
+  "_leia": "Lista do MODO LIVRE. Cada item e uma faixa SEM BATERIA, para quem sabe tocar acompanhar. Nada aqui e julgado nem pontuado: nao ha notas, nao ha caveira caindo e a partida nao vai para o ranking. Uma carta (cartas/*.json) e outra coisa - ela traz os tempos de cada nota.",
+  "_campos": {
+    "id": "identificador curto, [a-z0-9-]; e o que o botao usa em data-trilha",
+    "titulo": "o que aparece no botao",
+    "creditos": "atribuicao. Desenhada na lista e enquanto toca - credito que nao aparece nao e credito",
+    "faixa": "caminho a partir de public/",
+    "inicio": "segundo em que comecar (opcional, 0 por padrao)",
+    "volume": "0..1 da faixa (opcional, 0.85 por padrao). A bateria do jogador e que tem de ficar na frente"
+  },
+  "trilhas": [
+    {
+      "id": "hurricane",
+      "titulo": "Rock You Like A Hurricane",
+      "creditos": "Scorpions — Rock You Like A Hurricane (Meine/Schenker/Rarebell). Faixa sem bateria, uso educacional.",
+      "faixa": "sounds/livre/rock-you-like-a-hurricane-vocal.mp3",
+      "inicio": 0,
+      "volume": 0.85
+    }
+  ]
+}
