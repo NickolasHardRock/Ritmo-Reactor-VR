@@ -248,6 +248,37 @@ export function carregarBateria(aoTerminar, aoProgredir){
 const GRAU = Math.PI / 180;
 export const baquetas = [];
 
+/* ------------------------------------------------- O MODELO DA BAQUETA ---
+   Carregamento é ASSÍNCRONO e as duas baquetas já podem existir quando ele
+   termina (a criação delas, logo abaixo, é síncrona). Por isso o modelo
+   entra por um função separada, chamada tanto aqui quanto no fim do
+   `loader.load` — o que chegar por último aplica.
+   A PONTA NUNCA SE ESCONDE: é dela que `deteccao.js` lê a posição a cada
+   quadro (`b.ponta.getWorldPosition`). Trocar o visual não pode trocar essa
+   referência — só o `corpo` cilíndrico (o placeholder de antes do modelo
+   chegar) some quando o `.glb` assume.                                    */
+let _modeloBaqueta = null;
+if (BAQUETA.usarModelo){
+  loader.load(BAQUETA.urlModelo,
+    (gltf) => {
+      _modeloBaqueta = gltf.scene;
+      afinarTexturas(_modeloBaqueta);
+      _modeloBaqueta.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      for (const b of baquetas) _aplicarModeloNaBaqueta(b);
+    },
+    undefined,
+    (err) => console.warn('[kit] baqueta.glb não carregou — ficando com a haste simples', err));
+}
+
+function _aplicarModeloNaBaqueta(b){
+  if (!_modeloBaqueta || b.modelo) return;
+  const m = _modeloBaqueta.clone();
+  m.scale.setScalar(BAQUETA.comprimento);   // o modelo já vem normalizado (ver config.js)
+  b.haste.add(m);
+  b.modelo = m;
+  b.corpo.visible = false;
+}
+
 /** Aplica os dois ângulos de gosto na haste. Separada porque a mão só se
  *  sabe no evento `connected` — a convergência depende de qual é qual. */
 function inclinarBaqueta(b){
@@ -281,10 +312,11 @@ for (let i = 0; i < 2; i++){
     new THREE.SphereGeometry(.016, 12, 12),
     new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0x334455, roughness:.4 }));
   ponta.position.z = -BAQUETA.comprimento;
+  ponta.visible = !BAQUETA.usarModelo;   // o modelo já tem ponta de verdade
   haste.add(ponta);
 
   const b = {
-    ctrl, punho, haste, ponta,
+    ctrl, punho, haste, ponta, corpo, modelo: null,
     base: ctrl,          // de quem a haste pendura AGORA — ver deteccao.js
     noPunho: false,
     atual: new THREE.Vector3(), anterior: new THREE.Vector3(),
@@ -293,6 +325,7 @@ for (let i = 0; i < 2; i++){
   ctrl.add(haste);       // ponto de partida seguro até o controle se anunciar
   inclinarBaqueta(b);
   baquetas.push(b);
+  _aplicarModeloNaBaqueta(b);   // se o modelo já tiver chegado antes deste laço
 
   /* O `connected` é o único lugar que sabe DUAS coisas de que a haste
      precisa: qual mão é (para a convergência) e se este controle expõe

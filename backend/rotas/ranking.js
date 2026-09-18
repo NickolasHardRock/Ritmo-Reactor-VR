@@ -27,3 +27,27 @@ rotaRanking.get('/', async (req, res, next) => {
     });
   } catch (e) { next(e); }
 });
+
+/**
+ * GET /api/ranking/musicas?limite=3
+ *
+ * Os melhores jogadores de CADA música — o painel da tela principal. Mesmo
+ * critério do ranking geral (a melhor partida de cada jogador, por pontos e
+ * depois menor tempo), aplicado dentro de cada música. Só aparecem músicas que
+ * já têm ao menos uma partida; quem quer listar também as vazias cruza com
+ * public/musicas.json, que é o dono da lista.
+ */
+rotaRanking.get('/musicas', async (req, res, next) => {
+  try {
+    let limite = Number(req.query.limite ?? 3);
+    if (!Number.isInteger(limite) || limite < 1) limite = 3;
+    limite = Math.min(limite, 10);
+
+    const base = await db();
+    res.json({
+      criterio: 'melhor partida de cada jogador em cada música, por pontos e depois menor tempo',
+      limite,
+      musicas: await base.rankingPorMusica(limite),
+    });
+  } catch (e) { next(e); }
+});

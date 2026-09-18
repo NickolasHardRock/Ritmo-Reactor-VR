@@ -15,6 +15,12 @@ export const jogo = {
      Serve só para o HUD dizer o que está tocando — a faixa em si é do
      `musica`, e nada aqui é julgado nem enviado para a API. */
   trilha: null,
+  /* A música jogável escolhida no carrossel, `{ id, titulo }` do manifesto
+     (musicas.json), ou null quando ninguém escolheu — e aí vale a padrão. É o
+     que o POST manda para o banco poder montar o pódio de cada música. Fica
+     FORA de `reiniciarEstado` de propósito: "jogar de novo" continua na mesma
+     música, e quem a grava é `iniciar()` em fases.js. */
+  musica: null,
   atalho: false,     // pulou calibração e eco: não entra no ranking
   fase: 0,
   pontos: 0,

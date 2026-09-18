@@ -84,7 +84,12 @@ const nok  = (t, extra='') => { falhas++; console.log(`  ✗ ${t}${extra ? '  ' 
 const conf = (cond, t, extra='') => cond ? ok(t, extra) : nok(t, extra);
 
 console.log('\nCT-01  carregamento');
-await pagina.goto(`http://localhost:${PORTA}/`);
+/* `?menu2d=1`: desde 16/09 o painel 3D é a tela padrão fora do VR (ver
+   `menu3d.js`), e ele esconde os botões de HTML que este teste usa
+   (`#btn-jogar` etc. — o painel 3D só responde a clique de verdade, não a
+   `page.click` num elemento que a lógica de layout nem posiciona). O flag
+   volta ao card de HTML de sempre, sem mexer no resto do jogo. */
+await pagina.goto(`http://localhost:${PORTA}/?menu2d=1`);
 await pagina.waitForFunction('window.__pronto === true');
 ok('cenário e bateria carregados');
 

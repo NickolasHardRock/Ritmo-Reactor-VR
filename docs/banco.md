@@ -3,14 +3,15 @@
 ## Modelo (DER)
 
 ```
-┌─────────────────────┐            ┌──────────────────────────────┐
-│ jogador             │            │ partida                      │
-├─────────────────────┤            ├──────────────────────────────┤
-│ id        SERIAL PK │ 1        N │ id          SERIAL PK        │
-│ nome      VARCHAR60 │◄───────────│ jogador_id  INTEGER FK       │
-│           UNIQUE    │            │ pontos      INTEGER          │
-│ criado    TIMESTAMP │            │ tempo       NUMERIC(7,2)     │
-└─────────────────────┘            │ precisao    SMALLINT 0..100  │
+┌─────────────────────┐            ┌──────────────────────────────┐            ┌─────────────────────┐
+│ jogador             │            │ partida                      │            │ musica              │
+├─────────────────────┤            ├──────────────────────────────┤            ├─────────────────────┤
+│ id        SERIAL PK │ 1        N │ id          SERIAL PK        │ N        1 │ id        SERIAL PK │
+│ nome      VARCHAR60 │◄───────────│ jogador_id  INTEGER FK       │───────────►│ slug      VARCHAR60 │
+│           UNIQUE    │            │ musica_id   INTEGER FK NULL  │            │           UNIQUE    │
+│ criado    TIMESTAMP │            │ pontos      INTEGER          │            │ titulo    VARCHAR120│
+└─────────────────────┘            │ tempo       NUMERIC(7,2)     │            │ criado    TIMESTAMP │
+                                   │ precisao    SMALLINT 0..100  │            └─────────────────────┘
                                    │ erros       SMALLINT         │
                                    │ combo_max   SMALLINT         │
                                    │ estrelas    SMALLINT 0..5    │
@@ -18,10 +19,37 @@
                                    └──────────────────────────────┘
 ```
 
-**Por que duas tabelas e não uma.** Guardar o nome dentro de cada partida
-repetiria a mesma string a cada jogo e tornaria impossível corrigir um nome
-digitado errado sem varrer todas as linhas. Separando, o ranking também fica
-trivial: agrupa por `jogador_id`.
+**Por que tabelas separadas e não uma só.** Guardar o nome dentro de cada
+partida repetiria a mesma string a cada jogo e tornaria impossível corrigir um
+nome digitado errado sem varrer todas as linhas. Separando, o ranking também
+fica trivial: agrupa por `jogador_id`. O mesmo vale para a música.
+
+### Recordes por música (18/09)
+
+O painel da tela principal mostra os três melhores de **cada** música. Para
+isso entraram a tabela `musica` e a coluna `partida.musica_id`.
+
+- **`musica.slug`** é o `id` de `frontend/public/musicas.json`. A linha nasce
+  na primeira partida registrada naquela música (`acharOuCriarMusica`); o
+  título só vale nessa primeira vez, então um POST forjado não renomeia uma
+  música já cadastrada.
+- **`partida.musica_id` aceita NULL** de propósito: as partidas gravadas antes
+  desta tabela existir e as de uma carta avulsa pedida por `?carta=` continuam
+  valendo no ranking geral, sem entrar em pódio nenhum.
+- **Não existe tabela "pódio".** Os três melhores são *derivados* de
+  `partida`. Guardá-los à parte criaria um segundo lugar para atualizar a cada
+  partida — e que pode discordar do primeiro. O pódio é calculado na hora
+  (`rankingPorMusica`, um `DISTINCT ON (musica_id, jogador_id)` mais
+  `ROW_NUMBER() OVER (PARTITION BY musica_id …)`), e o índice
+  `idx_partida_musica_jogador` é o que ele percorre.
+
+**Banco que já está em uso.** A API aplica a mudança sozinha na próxima
+subida (`iniciar()` usa `CREATE TABLE IF NOT EXISTS` e `ADD COLUMN IF NOT
+EXISTS`). Quem prefere aplicar antes, à mão, roda
+[`../backend/db/migracoes/002-musicas.sql`](../backend/db/migracoes/002-musicas.sql)
+— que só acrescenta, ao contrário do `schema.sql`, que começa com `DROP`.
+Conferir depois: `node ferramentas/testa-recordes.mjs` (com `DATABASE_URL`
+definida roda no Postgres e apaga as linhas de teste no fim).
 
 O script completo, com as restrições e os índices comentados, está em
 [`../backend/db/schema.sql`](../backend/db/schema.sql).

@@ -207,7 +207,11 @@ export function telaJogando(){
 export function telaLivre(){
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
-  mostrar('tela-livre', true);
+  /* Com o painel 3D no comando (padrão fora do VR desde 16/09 — ver
+     `menu3d.painelAtivoForaDoVR`), o card de HTML fica escondido: os dois
+     cobrem a tela inteira, e mostrar os dois só esconderia um atrás do
+     outro. `?menu2d=1` na URL volta a mostrar este card. */
+  mostrar('tela-livre', !menu3d.painelAtivoForaDoVR());
   mostrar('hud', false);
   mostrar('teclas', false);
   mostrarPular(false);
@@ -219,7 +223,9 @@ export function telaLivre(){
 export function telaInicio(){
   mostrar('tela-fim', false);
   mostrar('tela-livre', false);
-  mostrar('tela-inicio', true);
+  /* Mesma regra de `telaLivre`: o card de HTML só aparece quando o painel
+     3D NÃO está no comando (`?menu2d=1`). */
+  mostrar('tela-inicio', !menu3d.painelAtivoForaDoVR());
   mostrar('hud', false);
   mostrar('teclas', false);
   /* Voltar ao menu tem de limpar o que era da partida: sem isto o "Pular" e a
@@ -308,10 +314,14 @@ export function telaResultado(){
   mostrarSair(false);
   menu3d.mostrar('fim');
 
-  if (!renderer.xr.isPresenting){
+  /* A versão HTML só aparece quando nem o VR nem o painel 3D (o padrão fora
+     dele, desde 16/09) estão cuidando do resultado — senão fica um card
+     cobrindo o outro. `hud`/`teclas` somem de qualquer forma: a partida
+     acabou nos dois casos. */
+  mostrar('hud', false);
+  mostrar('teclas', false);
+  if (!renderer.xr.isPresenting && !menu3d.painelAtivoForaDoVR()){
     mostrar('tela-fim', true);
-    mostrar('hud', false);
-    mostrar('teclas', false);
   }
 }
 

@@ -45,9 +45,15 @@ import { PECAS, VIES_ENCOSTE } from './config.js';
 export const ANTECEDENCIA_BICHO = 1.5;
 
 /* Sobe MUITO mais do que avança, e o motivo é o espaço disponível: a caixa
-   fica em z = 0,242 e o jogador em z = 0,62 (POSTO, em cena.js). São 38 cm
-   de folga. Avançar mais que isso faz o bicho nascer ATRÁS do jogador e
-   passar voando por ele — foi o que aconteceu na primeira tentativa.
+   fica em z = 0,242 e o jogador em z = 0,56 (POSTO, em cena.js). São 32 cm
+   de folga — eram 26 quando o POSTO estava em 0,50, e o comentário antigo
+   dizia 38 porque ficou para trás de um recuo anterior. Avançar mais que
+   isso faz o bicho nascer ATRÁS do jogador e passar voando por ele — foi o
+   que aconteceu na primeira tentativa.
+
+   O 0,18 ABAIXO NÃO ACOMPANHA O POSTO, e não precisa: ele é medido a partir
+   da PELE, não do jogador, e 0,242 + 0,18 = 0,42 continua bem à frente de
+   qualquer posição que o ajuste fino alcance (o mais perto é 0,50).
 
    A inclinação de 18 cm serve para a fila não virar uma torre reta que tapa
    as peças de trás; mais que isso não cabe.                              */

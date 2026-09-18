@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit, ajustarVisao, ajustarAvanco,
-         carregarCenario, gerarAmbienteDaCena, animarLuzes, definirLuz,
+         carregarCenario, carregarCeu, gerarAmbienteDaCena, animarLuzes, definirLuz,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import * as menu3d from './menu3d.js';
 import { carregarBichos } from './bichos.js';
@@ -39,6 +39,8 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
          statusXR, falhaCarregamento, progressoCarregamento,
          telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
 import { carregarTrilhas } from './trilhas.js';
+import { carregarMusicas } from './musicas.js';
+import { atualizarRecordes } from './recordes.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -48,6 +50,7 @@ import { carregarTrilhas } from './trilhas.js';
    cena.js → gerarAmbienteDaCena(). O kit não precisa ter chegado: ele é
    justamente o que a captura esconde.                                     */
 carregarCenario(() => gerarAmbienteDaCena());
+carregarCeu();
 carregarBichos(kit);
 carregarBateria(
   (ok) => {
@@ -193,6 +196,12 @@ renderer.setAnimationLoop(() => {
   animarLuzes(dt);                // transição tutorial → show, quando há uma
 
   camera.getWorldPosition(_v);
+  /* Os dois painéis laterais (placar e objetivo) só existem durante a
+     partida. No menu, na lista de faixas, nos créditos e na tela de
+     resultado eles eram texto solto no ar — "0 pts · combo 0" e
+     "Aguardando início" sem nada para pontuar ou aguardar. `jogo.ativo`
+     cai tanto em concluir() quanto em abandonar(), então cobre as duas saídas. */
+  painelHUD.visible = painelObj.visible = jogo.ativo;
   painelHUD.lookAt(_v);
   painelObj.lookAt(_v);
   camera.getWorldQuaternion(_q);
@@ -220,9 +229,11 @@ renderer.setAnimationLoop(() => {
 
       /* ALAVANCA ESQUERDA ↑↓ APROXIMA E AFASTA — a outra metade da mesma
          ideia. A direita ajusta a altura desde sempre; faltava a distância,
-         que é a outra medida de corpo que muda de pessoa para pessoa. O
-         posto padrão encostou no bumbo em 09/09, então na prática este
-         ajuste serve para AFASTAR: à frente sobram 3 cm. */
+         que é a outra medida de corpo que muda de pessoa para pessoa.
+         Depois do recuo do POSTO para 0,56 (15/09) o curso deixou de ser
+         quase só para trás: à frente sobram 6 cm, que levam de volta ao
+         posto antigo de 0,50, e atrás sobram 24. Ver `AVANCO_MAX` em
+         cena.js — os dois saem de limites absolutos de z, não de offsets. */
       if (src.handedness === 'left'){
         const y = g.axes?.[3] || 0;
         if (Math.abs(y) > .7 && avancoPronto){
@@ -293,6 +304,12 @@ renderer.setAnimationLoop(() => {
   } else {
     flash.visible = false;
     orbit.update();
+    /* O espelho de `menu3d.atualizarPonteiros()` para quem está fora do VR:
+       realce ao passar o mouse, cursor de "pode clicar" e o arrasto do
+       carrossel. Só faz algo quando `menu3d.forcarForaDoVR(true)` está
+       ligado — sem isso os painéis nem existem no navegador, e a função
+       sai de graça no primeiro `if (!alvos.length)`. */
+    menu3d.atualizarPonteiroMouse();
   }
 
   renderer.render(scene, camera);
@@ -324,14 +341,30 @@ $('btn-livre-voltar').onclick = () => voltarDaLista();
    MESMA função do botão equivalente na tela — o jogo não tem dois caminhos,
    tem duas maneiras de apertar o mesmo. */
 menu3d.definirAcoes({
-  jogar:    () => iniciar(false),
   livre:    () => abrirLivre(),
   /* A lista do modo livre, dentro do headset. As três ações são as mesmas
      que os botões de HTML disparam — o jogo não tem dois caminhos. */
   livreSemFaixa: () => iniciar(true),
   trilha:      (id) => { const t = porTrilha(id); if (t) iniciar(true, false, t); },
   voltarLivre:   () => voltarDaLista(),
-  nivel:    (chave) => { definirNivel(chave); pintarNivel(); lerCarta(); },
+  /* Escolher a dificuldade DENTRO do carrossel de músicas (menu3d.js) já
+     inicia a partida — é o mesmo fluxo de tocar uma música no modo livre:
+     escolher e começar, sem um terceiro toque. `musicaId` é o `id` da
+     entrada escolhida em `musicas.json` (ou `undefined`/inexistente quando
+     ninguém abriu o carrossel — ver `_musicaEscolhida` em menu3d.js); aqui
+     ele vira a `carta` de verdade, que é o que `cartaAgora` (config.js) e
+     `iniciar` (fases.js) sabem usar. `porMusica` devolve `null` para um id
+     desconhecido ou ausente, e `null` é justamente o valor que reseta para a
+     carta padrão — não precisa de um `if` a mais aqui. */
+  iniciarComNivel: (chave, musicaId) => {
+    definirNivel(chave); pintarNivel();
+    const m = porMusica(musicaId);
+    iniciar(false, false, null, m && m.carta, m && { id: m.id, titulo: m.titulo });
+  },
+  /* O menu principal acabou de abrir (por qualquer caminho: começo, fim de
+     partida, Sair, voltar de um submenu). É aqui que o painel de recordes
+     pede os números de novo — uma partida pode ter acabado de mudar o pódio. */
+  menuAberto: () => atualizarRecordes(),
   calibrar:  () => comecarCalibragem(),
   fecharCal: () => fecharAjustes(),
   pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
@@ -424,6 +457,27 @@ carregarTrilhas().then(l => {
   menu3d.montarTrilhas(l);
 });
 
+/* =================== O CARROSSEL DE MÚSICAS DO JOGAR ======================
+   Mesmo padrão das trilhas, um parágrafo acima: manifesto carregado uma vez
+   na abertura (ver musicas.js), e o carrossel do menu 3D (menu3d.js) montado
+   a partir dele — nunca de uma lista escrita à mão aqui.
+
+   A LISTA FICA GUARDADA AQUI, do mesmo jeito que `trilhas` acima — e por um
+   motivo concreto, não só simetria: escolher uma música no carrossel manda
+   só o `id` (ver `menu3d.js` → `montarNiveis`), e é aqui, em `iniciarComNivel`,
+   que o id vira a `carta` de verdade a carregar (ver `cartaAgora`, em
+   config.js). Até 15/09 esse `id` chegava e era descartado — só existia uma
+   música jogável de verdade, e o comentário em `musicas.js` já avisava que
+   o dia de existir a segunda pediria este fio. */
+let musicas = [];
+const porMusica = (id) => musicas.find(m => m.id === id) || null;
+
+menu3d.montarMusicas([]);
+carregarMusicas().then(l => {
+  musicas = l; menu3d.montarMusicas(l);
+  atualizarRecordes(l);            // a lista chegou: o painel já pode listar as músicas
+});
+
 
 /* ------------------------------------------------- nível e calibragem ----- */
 function pintarNivel(){
@@ -510,6 +564,12 @@ function comecarCalibragem(){
      menu 3D. Sem trocar de tela, a contagem apareceria escondida pelos
      próprios botões. Ver o grupo 'cal' em menu3d.js. */
   if (menu3d.telaAtual() === 'menu') menu3d.mostrar('cal');
+  /* Fora do VR, o botão "Calibrar atraso" do painel 3D (padrão do PC desde
+     16/09) cai direto aqui — sem passar pelo antigo botão "Ajustes" de
+     HTML, que ficou escondido junto com a tela inicial. Sem isto o painel
+     de instruções e o ajuste fino de ±10 ms (que só existem em HTML) nunca
+     apareceriam pelo navegador. */
+  if (!renderer.xr.isPresenting) document.getElementById('tela-cal').classList.remove('hidden');
   $('cal-resultado').textContent = '';
   $('cal-progresso').textContent = '—';
   $('cal-comecar').disabled = true;

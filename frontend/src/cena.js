@@ -11,7 +11,7 @@ import * as THREE          from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import { CENARIO, QUALIDADE, AMBIENTE, PALCO, LUZ,
+import { CENARIO, QUALIDADE, AMBIENTE, PALCO, LUZ, CEU,
          CAMINHO_DRACO, CAMINHO_BASIS } from './config.js';
 
 /* --------------------------------------------------------- cena base ----- */
@@ -19,7 +19,15 @@ export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0e16);
 scene.fog = new THREE.Fog(0x2a3446, 16, 40);
 
-export const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, .05, 60);
+/* `far` 200 existe por UM motivo só: caber a esfera do céu (`CEU.raio` = 150 m
+   + o descentramento do jogador). Nada mais na cena chega perto disso — o
+   `cenario.glb` inteiro cabe em ~26 m da origem, e a névoa satura em 40 m, de
+   modo que subir o `far` de 60 para 200 não revelou geometria nenhuma que
+   antes estivesse sendo cortada: o que está lá fora já é cor de névoa.
+   O custo é precisão do buffer de profundidade, e ela depende muito mais do
+   `near` (0,05, intocado) do que do `far` — a bateria, a 1 m do rosto, não
+   sente. Mexeu em `CEU.raio`, confira este número junto. */
+export const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, .05, 200);
 export const player = new THREE.Group(); player.name = 'jogador';
 player.add(camera); scene.add(player);
 camera.position.set(0, 1.42, 2.05);
@@ -66,9 +74,34 @@ export const relogio = new THREE.Clock();
    erguida e constrangedor ao olhar para baixo. Daí também o limite de
    aproximação do ajuste fino, logo abaixo.
 
+   AJUSTE DE 15/09: RECUADO PARA 0,56 E ELEVADO 8 cm. O relato foi "a bateria
+   está alta demais e perto demais", e são dois eixos diferentes:
+
+     - PERTO: z de 0,50 para 0,56, seis centímetros atrás.
+     - ALTA: `y` passou a existir e vale 0,08 — o jogador sobe 8 cm e o kit
+       fica onde o cenário o apoia. É a MESMA mecânica do ajuste fino de
+       altura (que move o jogador, nunca o kit; ver `ajustarVisao`), só que
+       com o centro do curso deslocado. Equivale a menos de três toques de `[`.
+
+   SUBIR TAMBÉM CUSTA ALCANCE, e essa é a armadilha que quase passou batido.
+   A tabela acima trata o problema como se fosse só o eixo z, mas o alcance é
+   uma distância 3D: elevar o jogador 8 cm afasta o ombro das peças quase
+   tanto quanto recuar 6. Somados, os dois valem ~8 cm de alcance a mais no
+   pior caso — e é por isso que a baqueta cresceu 8 cm (0,38 → 0,46 em
+   config.js), não os 6 do recuo. Recalculado sobre as coordenadas reais de
+   `PECAS`, o pior caso (o ride) fica 0,6 cm mais longe que hoje: neutro na
+   prática. O resultado se sustenta variando a posição do ombro de (0,15;
+   1,25) a (0,25; 1,45) — o desvio fica entre +0,1 e +1,1 cm.
+
+   O 0,50 CONTINUA SENDO O PISO, não some daqui: virou `Z_MAIS_PERTO` logo
+   abaixo, e o ajuste fino ainda deixa o jogador chegar lá. O que mudou foi
+   onde ele COMEÇA, não até onde pode ir.
+
    Mexer aqui mexe no cenário junto: `encaixarCenario` posiciona a paisagem a
-   partir do POSTO, para o jogador continuar em cima da mesma pedra.        */
-export const POSTO = new THREE.Vector3(0, 0, 0.50);
+   partir do POSTO, para o jogador continuar em cima da mesma pedra. O `y`
+   NÃO entra nessa conta de propósito — o chão fica no lugar e quem sobe é só
+   o ponto de vista, exatamente como o ajuste fino sempre fez.             */
+export const POSTO = new THREE.Vector3(0, 0.08, 0.56);
 let _orbit = null;
 export function registrarOrbit(o){ _orbit = o; }
 
@@ -76,16 +109,24 @@ export function registrarOrbit(o){ _orbit = o; }
    Como a altura, isto é medida de corpo e muda de pessoa para pessoa. A
    alavanca ESQUERDA ↑↓ aproxima e afasta; a direita já cuidava da altura.
 
-   O curso é assimétrico de propósito, e não por descuido: o padrão já está
-   encostado no bumbo, então para a frente sobram 3 cm e para trás sobram 30.
-   Quem quiser espaço tem para onde ir; quem quiser chegar mais perto já
-   chegou.
+   OS LIMITES SÃO ABSOLUTOS, NÃO RELATIVOS — e isso passou a importar quando
+   o POSTO recuou. Antes eram dois offsets fixos (+3 cm / −30 cm) escritos à
+   mão em cima de um POSTO que valia 0,50; recuar o POSTO teria arrastado os
+   dois junto e ROUBADO do jogador a chance de voltar para perto, que é
+   justamente a posição antiga. Agora o que está fixo é o intervalo de z que
+   faz sentido, e os offsets saem dele.
+
+   `Z_MAIS_PERTO` = 0,50 é o limite físico medido (ver POSTO, acima): abaixo
+   disso o jogador entra DENTRO da bateria. `Z_MAIS_LONGE` = 0,80 é onde o
+   braço já não alcança nada, e continua sendo o mesmo de sempre.
 
    Só vale em VR. No navegador a distância é o zoom do OrbitControls, que já
    existe e é melhor — a roda do mouse faz isto desde sempre.               */
 export let avancoVisao = 0;              // metros à frente do POSTO
-const AVANCO_MAX =  .03;
-const AVANCO_MIN = -.30;
+const Z_MAIS_PERTO  = 0.50;
+const Z_MAIS_LONGE  = 0.80;
+const AVANCO_MAX = POSTO.z - Z_MAIS_PERTO;   // 0,06 — dá para voltar ao posto antigo
+const AVANCO_MIN = POSTO.z - Z_MAIS_LONGE;   // −0,24
 
 /** @param {number} d metros; positivo aproxima o jogador da bateria.
  *  @param {(a:number)=>void} [aoMudar] recebe a distância resultante, em
@@ -134,7 +175,7 @@ export function ajustarVisao(d, aoMudar){
   alturaVisao = THREE.MathUtils.clamp(alturaVisao + d, -LIMITE_VISAO, LIMITE_VISAO);
   const real = alturaVisao - antes;          // no fim do curso o clamp come o passo
   if (real !== 0){
-    if (renderer.xr.isPresenting) player.position.y = -alturaVisao;
+    if (renderer.xr.isPresenting) player.position.y = POSTO.y - alturaVisao;
     else {
       camera.position.y -= real;
       if (_orbit){ _orbit.target.y -= real; _orbit.update(); }
@@ -150,7 +191,7 @@ export function molduraDesktop(){
   if (_orbit){ _orbit.target.set(0, 1.05 - alturaVisao, 0); _orbit.update(); }
 }
 export function molduraVR(){
-  player.position.set(POSTO.x, -alturaVisao, POSTO.z - avancoVisao);
+  player.position.set(POSTO.x, POSTO.y - alturaVisao, POSTO.z - avancoVisao);
   player.rotation.set(0,0,0);
 }
 
@@ -329,6 +370,47 @@ export function afinarTexturas(raiz){
         if (t && t.anisotropy !== ANISO){ t.anisotropy = ANISO; t.needsUpdate = true; }
       }
   });
+}
+
+/* ================================ O CÉU ===================================
+   Ver `CEU` em config.js para o porquê de cada número. Aqui só o carregamento:
+   a esfera chega centrada na origem e do tamanho que o Sketchfab exportou
+   (o arquivo atual mede ~177 m de raio; o anterior media ~309 m), então a
+   escala é calculada NA HORA a partir do raio de verdade do modelo — foi
+   justamente por isso que trocar o `ceu.glb` por outra photosphere custou
+   zero linha aqui: `CEU.raio` continua sendo o raio FINAL em metros, e a
+   diferença de 309 para 177 se resolve sozinha na conta abaixo.             */
+export function carregarCeu(){
+  if (!CEU.ligado) return;
+  loader.load(CEU.url,
+    (gltf) => {
+      const m = gltf.scene;
+      /* NÃO USE `Box3.getBoundingSphere()` AQUI. Ela devolve a esfera que
+         CIRCUNSCREVE A CAIXA (metade da diagonal), não a esfera do modelo —
+         para um cubo de semi-lado r isso dá r·√3. Como a photosphere é uma
+         esfera, a caixa é um cubo, e o `raioModelo` saía 73% grande demais:
+         `CEU.raio` virava o raio dividido por √3, não o raio. Sintoma medido:
+         com `raio: 45` a esfera nascia com 26 m de verdade, e ninguém notou
+         porque 26 m ainda "funciona" — só parece perto.
+         A semi-extensão da caixa é o raio de verdade, e o `Math.max` sobre os
+         seis lados mantém a conta honesta se um dia entrar um modelo que não
+         esteja perfeitamente centrado na origem. */
+      const caixa = new THREE.Box3().setFromObject(m);
+      const raioModelo = Math.max(...caixa.max.toArray(),
+                                  ...caixa.min.toArray().map(Math.abs));
+      m.scale.setScalar(CEU.raio / raioModelo);
+      m.traverse(o => {
+        if (!o.isMesh) return;
+        o.castShadow = false; o.receiveShadow = false;
+        /* Sem isto a névoa (16–40 m) apaga as estrelas antes delas
+           aparecerem — ver o comentário de `CEU` em config.js. */
+        for (const mat of [].concat(o.material)) if (mat) mat.fog = false;
+      });
+      m.name = 'ceu';
+      scene.add(m);
+    },
+    undefined,
+    (err) => console.warn('[cena] ceu.glb não carregou — seguindo com o fundo sólido', err));
 }
 
 /* ============================ A PASSADA DUPLA =============================

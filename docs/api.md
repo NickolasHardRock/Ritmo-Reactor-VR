@@ -47,6 +47,8 @@ depois do fim; nunca durante.
 | `erros` | número | não | 0 a 100.000 (padrão 0) |
 | `comboMax` | número | não | 0 a 100.000 (padrão 0) |
 | `estrelas` | número | sim | 0 a 5 — derivadas da precisão (ver `frontend/src/pontuacao.js`) |
+| `musica` | string | não | 1 a 60 caracteres: letras, números, `-` ou `_`. O `id` da música em `frontend/public/musicas.json`. Sem ela a partida vale só para o ranking geral |
+| `musicaTitulo` | string | não | até 120 caracteres. Só é usado na **primeira** vez que a música aparece; depois o título cadastrado não muda |
 
 Repare que o corpo usa `comboMax` (camelCase) mas as respostas devolvem
 `combo_max`: o corpo segue a convenção do JavaScript e a resposta reflete a
@@ -61,8 +63,8 @@ curl -X POST http://localhost:3000/api/partidas \
 
 **201 — criada.** A resposta é um resumo, não a linha inteira:
 ```json
-{ "id": 1, "nome": "Diego", "pontos": 740, "tempo": 96.2,
-  "estrelas": 4, "criado": "2026-09-01T23:16:02.194Z" }
+{ "id": 1, "nome": "Diego", "musica": "colour-me-red", "pontos": 740,
+  "tempo": 96.2, "estrelas": 4, "criado": "2026-09-01T23:16:02.194Z" }
 ```
 
 **400 — dados inválidos.** Todos os problemas de uma vez, não o primeiro:
@@ -136,6 +138,48 @@ curl "http://localhost:3000/api/ranking?limite=5"
 
 `total` é o número de **partidas registradas**, não o de linhas devolvidas —
 por isso ele pode ser maior que o tamanho de `itens`.
+
+---
+
+## `GET /api/ranking/musicas`
+
+O painel de recordes da tela principal: os melhores jogadores de **cada
+música**. Mesmo critério do ranking geral (RN08) aplicado dentro de cada
+música — a **melhor partida de cada jogador**, por pontos e depois menor
+tempo. Quem jogou vinte vezes a mesma música ocupa **uma** vaga.
+
+**Parâmetros**
+
+| Nome | Padrão | Máximo |
+|---|---|---|
+| `limite` | 3 | 10 |
+
+`limite` inválido volta para 3, como no ranking geral.
+
+```bash
+curl "http://localhost:3000/api/ranking/musicas?limite=3"
+```
+
+**200**
+```json
+{
+  "criterio": "melhor partida de cada jogador em cada música, por pontos e depois menor tempo",
+  "limite": 3,
+  "musicas": [
+    { "musica": "colour-me-red", "titulo": "Colour Me Red",
+      "itens": [
+        { "posicao": 1, "nome": "Bruno", "pontos": 810, "tempo": 94.75,
+          "precisao": 92, "combo_max": 21, "estrelas": 4,
+          "criado": "2026-09-01T23:16:02.194Z" }
+      ] }
+  ]
+}
+```
+
+Só aparecem músicas com **pelo menos uma partida**; quem quer listar também as
+vazias cruza com `musicas.json`, que é o dono da lista (é o que `recordes.js`,
+no front, faz). Partidas sem `musica` — as de antes desta rota existir e as de
+uma carta avulsa pedida por `?carta=` — não entram em pódio nenhum.
 
 ---
 

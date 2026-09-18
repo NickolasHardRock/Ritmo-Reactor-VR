@@ -111,6 +111,24 @@ button.txt{background:transparent;border:0;color:var(--muted);padding:8px 2px;fo
   text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 button.txt:hover{color:var(--ink);filter:none}
 .card.menu .badge{margin-top:20px}
+
+/* ---------------------------------- OS RECORDES DA TELA PRINCIPAL (18/09) --
+   Uma coluna por música, três linhas de pódio. O nome à esquerda e a pontuação
+   à direita, com reticências no nome: quem digita um nome de 60 letras não pode
+   empurrar o placar para fora do card. */
+.card.menu .recordes{width:100%;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);
+  text-align:left}
+.card.menu .recordes .tag{text-align:center;margin-bottom:10px}
+.rec-musica + .rec-musica{margin-top:12px}
+.rec-musica strong{font-size:13px}
+.rec-musica ol{margin:6px 0 0;padding:0;list-style:none;counter-reset:pos}
+.rec-musica li{counter-increment:pos;display:flex;gap:8px;align-items:baseline;
+  font-size:13px;padding:3px 0}
+.rec-musica li::before{content:counter(pos) "º";width:22px;color:var(--muted);flex:none}
+.rec-musica li:nth-child(1)::before{color:var(--gold)}
+.rec-musica li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-musica li b{color:var(--cyan);font-weight:600;font-variant-numeric:tabular-nums}
+.rec-vazio{margin:5px 0 0;font-size:12px;color:var(--muted)}
 .faixa{font-size:11.5px;color:var(--muted);opacity:.8;margin:11px 0 0}
 .card.menu .credits{width:100%}
 

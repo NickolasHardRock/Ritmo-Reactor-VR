@@ -40,6 +40,14 @@ import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
    batida perfeita inflaria a precisão de quem só chegou até a fase 2.
 
    A regra em si está em `pontuacao.js` (RN04); aqui só se aplica.          */
+/* A carta da MUSICA escolhida no carrossel (menu3d.js → musicas.js), separada
+   do NIVEL (que mora em NIVEIS, config.js). `iniciar()` grava aqui;
+   `ritmoIniciar()` le. Fica em modulo, e nao em `estado.js`, porque so estas
+   duas funcoes precisam dela — e porque precisa SOBREVIVER a `reiniciarEstado`
+   (jogar de novo, RF09 → "denovo", nao pode esquecer qual musica estava
+   tocando so por zerar o placar). */
+let _cartaMusicaEscolhida = null;
+
 function marcar(qualidade){
   if (qualidade === ERRADO){
     jogo.combo = 0;
@@ -249,10 +257,13 @@ export async function ritmoIniciar(){
 
   let recorte;
   try {
-    /* A carta sai do NÍVEL, não de uma constante: o Profissa toca a
-       `colour-me-red-cheio`, que é a mesma faixa com as sete peças na parte
-       do jogador. O `?carta=` continua vencendo os dois (ver `cartaAgora`). */
-    const carta = await musica.carregarCarta(cartaAgora(nivel));
+    /* A carta sai do NÍVEL ou da MÚSICA escolhida no carrossel, não de uma
+       constante: o Profissa toca a versão "kit inteiro" DA MÚSICA escolhida
+       — `colour-me-red-cheio`, `rock-you-like-a-hurricane-cheio`, etc. — e
+       cai para a carta normal dessa mesma música se ela ainda não tiver uma
+       `-cheio` (ver `CARTAS_CHEIAS` em `cartaAgora`, config.js). O `?carta=`
+       continua vencendo os dois. */
+    const carta = await musica.carregarCarta(cartaAgora(nivel, _cartaMusicaEscolhida));
     recorte = notasDoRecorte(carta);
     /* SÓ O NOME DA FAIXA. O painel dizia também quais peças tocar ("— toque
        só a CAIXA") ou o nome do nível, e isso ocupava a maior parte de uma
@@ -566,8 +577,22 @@ function proximaFase(){
  *         terços do jogo e a pontuação não é comparável com as completas.
  *  @param trilha faixa sem bateria para acompanhar, do modo livre. Só faz
  *         sentido com `livre`; sem ela o modo livre é o de sempre, a bateria
- *         solta e nada tocando. Ver `livreIniciar`. */
-export function iniciar(livre = false, direto = false, trilha = null){
+ *         solta e nada tocando. Ver `livreIniciar`.
+ *  @param cartaMusica o campo `carta` da música escolhida no carrossel do
+ *         Jogar (ver `musicas.js`/`cartaAgora`). `undefined` — e não passar
+ *         o argumento — MANTÉM a música da partida anterior: é o que faz
+ *         "jogar de novo" (RF09 → `denovo`) continuar na mesma música em vez
+ *         de voltar à padrão. `null` explícito é que reseta para a padrão —
+ *         é o que `iniciarComNivel` manda quando ninguém escolheu música
+ *         nenhuma no carrossel.
+ *  @param musica `{ id, titulo }` da mesma música, para o banco saber em
+ *         qual pódio a partida entra. Anda JUNTO com `cartaMusica`: `undefined`
+ *         mantém, `null` reseta para a padrão. */
+export function iniciar(livre = false, direto = false, trilha = null, cartaMusica, musica){
+  if (cartaMusica !== undefined){
+    _cartaMusicaEscolhida = cartaMusica;
+    jogo.musica = musica || null;
+  }
   reiniciarEstado(livre, direto);
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);

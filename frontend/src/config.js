@@ -152,9 +152,26 @@ function grausDaURL(chave, padrao){
 }
 
 export const BAQUETA = {
-  /* 38 cm é baqueta 5A de verdade (a medida real é 40,6 cm; os 2 cm a menos
-     descontam a parte que fica dentro da mão). */
-  comprimento: 0.38,
+  /* 46 cm. NÃO é mais uma 5A de verdade — era 0,38 (uma 5A de 40,6 cm menos
+     os 2 cm que ficam dentro da mão), e cresceu 8 cm em 15/09 para pagar o
+     novo POSTO: 6 cm de recuo (z 0,50 → 0,56) MAIS 8 cm de elevação
+     (y 0 → 0,08), que também afastam o ombro das peças. Ver o comentário do
+     POSTO em cena.js para a conta; o líquido é o pior caso (o ride) ficando
+     0,6 cm mais longe do que hoje, ou seja, neutro.
+
+     ELEVAR CUSTA ALCANCE QUASE TANTO QUANTO RECUAR. Se um dia alguém mexer só
+     no `y` achando que altura é de graça, é aqui que a conta estoura.
+
+     O TAMANHO REAL PASSOU DE QUALQUER BAQUETA COMERCIAL (uma 2B dá 40,6 cm;
+     marching vai a 43), e isso é escolha consciente: baqueta comprida demais
+     fica estranha na mão, mas fica MENOS estranha do que esticar o ombro para
+     chegar no prato. Se um dia o POSTO voltar para 0,50 / y 0, este número
+     volta para 0,38 junto — os três só fazem sentido em conjunto.
+
+     MUDAR AQUI JÁ MUDA A DETECÇÃO, sem mais nada: `deteccao.js` lê a posição
+     de `b.ponta`, que mora em `z = −comprimento` (kit.js), e o modelo .glb é
+     escalado pelo mesmo valor. Não existe segundo lugar para ajustar. */
+  comprimento: 0.46,
   /* Pendura no punho. `?punho=0` volta para o raio de mira. */
   usarPunho: new URLSearchParams(location.search).get('punho') !== '0',
   /* Graus. Positivo = ponta para BAIXO. */
@@ -165,6 +182,16 @@ export const BAQUETA = {
      que já aponta mais para baixo que a mão. Chute honesto: só serve de
      ponto de partida, e só é usado no caminho de exceção. */
   compensacaoDoRaio: 15,
+
+  /* O MODELO 3D. `?baqueta=0` na URL volta para o cilindro + esfera
+     geométricos de antes — saída de emergência se o .glb não carregar bem
+     em algum aparelho.
+     `urlModelo` já vem NORMALIZADO: 1 metro de escala = `comprimento`
+     inteiro, cabo (mais grosso, com o pomo) na origem e ponta (afilada) em
+     z = −1. É por isso que basta `scale.setScalar(comprimento)` em kit.js —
+     nenhum ajuste de posição ou rotação extra.                            */
+  usarModelo: new URLSearchParams(location.search).get('baqueta') !== '0',
+  urlModelo: 'modelos/baqueta.glb',
 };
 
 /* --------------------------------------------------------- A CARTA -------
@@ -176,7 +203,7 @@ export const BAQUETA = {
    musica de banda de verdade, kit gravado na mesma sala, dinamica tirada da
    propria gravacao. Ela traz caixa e chimbal para o jogador; bumbo e crash
    vao na trilha automatica. */
-const CARTA_PADRAO = 'colour-me-red';
+export const CARTA_PADRAO = 'colour-me-red';
 
 /* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
    Serve para comparar cartas e para testar faixa que nao vai para o
@@ -193,20 +220,53 @@ export const CARTA_PEDIDA = (() => {
 
 const caminhoCarta = (nome) => `cartas/${nome}.json`;
 
-/** A carta que vale agora. Precedencia: `?carta=` > carta do nivel > padrao.
+/* MAPA carta normal -> carta "kit inteiro" DA MESMA MUSICA, para o nivel
+   Profissa. Cada entrada aqui exige uma `-cheio` de verdade gerada com
+   `ferramentas/encorpar-carta.mjs` (ver o comentario la: ela redistribui
+   crash/ride/tom/surdo sobre golpes que a transcricao ja tem, nao inventa
+   nota nova).
+
+   ATE 16/09 O PROFISSA SO FUNCIONAVA NA MUSICA PADRAO. `nivel.carta` era uma
+   STRING FIXA (`colour-me-red-cheio`) com uma guarda que so deixava aplicá-la
+   quando a musica escolhida era a `CARTA_PADRAO` — sem a guarda, escolher
+   "Rock You Like A Hurricane" e depois o Profissa carregaria a
+   `colour-me-red-cheio` por baixo dos panos, silenciosamente. Com a guarda,
+   o Profissa em qualquer outra musica virava so "Normal com janela mais
+   apertada", sem as sete pecas — foi o que o Diego reportou faltando na Rock
+   You Like A Hurricane. A troca da string fixa por este mapa, indexado pela
+   carta de cada musica, resolve as duas pontas: cada musica pode ter a sua
+   `-cheio`, e uma musica sem entrada aqui cai no mesmo "Normal apertado" de
+   antes em vez de tocar a cheia errada. */
+const CARTAS_CHEIAS = {
+  'colour-me-red': 'colour-me-red-cheio',
+  'rock-you-like-a-hurricane': 'rock-you-like-a-hurricane-cheio',
+};
+
+/** A carta que vale agora. Precedencia: `?carta=` > cheia do nivel (Profissa)
+ *  > musica escolhida no carrossel > padrao.
  *
  *  POR QUE O NIVEL PODE ESCOLHER A CARTA. Ate aqui o nivel so mexia em QUAIS
  *  pecas o jogador toca e em quao larga e a janela — e isso nao basta para um
  *  nivel de kit inteiro, porque `jogaveis:null` libera "tudo o que a carta
- *  trouxer", e a carta padrao so traz duas pecas. Nenhum ajuste de nivel
- *  inventa nota que a carta nao tem. Entao o nivel Profissa aponta para a
- *  `colour-me-red-cheio`: mesma musica, mesmo recorte, mesmo kit, mas com as
- *  sete pecas na parte do jogador.
+ *  trouxer", e a carta normal de cada musica so traz duas pecas (caixa e
+ *  chimbal). Nenhum ajuste de nivel inventa nota que a carta nao tem: por
+ *  isso o Profissa (`nivel.cartaCheia`) busca em `CARTAS_CHEIAS` a versao
+ *  "kit inteiro" DA MUSICA ESCOLHIDA — mesmo recorte, mesmo kit, com as sete
+ *  pecas na parte do jogador. Musica sem `-cheio` cadastrada aqui continua
+ *  jogando a propria carta normal no Profissa, so com a janela mais
+ *  apertada, ate ganhar a sua.
  *
- *  @param {{carta?:string}} [nivel] o nivel corrente (NIVEIS[nivelAtual()]) */
-export function cartaAgora(nivel){
+ *  @param {{cartaCheia?:boolean}} [nivel] o nivel corrente (NIVEIS[nivelAtual()])
+ *  @param {string} [cartaMusica] o campo `carta` da musica escolhida no
+ *         carrossel (menu3d.js), quando houver uma */
+export function cartaAgora(nivel, cartaMusica){
   if (CARTA_PEDIDA) return caminhoCarta(CARTA_PEDIDA);
-  return caminhoCarta((nivel && nivel.carta) || CARTA_PADRAO);
+  const base = cartaMusica || CARTA_PADRAO;
+  if (nivel && nivel.cartaCheia){
+    const cheia = CARTAS_CHEIAS[base];
+    if (cheia) return caminhoCarta(cheia);
+  }
+  return caminhoCarta(base);
 }
 
 
@@ -281,21 +341,30 @@ export const NIVEIS = {
      crash e bumbo dela já nascem na trilha automática. Nenhum ajuste de
      nível inventa nota que a carta não tem.
 
-     Por isso este nível traz `carta` (ver `cartaAgora`): a
-     `colour-me-red-cheio` é a mesma faixa, o mesmo recorte e o mesmo kit,
-     com as sete peças jogáveis — 116 de chimbal, 254 de caixa, 85 de ride,
-     58 de crash e 17 de cada tom e do surdo.
+     Por isso este nível pede `cartaCheia:true` (ver `cartaAgora` e o mapa
+     `CARTAS_CHEIAS`): para a Colour Me Red isso resolve para
+     `colour-me-red-cheio` — mesma faixa, mesmo recorte e mesmo kit, com as
+     sete peças jogáveis (116 de chimbal, 254 de caixa, 85 de ride, 58 de
+     crash e 17 de cada tom e do surdo); para a Rock You Like A Hurricane
+     resolve para `rock-you-like-a-hurricane-cheio` (148 de chimbal, 167 de
+     caixa, 152 de ride, 15 de crash e 15 de cada tom e do surdo). Antes de
+     16/09 isso era uma string fixa (`carta:'colour-me-red-cheio'`) só válida
+     para a música padrão — escolher a Rock You Like A Hurricane e entrar no
+     Profissa caía de volta na carta normal dela (sem ride/tom/surdo, só a
+     janela mais apertada). Musica nova sem entrada em `CARTAS_CHEIAS` volta
+     a ter esse mesmo comportamento até ganhar a sua `-cheio`.
 
      A janela é 0,8 e não 1,0 porque o kit inteiro já é a dificuldade nova;
      apertar demais o tempo em cima disso vira sorte. Em 0,8 o PERFEITO cai
      de 90 para 72 ms.
 
      UM AVISO SOBRE O SOM. O `kit` da carta declara amostra só para bumbo,
-     caixa, chimbal e crash. Tom, surdo e ride caem na biblioteca do projeto
+     caixa, chimbal e crash — e só a `colour-me-red-cheio` traz esse campo
+     `kit`. Tom, surdo e ride caem na biblioteca do projeto
      (`sounds/<peca>.mp3`), que é outra bateria — soam, mas com timbre de
-     outro kit. Some junto se um dia alguém gravar as três peças que faltam. */
+     outro kit. Some junto se um dia alguém gravar as peças que faltam. */
   profissa: { nome:'Profissa', jogaveis:null, janela:0.8,
-              carta:'colour-me-red-cheio' },
+              cartaCheia:true },
 };
 /* ------------------------------------------ MODO DE TESTE: `?sem=peca` ---
    Tira peças da PARTE DO JOGADOR na fase de ritmo, para exercitar as outras
@@ -451,6 +520,50 @@ export const AMBIENTE = {
      afasta o jogo do visual escuro que ele tem hoje. `null` captura o fundo
      como está.                                                            */
   corDoCeu: 0x2a3446,
+};
+
+/* ------------------------------------------------------------ O CÉU ------
+   Uma esfera GIGANTE e emissiva ao redor de toda a cena, com uma textura de
+   céu estrelado. "Emissiva" é a palavra que importa: o material não reage a
+   luz nenhuma, e por isso aparece com o MESMO brilho no tutorial (claro) e
+   no show (escuro) — sem isso, a transição de luz escureceria as estrelas
+   junto com o resto.
+
+   O RAIO fica dentro do `far` da câmera (200 m, ver cena.js) para não ser
+   cortado; 150 m sobra folga confortável. Ela também sai da névoa
+   (`material.fog = false`, aplicado em cena.js): a névoa vai de 16 a 40 m,
+   e sem essa exceção o céu inteiro assaria na cor da névoa antes de
+   qualquer estrela aparecer.
+
+   ESTE NÚMERO SÓ PASSOU A SER METROS AGORA. Até então `carregarCeu()` media
+   o modelo com `Box3.getBoundingSphere()`, que devolve a diagonal da caixa e
+   não o raio da esfera — um fator √3 a mais (ver o comentário lá). Na prática
+   `raio: 45` produzia uma bolha de 26 m. O 150 daqui é 150 m de verdade; não
+   compare com o 45 antigo como se fossem a mesma unidade.
+
+   POR QUE AUMENTAR, SE ESFERA NÃO TEM TAMANHO APARENTE. Uma esfera centrada
+   no olho ocupa o MESMO ângulo em qualquer raio — o raio sozinho não muda um
+   pixel. O que muda é o DESCENTRAMENTO: o céu nasce na origem e o jogador
+   fica em `CENARIO.postoJogador` (2,8 / 0,6) mais o offset da câmera, uns
+   3,5 m fora do centro. Nos 26 m reais isso dava 13,5% do raio, e 13% de
+   assimetria o cérebro lê como "a bolha está logo ali": as estrelas de um
+   lado ficam visivelmente maiores que as do outro e qualquer passo faz o céu
+   deslizar. Em 150 m o mesmo deslocamento cai para 2,3%, abaixo do limiar, e
+   o céu passa a ler como distância.
+
+   SUBIR MAIS NÃO PAGA. O ganho é assintótico — 150 → 300 leva a assimetria
+   de 2,3% para 1,2%, que ninguém vê — e o preço é o `far` da câmera, que
+   mexe na precisão de profundidade da cena inteira.
+
+   NÃO ENTRA NO REFLEXO DO AMBIENTE por acidente nenhum: é só mais um
+   `scene.children`, e `gerarAmbienteDaCena()` já esconde tudo que não é o
+   cenário ou uma luz durante a captura (ver o comentário lá).
+
+   `?ceu=0` na URL volta ao fundo sólido de sempre, sem a esfera.          */
+export const CEU = {
+  ligado: new URLSearchParams(location.search).get('ceu') !== '0',
+  url:  'modelos/ceu.glb',
+  raio: 150,
 };
 
 /* ---------------------------------------------------- A LUZ DE PALCO -----

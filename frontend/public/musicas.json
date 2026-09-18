@@ -1,0 +1,23 @@
+{
+  "_leia": "Lista de MUSICAS jogaveis no modo Jogar (fase de ritmo, com nota e pontuacao). E' o manifesto que alimenta o carrossel do menu 3D (menu3d.js) e nunca deve ser copiado a mao em outro lugar: acrescentar uma entrada aqui e' o que faz o carrossel mostrar mais de uma opcao. Nao confundir com trilhas.json, que e' a lista do MODO LIVRE (faixas sem bateria, sem carta, sem nota).",
+  "_campos": {
+    "id": "identificador curto, [a-z0-9-]",
+    "titulo": "nome mostrado no carrossel e no cartao de dificuldade",
+    "creditos": "atribuicao da faixa, mesma regra das trilhas do modo livre - credito que nao aparece nao e' credito",
+    "carta": "nome do arquivo em cartas/ (sem .json). E' a carta usada nos niveis Facil e Medio; o nivel Dificil (Profissa) troca por uma versao 'kit inteiro' DESTA MESMA carta, se ela estiver cadastrada em config.js -> CARTAS_CHEIAS (senao o Profissa toca esta carta normal, so com a janela mais apertada)"
+  },
+  "musicas": [
+    {
+      "id": "colour-me-red",
+      "titulo": "Colour Me Red",
+      "creditos": "Diesel13 — mixagem feita a partir da multipista da 'Mixing Secrets' Free Multitrack Download Library (cambridge-mt.com). Uso educacional, não comercial.",
+      "carta": "colour-me-red"
+    },
+    {
+      "id": "rock-you-like-a-hurricane",
+      "titulo": "Rock You Like A Hurricane",
+      "creditos": "Scorpions — Rock You Like A Hurricane (Meine/Schenker/Rarebell). Uso educacional, não comercial.",
+      "carta": "rock-you-like-a-hurricane"
+    }
+  ]
+}
