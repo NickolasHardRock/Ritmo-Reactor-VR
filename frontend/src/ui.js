@@ -253,6 +253,15 @@ export function mostrarCreditos(){
   }
 }
 
+/** Verdadeiro quando NEM o VR nem o painel 3D (o padrão fora dele, desde
+ *  16/09) estão cuidando da tela — só nesse caso o card de HTML existe, e só
+ *  nesse caso há campo de nome para o jogador editar. `fases.js` usa isto
+ *  para decidir SE `concluir()` já envia a partida sozinho ou se deixa a
+ *  decisão para o clique em "Salvar nome" (ver `api.js` -> `enviarResultadoUmaVez`). */
+export function card2DAtivo(){
+  return !renderer.xr.isPresenting && !menu3d.painelAtivoForaDoVR();
+}
+
 export function telaResultado(){
   const prec = precisao();
   const n    = estrelas(prec);
@@ -277,6 +286,18 @@ export function telaResultado(){
 
   $('fim-sub').textContent = `Precisão de ${prec}%. ${v.sub}`;
 
+  /* Pré-preenche com o último nome salvo. Lido direto do `localStorage` em
+     vez de importar `nomeJogador` de `api.js` de propósito: `api.js` já
+     importa `statusApi` DESTE arquivo, e fechar o ciclo ui↔api por um
+     detalhe de exibição não vale o risco (ver a mesma cautela em main.js,
+     no comentário sobre `menu3d` não importar `fases.js`). */
+  const nomeCampo = $('fim-nome');
+  if (nomeCampo){
+    try { nomeCampo.value = localStorage.getItem('nome') || 'Jogador'; }
+    catch { nomeCampo.value = 'Jogador'; }
+  }
+  const botaoNome = $('btn-salvar-nome');
+  if (botaoNome){ botaoNome.disabled = false; botaoNome.textContent = 'Salvar nome'; }
   objetivo(`${estrelasEmTexto(n)}  ${prec}%`,
            n >= 4 ? '#3ddc97' : n >= 2 ? '#00d9ff' : '#ffb84d');
 
@@ -320,7 +341,7 @@ export function telaResultado(){
      acabou nos dois casos. */
   mostrar('hud', false);
   mostrar('teclas', false);
-  if (!renderer.xr.isPresenting && !menu3d.painelAtivoForaDoVR()){
+  if (card2DAtivo()){
     mostrar('tela-fim', true);
   }
 }

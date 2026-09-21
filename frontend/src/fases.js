@@ -23,8 +23,8 @@ import { pistaG, relogio, definirLuz } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo,
          telaJogando, telaResultado, telaInicio, telaLivre, mostrarCreditos,
-         esconderResultado3D, avisoCentro, mostrarPular } from './ui.js';
-import { enviarResultado } from './api.js';
+         esconderResultado3D, avisoCentro, mostrarPular, card2DAtivo } from './ui.js';
+import { enviarResultadoUmaVez, novaPartida } from './api.js';
 import { baterPeca, acalmarBalanco } from './balanco.js';
 import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
          valorDaJogada } from './pontuacao.js';
@@ -669,12 +669,19 @@ export function concluir(){
   ritmo.ativo = false;
   mostrarPular(false);
   avisoCentro(null);
+  novaPartida();                     // reseta o guarda de envio-único (api.js)
   telaResultado();
   synth.tocar('nivel');
   setTimeout(() => synth.tocar('ok'), 240);
   /* RN07: só depois de concluída. E TODA partida concluída entra — inclusive
      a de quem pulou o tutorial. Até 07/09 o atalho ficava fora, porque era
      chave de teste; desde que o Pular passou a ser parte do fluxo, excluí-lo
-     deixaria o ranking quase vazio. Ver docs/testes.md. */
-  enviarResultado();
+     deixaria o ranking quase vazio. Ver docs/testes.md.
+
+     SEM o card de HTML (VR, ou o painel 3D que é o padrão fora dele) não há
+     campo de nome nenhum para o jogador editar, então grava na hora, com o
+     nome que já estava salvo. COM o card, quem decide o momento é main.js —
+     o clique em "Salvar nome", ou em "Jogar novamente"/"Menu" se o jogador
+     não mexer no campo — e por isso o envio não acontece aqui. */
+  if (!card2DAtivo()) enviarResultadoUmaVez();
 }

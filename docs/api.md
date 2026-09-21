@@ -34,7 +34,9 @@ produção significa que a variável de ambiente não chegou naquele deploy.
 ## `POST /api/partidas`
 
 Registra o resultado de uma partida **concluída**. RN07: o jogo só chama isto
-depois do fim; nunca durante.
+depois do fim; nunca durante. Com o card de HTML (fora do VR e do painel 3D)
+o envio espera o jogador confirmar o nome — ver `enviarResultadoUmaVez` em
+`frontend/src/api.js` e o campo `#fim-nome` em `frontend/index.html`.
 
 **Corpo**
 

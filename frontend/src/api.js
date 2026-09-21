@@ -66,6 +66,29 @@ export async function enviarResultado(){
   }
 }
 
+/* ---------------------------------------------------------- envio único --
+   Sem card de HTML (VR, ou o painel 3D — o padrão fora dele) `concluir()`
+   chama `enviarResultado()` na hora, porque não há nome nenhum para digitar.
+   Com o card, quem decide O MOMENTO é `main.js`: o clique em "Salvar nome",
+   ou em "Jogar novamente"/"Menu" se o jogador não mexer no campo — o que
+   vier primeiro. As três chamadas caem aqui, e só a primeira vale: RN07 diz
+   "a melhor partida É a partida", não "cada clique gera uma". */
+let _enviado = false;
+
+/** Chamado no início de CADA partida concluída (`fases.js` -> `concluir()`),
+ *  para o guarda acima não continuar travado da partida anterior. */
+export function novaPartida(){ _enviado = false; }
+
+/** `nome`, se vier, substitui o nome salvo ANTES de montar o corpo do POST —
+ *  é o que faz "Salvar nome" valer para a partida que acabou de terminar, e
+ *  não só para a próxima. */
+export async function enviarResultadoUmaVez(nome){
+  if (_enviado) return;
+  _enviado = true;
+  if (nome) definirNome(nome);
+  await enviarResultado();
+}
+
 /** GET /ranking — usado na tela inicial quando a API está no ar. */
 export async function buscarRanking(limite = 10){
   try {

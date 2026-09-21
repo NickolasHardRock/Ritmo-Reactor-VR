@@ -174,6 +174,21 @@ conf(await pagina.textContent('#f-prec') === '79%', 'precisão ponderada exibida
 conf(await pagina.textContent('#f-estrelas') === '★★★☆☆', 'estrelas conferem com a precisão',
      await pagina.textContent('#f-estrelas'));
 
+console.log('\nCT-07c  RN07 — o nome do jogador e o envio ficam por conta do card');
+/* Desde que o card de HTML ganhou o campo de nome, `concluir()` não envia
+   mais sozinho quando ele está à vista (só no VR e no painel 3D, onde não
+   há nada para digitar) — ver `card2DAtivo()` em ui.js. Aqui o teste roda
+   com `?menu2d=1`, então o card está à vista, e é o clique em "Salvar nome"
+   que deve disparar o POST — exatamente como um jogador de verdade faria. */
+conf((await pagina.textContent('#f-api')) !== '' &&
+     !(await pagina.textContent('#f-api')).includes('salva'),
+     'antes do clique, a partida ainda não foi enviada',
+     await pagina.textContent('#f-api'));
+await pagina.fill('#fim-nome', 'Teste-Playwright');
+await pagina.click('#btn-salvar-nome');
+await pagina.waitForTimeout(400);
+conf(await pagina.textContent('#btn-salvar-nome') === 'Salvo ✓', 'botão muda de rótulo após o clique');
+
 console.log('\nCT-07b  RN04 — a tabela do multiplicador');
 const mult = await pagina.evaluate(`(() => { const P = window.__jogo.pontuacao;
   return [0,9,10,19,20,29,30,99].map(P.multiplicador); })()`);
@@ -281,6 +296,9 @@ const reg = await fetch(`http://localhost:${PORTA}/api/ranking?limite=5`).then(r
 conf(reg.total >= 1, 'partida gravada no banco', `${reg.total} registro(s)`);
 conf(reg.itens[0]?.pontos === 700, 'ranking devolve a pontuação correta',
      `topo: ${reg.itens[0]?.nome} com ${reg.itens[0]?.pontos}`);
+conf(reg.itens[0]?.nome === 'Teste-Playwright',
+     'o nome digitado no card (CT-07c) é o que foi gravado',
+     `gravou "${reg.itens[0]?.nome}"`);
 conf((await pagina.textContent('#f-api')).includes('salva'),
      'tela de resultado confirma a gravação', await pagina.textContent('#f-api'));
 

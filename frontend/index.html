@@ -126,6 +126,21 @@
     <h1 id="fim-titulo">Fim da partida</h1>
     <p class="sub" id="fim-sub"></p>
     <p class="sub" id="fim-creditos" style="opacity:.75"></p>
+
+    <!-- Nome do jogador para o pódio de cada música (GET /api/ranking/musicas).
+         RN07 exige registrar toda partida concluída, mas o ENVIO só acontece
+         aqui: "Salvar nome" grava o campo abaixo e manda a partida; "Jogar
+         novamente"/"Menu" mandam do mesmo jeito, com o nome que estiver no
+         campo, para quem não clica em Salvar não ficar de fora do ranking.
+         Sem este card (VR, ou o painel 3D que é o padrão fora dele) não há
+         nada para digitar, e a partida já foi enviada sozinha em
+         `fases.js` -> `concluir()` (ver `card2DAtivo()` em ui.js). -->
+    <div class="row" id="fim-nome-linha">
+      <label for="fim-nome" class="sub" style="margin:0">Seu nome</label>
+      <input type="text" id="fim-nome" maxlength="60" placeholder="Jogador" autocomplete="off">
+      <button class="ghost" id="btn-salvar-nome">Salvar nome</button>
+    </div>
+
     <div class="stats">
       <div><span>Pontuação</span><div class="big" id="f-pontos">0</div></div>
       <div><span>Precisão</span><div class="big" id="f-prec">0%</div></div>
@@ -136,7 +151,7 @@
       <tr><td>Perfeitas</td><td id="f-perf">0</td></tr>
       <tr><td>Boas</td><td id="f-bom">0</td></tr>
       <tr><td>Erradas / perdidas</td><td id="f-erro">0</td></tr>
-      <tr><td>Persistência (RF11/RF12)</td><td id="f-api">API não configurada</td></tr>
+      <tr><td>Persistência (RF11/RF12)</td><td id="f-api">aguardando nome/clique</td></tr>
     </table>
     <div class="row">
       <button id="btn-again">Jogar novamente</button>

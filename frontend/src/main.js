@@ -41,6 +41,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
 import { carregarTrilhas } from './trilhas.js';
 import { carregarMusicas } from './musicas.js';
 import { atualizarRecordes } from './recordes.js';
+import { enviarResultadoUmaVez } from './api.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -327,10 +328,27 @@ $('btn-livre').onclick = () => abrirLivre();
    não antes de o jogo começar. O caminho `iniciar(false, true)` continua no
    código, exposto em `window.__jogo` para os testes. */
 $('btn-pular').onclick = () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); };
-$('btn-again').onclick = () => iniciar(false);
+/* Nome do jogador (recordes por música) e o envio da partida (RN07). Sem o
+   card de HTML, `fases.js` -> `concluir()` já enviou sozinho — o guarda em
+   `enviarResultadoUmaVez` faz as chamadas daqui não valerem nada nesse caso.
+   Com o card, é aqui que o momento se decide: "Salvar nome" manda o nome que
+   está no campo; "Jogar novamente"/"Menu" mandam o mesmo campo, para quem
+   fecha a tela sem clicar em Salvar não ficar de fora do ranking. */
+const nomeDoCampo = () => (($('fim-nome') || {}).value || '').trim().slice(0, 60) || undefined;
+$('btn-salvar-nome').onclick = () => {
+  const nome = nomeDoCampo() || 'Jogador';
+  $('fim-nome').value = nome;
+  $('btn-salvar-nome').disabled = true;
+  $('btn-salvar-nome').textContent = 'Salvo ✓';
+  enviarResultadoUmaVez(nome);
+};
+$('btn-again').onclick = () => { enviarResultadoUmaVez(nomeDoCampo()); iniciar(false); };
 /* `esconderResultado3D` junto: o placar 3D não some com a tela de HTML, e
    quem voltasse ao menu depois de uma partida o deixava pendurado no ar. */
-$('btn-menu').onclick  = () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); };
+$('btn-menu').onclick  = () => {
+  enviarResultadoUmaVez(nomeDoCampo());
+  jogo.ativo = false; esconderResultado3D(); telaInicio();
+};
 $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); };
 $('btn-livre-voltar').onclick = () => voltarDaLista();
 
