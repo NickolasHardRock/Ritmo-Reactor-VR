@@ -293,10 +293,28 @@ export async function ritmoIniciar(){
   }
 
   /* O que o jogador não toca não é descartado: vira trilha automática e
-     continua soando. Assim o nível fácil não deixa a música oca — ela toca
+     continua soando. Assim a chave `?sem=` não deixa a música oca — ela toca
      inteira e o jogador cuida de uma parte. */
+  /* PROMOÇÃO (nível Normal/Médio): peças que a carta normal deixa na trilha
+     automática passam para o jogador. É o mesmo passo 1 do
+     `encorpar-carta.mjs`, só que na hora de tocar: os golpes já estão na
+     carta, nos instantes exatos da gravação — nada é inventado. Com
+     `promover:['crash']` o Médio pede caixa + chimbal + crash, com a mesma
+     densidade do Fácil e um alvo a mais. Na carta `-cheio` o crash já vem
+     nas notas e a trilha não tem mais crash, então isto não faz nada lá. */
+  let notasCarta = recorte.notas, autoCarta = recorte.auto;
+  if (nivel.promover && nivel.promover.length){
+    const sobe = autoCarta.filter(a => nivel.promover.includes(a.som));
+    if (sobe.length){
+      autoCarta  = autoCarta.filter(a => !nivel.promover.includes(a.som));
+      notasCarta = notasCarta
+        .concat(sobe.map(a => ({ t:a.t, peca:a.som, forca:a.forca ?? .85 })))
+        .sort((a, b) => a.t - b.t);
+    }
+  }
+
   const escolhidas = [], extras = [];
-  for (const n of recorte.notas){
+  for (const n of notasCarta){
     if (!jog || jog.includes(n.peca)) escolhidas.push(n);
     // Um pouco mais baixas que o normal, para a batida do jogador se
     // destacar do que a máquina toca.
@@ -309,7 +327,7 @@ export async function ritmoIniciar(){
        o que lê como enfeite em vez de bicho. */
     semente: (i * 2.399963) % 6.283,
   }));
-  ritmo.auto  = recorte.auto.concat(extras).sort((a,b) => a.t - b.t);
+  ritmo.auto  = autoCarta.concat(extras).sort((a,b) => a.t - b.t);
   ritmo.iAuto = 0;
   ritmo.fim   = recorte.fim;
 
@@ -394,8 +412,8 @@ export function ritmoAtualizar(){
        ESMAGADO conforme atrasa, e chega esmagado por completo no instante em
        que a nota se perde. Sai calculado AQUI, e não no bichos.js, porque o
        divisor é o `JX` — a janela de perda, que é regra e depende do nível.
-       Assim o esmagamento se ajusta sozinho a cada nível: em 468 ms no
-       Fácil, em 208 ms no Profissa. */
+       Assim o esmagamento se ajusta sozinho a cada nível: em 260 ms no
+       Fácil e no Normal, 208 ms no Profissa. */
     if (p) visiveis.push({ id:n.id, x:p.x, y:p.y, z:p.z, dt, semente:n.semente,
                            atraso: JX > 0 ? Math.min(Math.max(-dt / JX, 0), 1) : 0 });
   }
