@@ -301,7 +301,7 @@ export function cartaAgora(nivel, cartaMusica){
      ?encoste=0        o padrão: no tempo da nota
 
    O TETO DE +500 ms não é arbitrário: a nota é descartada como PERDEU em
-   `JANELA_PERDA * janela` depois do tempo dela — 260 ms no Normal, 208 ms no
+   `JANELA_PERDA * janela` depois do tempo dela — 260 ms no Fácil e no Normal, 208 ms no
    Profissa. Viés positivo maior que isso faria a caveira ser recolhida ANTES
    de tocar, e o pouso não aconteceria na tela. O fases.js avisa no console
    quando os dois números se cruzam. O piso de -300 ms existe só para o
@@ -325,21 +325,32 @@ export const VIES_ENCOSTE = (() => {
    ele tocando sozinho a música fica inteira e o jogador cuida de uma parte
    só — que é como se aprende bateria de verdade, uma mão por vez.
 
-   No fácil a parte é a CAIXA: é o backbeat, dá a forma da música, e é um
-   alvo só, quase sempre no mesmo lugar. Mirar é o que mais custa para quem
-   não toca, e sete alvos é o que trava.
+   `janela` multiplica a tolerância de tempo (PERFEITO base = 90 ms).
 
-   `janela` multiplica a tolerância de tempo. No fácil a de PERFEITO passa de
-   90 para 162 ms, que perdoa falta de prática sem virar automático.       */
+   AJUSTE DE 23/09: o Fácil antigo (só a CAIXA, janela 1,8 — PERFEITO em
+   162 ms) ficou fácil demais nos testes. O Fácil passou a ser o que era o
+   Normal (caixa + chimbal, janela 1,0). O Normal fica mais difícil por
+   PEÇA, não por precisão (decisão do Diego): mesma janela 1,0, com o crash
+   promovido da trilha automática. A escada ficou:
+     Fácil    caixa + chimbal                   janela 1,0
+     Normal   caixa + chimbal + crash           janela 1,0
+     Profissa as sete peças (carta `-cheio`)    janela 0,8
+   Se precisar voltar, o Fácil antigo era `jogaveis:['caixa'], janela:1.8`. */
 export const NIVEIS = {
-  facil:  { nome:'Fácil',  jogaveis:['caixa'], janela:1.8 },
   /* `jogaveis: null` = o jogador toca TUDO que a carta traz. É o caso geral:
      um nível com lista fixa de peças nunca pediria tom, surdo, crash ou ride,
      e travaria qualquer carta que os tenha. */
-  normal: { nome:'Normal', jogaveis:null,      janela:1.0 },
+  facil:  { nome:'Fácil',  jogaveis:null, janela:1.0 },
+  /* Mesma carta e mesma janela do Fácil, com um instrumento a mais.
+     `promover` lista sons da trilha automática que passam a ser do jogador
+     (ver `ritmoIniciar`, fases.js). O crash foi o escolhido porque TODA
+     carta normal já o traz na trilha — de 11 a 58 golpes conforme a música
+     — em acentos reais da gravação. Tom/surdo/ride não existem na carta
+     normal; promover um deles não daria nada para tocar. */
+  normal: { nome:'Normal', jogaveis:null, janela:1.0, promover:['crash'] },
 
   /* O KIT INTEIRO. E aqui está o detalhe que confunde: `jogaveis:null` já é
-     o do Normal, e mesmo assim o Normal pede duas peças. Não é o nível que
+     o do Fácil e do Normal, e mesmo assim eles pedem duas peças. Não é o nível que
      limita — é a CARTA. A `colour-me-red` só tem notas de caixa e chimbal;
      crash e bumbo dela já nascem na trilha automática. Nenhum ajuste de
      nível inventa nota que a carta não tem.
@@ -379,7 +390,7 @@ export const NIVEIS = {
      ?carta=teste&sem=caixa  ver a NOTA abaixo — quase sempre é isto que se quer
 
    ELE DEFINE O CONJUNTO, NÃO SUBTRAI DO NÍVEL. Parece detalhe e não é: o
-   nível padrão é o `facil`, cujo `jogaveis` é `['caixa']`. Subtrair a caixa
+   nível padrão é o `facil`, que até 23/09 tinha `jogaveis:['caixa']`. Subtrair a caixa
    dali deixaria ZERO peças jogáveis e a fase de ritmo viraria uma música que
    se toca sozinha. Com a chave ligada, o conjunto passa a ser "todas as
    peças menos as pedidas", qualquer que seja o nível. A `janela` do nível
