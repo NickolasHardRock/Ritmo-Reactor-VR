@@ -182,18 +182,9 @@ então as sete malhas não custam sete chamadas fixas.
 ## Regras de trabalho neste repositório
 
 - Nada de commit ou push sem o Diego pedir.
-- **Só entra no repositório o áudio que a gente tem direito de distribuir.**
-  A `colour-me-red` tem: uso educacional licenciado, e creditado na tela
-  inicial. `frontend/public/sounds/som.mp3` e as cartas derivadas dele não
-  têm — ficam só na máquina de quem trabalha com eles. O `.gitignore` já
-  cobre os dois (`sounds/som.mp3` e `cartas/money*.json`); não desfaça isso.
-- **16/09 — as faixas do Scorpions já estavam commitadas.**
-  `frontend/public/sounds/livre/rock-you-like-a-hurricane.mp3` e a
-  `-vocal.mp3` (mixagem sem bateria, usada em `trilhas.json` e agora também
-  na carta `rock-you-like-a-hurricane.json`) entraram no repositório antes
-  de existir este documento — e não deveriam, pela regra do item acima: é
-  áudio comercial sem licença, mesmo caso do `som.mp3`. Adicionei as duas ao
-  `.gitignore` para não piorar, mas elas continuam no HISTÓRICO até alguém
-  (o Diego) decidir reescrever ou aceitar o risco. Ver `git log --all --
-  frontend/public/sounds/livre/`.
+- **As músicas do jogo entram no repositório** (decisão do Diego, 23/09): o
+  trabalho é acadêmico, não comercial e sem divulgação. Toda faixa listada em
+  `musicas.json`/`trilhas.json` precisa estar versionada, senão o deploy do
+  Vercel a mostra no menu e não tem o arquivo. O crédito continua aparecendo
+  na tela.
 - Antes de dizer que algo está certo, rode. `node --check` só vê sintaxe.
