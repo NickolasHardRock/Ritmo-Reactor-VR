@@ -27,6 +27,7 @@
      'jogo'  durante a partida — PULAR (só nas fases 0 e 1) e SAIR
      'cal'   durante a calibragem aberta pelo menu — só FECHAR
      'fim'   sobre o painel de resultado — JOGAR DE NOVO e MENU
+     'nome'  no lugar do resultado — o teclado do recorde (RN09)
 
    O grupo inteiro pendura em `uiVR`, um único filho de `scene`. Isso não é
    arrumação: `gerarAmbienteDaCena()` esconde todos os filhos da cena que não
@@ -133,6 +134,18 @@ const rodapeMenu = texto(['aponte o controle e aperte o gatilho'], 1.5, .11,
                          { tam:.72, cor:'#6f7f96' });
 rodapeMenu.position.set(0, .88, Z); grupoMenu.add(rodapeMenu);
 
+/* RN08 — o recorde de cada dificuldade, antes de jogar. Mesma informação da
+   tela inicial de HTML, que no headset não existe. Três linhas: é o teto do
+   que se lê de relance a 2,6 m, e é quantas dificuldades o jogo tem. */
+const recordesMenu = texto([''], 1.7, .30, { tam:.42, cor:'#8c9bb5' });
+recordesMenu.position.set(0, .68, Z); grupoMenu.add(recordesMenu);
+
+/** @param {string[]} linhas já formatadas ("Fácil: Diego — 7400") */
+export function pintarRecordes3D(linhas){
+  const arr = (linhas && linhas.length) ? linhas.slice(0, 3) : [''];
+  recordesMenu.userData.pintar(arr, { fundo:false, tam:.42, cor:'#8c9bb5' });
+}
+
 /** Escreve o estado do menu: nível escolhido e atraso calibrado. Chamado pelo
  *  `pintarNivel()` do main.js, que já é o dono dessa informação. */
 export function pintarMenu(chaveAtual, subtitulo = ''){
@@ -178,9 +191,113 @@ btDeNovo.position.set(-.42, 1.05, -2.28); grupoFim.add(btDeNovo);
 const btMenu = botao('Menu', .78, .20, disparar('menu'), .50);
 btMenu.position.set(.42, 1.05, -2.28); grupoFim.add(btMenu);
 
+/* ---- 'nome': O TECLADO DO RECORDE (RN09) --------------------------------
+   Quando a partida bate o recorde da música naquela dificuldade, o jogo
+   pergunta quem jogou. Na tela isso é um `<input>`; aqui não pode ser — e
+   sem um teclado de verdade o jogador de headset faria o recorde e ele seria
+   gravado no nome da última pessoa que digitou no monitor.
+
+   Teclado APONTADO, não datilografado: as mesmas placas e o mesmo gatilho do
+   resto deste arquivo. Bater com a baqueta seria mais bonito e está
+   descartado pela mesma razão dos outros botões (ver o cabeçalho): a
+   detecção de batida confunde qualquer descida de braço com uma tecla.
+
+   SEM ACENTO, de propósito. Ç, Á e companhia dobrariam o teclado por um
+   ganho que o banco desfaz na comparação de nomes. Quem quiser o nome
+   acentuado digita no monitor; o campo de HTML aceita tudo.
+
+   O PLACAR SAI DE CENA enquanto isto está aberto (ui.js → pedirNome): este
+   grupo ocupa exatamente o espaço dele.                                    */
+const grupoNome = new THREE.Group(); grupoNome.name = 'nome-vr'; uiVR.add(grupoNome);
+const ZN = -2.28;
+
+const tituloNome = texto(['NOVO RECORDE'], 1.40, .22, { tam:.82, cor:'#ffd34d' });
+tituloNome.position.set(0, 2.24, ZN); grupoNome.add(tituloNome);
+
+const subNome = texto([''], 1.70, .14, { tam:.66, cor:'#8c9bb5' });
+subNome.position.set(0, 2.05, ZN); grupoNome.add(subNome);
+
+/* O visor. Não é botão: é onde o jogador confere o que já digitou — sem ele
+   o teclado seria uma aposta às cegas. */
+const visorNome = placa(1.20, .20, 720);
+visorNome.position.set(0, 1.85, ZN); grupoNome.add(visorNome);
+
+/** Nome em digitação, só deste teclado. O campo de HTML tem o seu, e os dois
+ *  não conversam: em VR um deles é invisível, então sincronizar seria manter
+ *  um espelho que ninguém olha. */
+let _nome = '';
+const LIMITE_NOME = 18;   // cabe no visor sem a placa ter de encolher a fonte
+
+function pintarVisorNome(){
+  visorNome.userData.pintar([_nome || 'digite seu nome'], {
+    tam: .74,
+    cor:   _nome ? '#e8eef8' : '#6f7f96',
+    fundo: 'rgba(17,24,38,.92)',
+    borda: 'rgba(255,211,77,.55)',
+  });
+}
+
+function digitar(ch){
+  if (_nome.length >= LIMITE_NOME) return;
+  _nome += ch;
+  pintarVisorNome();
+}
+
+const TECLADO = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM-'];
+const T  = .128;          // lado da tecla
+const VAO = .014;
+{
+  let y = 1.62;
+  for (const linha of TECLADO){
+    const n = linha.length, total = n * T + (n - 1) * VAO;
+    [...linha].forEach((ch, i) => {
+      const b = botao(ch, T, T, () => digitar(ch), .60);
+      b.position.set(-total/2 + T/2 + i * (T + VAO), y, ZN);
+      grupoNome.add(b);
+    });
+    y -= T + VAO;
+  }
+}
+
+const btEspaco = botao('espaço', .46, .17, () => digitar(' '), .50);
+btEspaco.position.set(-.26, 1.02, ZN); grupoNome.add(btEspaco);
+
+const btApagar = botao('‹ apagar', .46, .17,
+  () => { _nome = _nome.slice(0, -1); pintarVisorNome(); }, .50);
+btApagar.position.set(.26, 1.02, ZN); grupoNome.add(btApagar);
+
+/* GRAVAR fica destacado e CANCELAR é discreto, na largura mínima: o gesto
+   esperado aqui é confirmar. Cancelar não joga o recorde fora — a partida é
+   gravada do mesmo jeito, com o último nome conhecido (registro.js). */
+const btNomeOk = botao('GRAVAR', .62, .19,
+  () => disparar('nomeOk')(_nome.trim()), .56);
+btNomeOk.position.set(-.34, .82, ZN); grupoNome.add(btNomeOk);
+
+const btNomeNao = botao('Agora não', .50, .17,
+  () => disparar('nomeCancelar')(), .48);
+btNomeNao.position.set(.34, .82, ZN); grupoNome.add(btNomeNao);
+
+/** Abre o pedido. Chamado pela ui.js, que já decidiu que houve recorde.
+ *  @param {{pontos:number, anteriorTexto:string, sugestao:string}} info */
+export function pedirNome3D(info = {}){
+  /* Maiúsculas porque o teclado só tem maiúsculas: mostrar "Diego" num
+     teclado que só produz "DIEGO" faria o jogador achar que apagou errado. */
+  _nome = String(info.sugestao || '').toUpperCase()
+            .replace(/[^A-Z0-9 -]/g, '').slice(0, LIMITE_NOME);
+  pintarVisorNome();
+  subNome.userData.pintar(
+    [`${info.pontos ?? 0} pts  ·  ${info.anteriorTexto || ''}`],
+    { fundo:false, tam:.66, cor:'#8c9bb5' });
+  mostrar('nome');
+}
+
+/** O que está no visor agora — o `main.js` usa quando o pedido é fechado por
+ *  outro caminho. */
+export function nomeDigitado(){ return _nome.trim(); }
+
 /* ------------------------------------------------------- visibilidade ---- */
 
-let _tela = null;          // 'menu' | 'jogo' | 'fim' | null
+let _tela = null;          // 'menu' | 'jogo' | 'cal' | 'fim' | 'nome' | null
 let _pular = false;        // o PULAR só existe nas fases 0 e 1
 let _forcar = false;       // ver forcarForaDoVR()
 
@@ -192,13 +309,23 @@ function aplicar(){
   grupoJogo.visible = emVR && _tela === 'jogo';
   grupoFim.visible  = emVR && _tela === 'fim';
   grupoCal.visible  = emVR && _tela === 'cal';
+  grupoNome.visible = emVR && _tela === 'nome';
   btPular.visible   = _pular;
-  if (!grupoMenu.visible && !grupoJogo.visible
-      && !grupoFim.visible && !grupoCal.visible) limparFoco();
+  if (!grupoMenu.visible && !grupoJogo.visible && !grupoFim.visible
+      && !grupoCal.visible && !grupoNome.visible) limparFoco();
 }
 
-/** @param {'menu'|'jogo'|'fim'|'cal'|null} qual */
-export function mostrar(qual){ _tela = qual; aplicar(); }
+/** @param {'menu'|'jogo'|'fim'|'cal'|'nome'|null} qual */
+export function mostrar(qual){
+  /* O foco morre junto com a tela que o continha. `alvo.visible` é a flag do
+     próprio botão e não olha o grupo pai, então sem isto um gatilho apertado
+     no quadro seguinte à troca ainda dispararia a tecla que já saiu de cena.
+     Um quadro é pouco — e é exatamente o intervalo entre apertar GRAVAR e a
+     tela trocar, com o dedo ainda no gatilho. */
+  limparFoco();
+  _tela = qual;
+  aplicar();
+}
 export function mostrarPular3D(v){ _pular = !!v; aplicar(); }
 export function telaAtual(){ return _tela; }
 
@@ -241,7 +368,7 @@ function limparFoco(){
 
 function alvosVisiveis(){
   const r = [];
-  for (const g of [grupoMenu, grupoJogo, grupoFim, grupoCal]){
+  for (const g of [grupoMenu, grupoJogo, grupoFim, grupoCal, grupoNome]){
     if (!g.visible) continue;
     for (const o of g.children){
       if (o.userData?.acao && o.visible) r.push(o);
@@ -258,7 +385,8 @@ export function atualizarPonteiros(){
 
   /* Com menu ou resultado abertos o raio fica visível mesmo sem acertar nada:
      é o único jeito de o jogador descobrir para onde está apontando. */
-  const sempre = grupoMenu.visible || grupoFim.visible || grupoCal.visible;
+  const sempre = grupoMenu.visible || grupoFim.visible
+              || grupoCal.visible  || grupoNome.visible;
   let novo = null, melhorDist = Infinity;
 
   for (const p of ponteiros){

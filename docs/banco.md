@@ -8,9 +8,11 @@
 ├─────────────────────┤            ├──────────────────────────────┤
 │ id        SERIAL PK │ 1        N │ id          SERIAL PK        │
 │ nome      VARCHAR60 │◄───────────│ jogador_id  INTEGER FK       │
-│           UNIQUE    │            │ pontos      INTEGER          │
-│ criado    TIMESTAMP │            │ tempo       NUMERIC(7,2)     │
-└─────────────────────┘            │ precisao    SMALLINT 0..100  │
+│           UNIQUE    │            │ musica      VARCHAR(60)      │
+│ criado    TIMESTAMP │            │ nivel       VARCHAR(20)      │
+└─────────────────────┘            │ pontos      INTEGER          │
+                                   │ tempo       NUMERIC(7,2)     │
+                                   │ precisao    SMALLINT 0..100  │
                                    │ erros       SMALLINT         │
                                    │ combo_max   SMALLINT         │
                                    │ estrelas    SMALLINT 0..5    │
@@ -22,6 +24,36 @@
 repetiria a mesma string a cada jogo e tornaria impossível corrigir um nome
 digitado errado sem varrer todas as linhas. Separando, o ranking também fica
 trivial: agrupa por `jogador_id`.
+
+**Por que `musica` e `nivel` ficam na partida.** Os dois são a identidade do
+desafio: "melhor pontuação" só quer dizer alguma coisa dentro de uma música e
+de uma dificuldade — 900 pontos no Fácil (uma peça, janela 1,8×) e 900 no
+Profissa (sete peças, janela 0,8×) não são a mesma façanha. Uma tabela
+`musica` própria só faria sentido se a música tivesse atributos para guardar
+(autor, duração, licença) — e ela tem, só que eles moram na **carta**
+(`frontend/public/cartas/*.json`), que é a fonte da verdade e muda a cada
+ajuste de recorte. Duplicá-los no banco criaria duas verdades; aqui guarda-se
+só a chave.
+
+`musica` é o nome do arquivo da carta sem `.json`; `nivel` é a chave de
+`NIVEIS` no `config.js`. Ambas com `DEFAULT`, para um cliente antigo continuar
+gravando.
+
+### RN09 — o nome só é pedido no recorde
+
+O jogo pergunta o nome de quem jogou quando a partida bate a melhor marca
+**daquela música naquela dificuldade** e faz pelo menos **1000 pontos**. Nas
+outras a linha vai com o último nome conhecido: um campo de texto ao fim de
+cada partida é atrito no melhor momento do jogo, e em VR custa uns vinte
+segundos de teclado apontado.
+
+O piso existe porque a primeira condição, sozinha, se resolve com uma partida
+vazia — num banco recém-criado qualquer resultado é recorde. Ele mora em
+`backend/regras.js`, é devolvido em `GET /api/ranking/recorde` e **não aparece
+para o jogador**: é critério da equipe, não meta dele.
+
+Quem decide é o servidor, na mesma requisição que grava e **antes** do
+`INSERT`: depois, a própria partida já seria a marca a bater.
 
 O script completo, com as restrições e os índices comentados, está em
 [`../backend/db/schema.sql`](../backend/db/schema.sql).
@@ -61,6 +93,16 @@ São dois porque o `schema.sql` é destrutivo e não pode rodar sozinho quando a
 API sobe. Já divergiram uma vez: faltavam no código os `CHECK` de `erros` e
 `combo_max` e o índice `idx_partida_jogador` — que é exatamente o que o
 `DISTINCT ON (jogador_id)` do ranking percorre. **Mexeu num, confira o outro.**
+
+O `iniciar()` traz também dois `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` para
+`musica` e `nivel`. Num banco que já existe, o `CREATE TABLE IF NOT EXISTS`
+não toca na tabela — ela ficaria sem as colunas novas e **todo INSERT
+falharia**. Os `ALTER` são idempotentes e valem para o banco novo e para o
+antigo. Para aplicar à mão, os mesmos comandos estão comentados no
+`schema.sql`.
+
+O índice novo é `idx_partida_recorde (musica, nivel, pontos DESC)`: o recorde
+é consultado ao fim de **toda** partida concluída, sempre pela mesma tripla.
 
 ### O pool, e por que ele derrubava a API
 

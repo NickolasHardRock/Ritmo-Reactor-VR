@@ -110,6 +110,12 @@ export class Musica {
       return r.json();
     });
     normalizarCarta(carta);
+    /* A CHAVE DA CARTA, guardada junto. É por ela que o banco sabe de qual
+       música é cada recorde, e ela não estava em lugar nenhum: o JSON traz
+       `titulo`, que é texto de tela e muda ("Colour Me Red" virou "Colour Me
+       Red — kit inteiro" na variante do Profissa). O nome do arquivo é
+       estável e é o que a equipe usa para falar da carta. */
+    carta.id = idDaCarta(url);
     if (carta.faixa) await this.carregar(carta.faixa, aoProgredir);
     else { await synth.ligar(); this.buffer = null; }
     this.carta = carta;
@@ -199,6 +205,18 @@ export class Musica {
    `auto` são as notas que o jogo toca sozinho. Hoje é o bumbo: o Quest não
    rastreia os pés, então ele não é tocável, mas sem ele a levada fica
    irreconhecível.                                                          */
+
+/** A chave de uma carta a partir do caminho dela: `cartas/colour-me-red.json`
+ *  vira `colour-me-red`. É o que vai para a coluna `musica` do banco e o que
+ *  o ranking usa para separar uma música da outra.
+ *
+ *  Peneirado no mesmo alfabeto que a API aceita, e não por desconfiança do
+ *  nosso próprio arquivo: `?carta=` é uma chave de URL, então este texto pode
+ *  vir de fora. */
+export function idDaCarta(url){
+  const nome = String(url || '').split('/').pop().replace(/\.json$/i, '');
+  return nome.replace(/[^\w-]/g, '').slice(0, 60).toLowerCase() || 'desconhecida';
+}
 
 export function normalizarCarta(c){
   if (!Array.isArray(c.notas)) c.notas = [];

@@ -128,14 +128,20 @@ acontecia antes de entrar no VR, no HTML, ou virava botão de controle. O teste
 no Quest mostrou o preço: entrar em VR jogava direto no meio de uma partida
 não escolhida, e terminar a música deixava o jogador preso no placar.
 
-São quatro conjuntos, e nunca dois ao mesmo tempo:
+São cinco conjuntos, e nunca dois ao mesmo tempo:
 
 | Quando | Botões |
 |---|---|
 | antes da partida | JOGAR · Modo livre · Fácil/Normal/Profissa · Calibrar atraso |
+| no modo livre | Só bateria · uma por faixa do manifesto · ‹ Voltar |
 | durante a partida | **Pular ›** (fases 0 e 1) e **Sair**, à direita |
 | durante a calibragem | Fechar |
 | no fim | Jogar de novo · Menu |
+
+**A lista do modo livre cabe três faixas em VR**, e o limite é geométrico: o
+painel está em z=−2,00, atrás do kit visto do posto, e abaixo de y≈0,85 a
+bateria começa a tampar o botão. Do quarto item em diante a faixa só aparece
+no navegador, e o console avisa. Ver `claude/modo-livre-com-faixa.md`.
 
 Pular e Sair ficam **à direita**, na altura dos painéis: o centro é por onde a
 baqueta desce, e um botão no caminho da mão seria acertado sem querer.

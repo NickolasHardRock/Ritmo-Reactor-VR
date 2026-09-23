@@ -16,6 +16,7 @@ import { painelHUD, painelObj, painelCentro, flash, flashEstado,
 import { multiplicador, progressoDoDegrau, estrelas,
          estrelasEmTexto, veredito } from './pontuacao.js';
 import { musica } from './musica.js';
+import { NIVEIS } from './config.js';
 /* As três telas de HTML têm agora uma contraparte em 3D, para quem está de
    headset. Elas são trocadas SEMPRE JUNTAS, daqui — foi a lição do teste de
    08/09, em que o jogador de VR caía numa partida sem ter visto menu nenhum e
@@ -85,8 +86,16 @@ export function objetivo(txt, cor = '#e8eef8'){
  *  placar da anterior fica pendurado no ar durante a nova. */
 export function esconderResultado3D(){
   painelCentro.visible = false;
-  /* Os botões do resultado moram fora do painel e não somem com ele. */
-  if (menu3d.telaAtual() === 'fim') menu3d.mostrar(null);
+  /* Os botões do resultado moram fora do painel e não somem com ele. E o
+     teclado do nome também é "tela de fim": sair para outra partida com ele
+     aberto deixaria as letras pairando sobre a bateria. */
+  const t = menu3d.telaAtual();
+  if (t === 'fim' || t === 'nome') menu3d.mostrar(null);
+  /* O bloco de HTML do nome vive DENTRO de `#tela-fim`, então ele some junto
+     com a tela — mas a classe fica. Limpar aqui evita que ele reapareça na
+     próxima vez que a tela de resultado abrir. Quem ainda deve uma gravação
+     é problema do `registro.js`; aqui só se apaga o que está desenhado. */
+  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
 }
 
 /** Desenha a calibragem no painel central, para quem está no headset.
@@ -222,6 +231,12 @@ export function mostrarCreditos(){
 }
 
 export function telaResultado(){
+  /* O pedido de nome da partida ANTERIOR, se ainda estiver na tela. Ele é
+     fechado por todos os caminhos de saída, mas esta tela é desenhada uma vez
+     por partida e é o lugar certo para garantir que começa limpa — um "novo
+     recorde" herdado da partida passada seria mentira na cara do jogador. */
+  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
+
   const prec = precisao();
   const n    = estrelas(prec);
   const v    = veredito(n);
@@ -293,6 +308,107 @@ export function telaResultado(){
 export function statusApi(texto, cor){
   $('f-api').textContent = texto;
   $('f-api').style.color = cor;
+}
+
+/* ===================== O NOME DE QUEM FEZ O RECORDE ======================
+   RN09. Só aparece quando a partida bateu a melhor marca da música naquela
+   dificuldade — a decisão é do `registro.js`, aqui só se desenha.
+
+   NOS DOIS LUGARES, pela mesma razão de sempre: o `<input>` não existe
+   dentro do headset. Lá o pedido é um teclado 3D (menu3d.js), apontado com
+   o controle. Sem ele, quem jogasse de óculos faria o recorde e veria o
+   jogo gravar com o nome de outra pessoa — a última que digitou no monitor.
+
+   O PLACAR 3D SAI DE CENA enquanto se digita. O painel do resultado ocupa
+   de y=1,20 a 2,24 e é exatamente onde o teclado cabe; deixar os dois
+   ligados deixaria as teclas atravessadas pelas estrelas. O texto do
+   resultado continua pintado e volta intacto quando o pedido fecha.       */
+
+/** @param {{pontos:number, nivel:string, anterior:object|null,
+ *           sugestao:string}} info
+ *  @returns {boolean} false quando não havia mais tela de resultado para
+ *           receber o pedido — quem chamou grava sem perguntar. */
+export function pedirNome(info){
+  /* A CONSULTA AO RECORDE É ASSÍNCRONA e a resposta pode chegar depois de o
+     jogador já ter saído dali: começado outra partida, voltado ao menu,
+     entrado no VR. Abrir o pedido nessa hora poria 42 teclas 3D por cima da
+     bateria no meio da música seguinte. A tela de resultado é a única em que
+     este pedido faz sentido, então ela é a condição. */
+  if (menu3d.telaAtual() !== 'fim') return false;
+
+  const bloco = $('fim-nome');
+  const ant   = info.anterior
+    ? `Recorde anterior: ${info.anterior.nome} — ${info.anterior.pontos} pts`
+    : 'Primeiro recorde desta dificuldade';
+  const el = $('fim-nome-ant'); if (el) el.textContent = ant;
+
+  const inp = $('f-nome');
+  if (inp){
+    inp.value = info.sugestao || '';
+    /* Foco só fora do VR: dentro do headset o `<input>` nem existe, e pedir
+       foco a um elemento invisível é o tipo de chamada que alguns
+       navegadores respondem rolando a página. */
+    if (!renderer.xr.isPresenting) setTimeout(() => inp.focus(), 60);
+  }
+  if (bloco) bloco.classList.remove('hidden');
+
+  painelCentro.visible = false;
+  menu3d.pedirNome3D({ ...info, anteriorTexto: ant });
+  return true;
+}
+
+export function fecharPedidoDeNome(){
+  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
+  if (menu3d.telaAtual() === 'nome'){
+    painelCentro.visible = true;      // o placar continua pintado
+    menu3d.mostrar('fim');
+  }
+}
+
+/* ========================= RANKING NA ABERTURA ===========================
+   RN08. Uma linha por dificuldade: quem manda em cada uma. Não é a lista
+   longa de propósito — o que interessa antes de jogar é a marca a bater no
+   nível que se vai escolher, e três linhas cabem na tela inicial sem
+   empurrar o botão JOGAR para fora dela.                                   */
+
+/** @param {Array|null} itens `null` = API fora do ar (não escreve nada) */
+export function pintarRecordes(itens){
+  const el = $('inicio-recordes');
+  const ordem = Object.keys(NIVEIS);
+  const linhas = (itens || [])
+    .filter(i => i && i.nome)
+    .sort((a, b) => ordem.indexOf(a.nivel) - ordem.indexOf(b.nivel));
+
+  /* API fora do ar: some nos DOIS lugares. Sair cedo aqui deixava a placa 3D
+     do menu com os recordes da consulta anterior para sempre — e recorde
+     velho pendurado é pior que nenhum. */
+  if (!itens){
+    if (el){ el.classList.add('hidden'); el.innerHTML = ''; }
+    menu3d.pintarRecordes3D([]);
+    return;
+  }
+
+  if (el){
+    if (!linhas.length){
+      el.classList.remove('hidden');
+      el.innerHTML = '<span class="vazio">nenhum recorde ainda — o primeiro é seu</span>';
+    } else {
+      el.classList.remove('hidden');
+      el.innerHTML = '<span class="rot">recordes</span>' + linhas.map(i =>
+        `<div class="linha"><b>${NIVEIS[i.nivel]?.nome || i.nivel}</b>` +
+        `<span>${escapar(i.nome)}</span><i>${i.pontos}</i></div>`).join('');
+    }
+  }
+  menu3d.pintarRecordes3D(linhas.map(i =>
+    `${NIVEIS[i.nivel]?.nome || i.nivel}: ${i.nome} — ${i.pontos}`));
+}
+
+/** O nome vem do banco, e o banco recebe o que o jogador digitou. Não é
+ *  desconfiança de quem joga: é que `innerHTML` com texto de terceiro é a
+ *  porta de XSS mais batida que existe, e o custo de fechá-la é esta função. */
+function escapar(s){
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
 /** Detecção de suporte a VR (RF14/RF15): o botão só aparece se houver

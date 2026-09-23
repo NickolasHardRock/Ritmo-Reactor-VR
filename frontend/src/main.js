@@ -28,7 +28,10 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar,
          pularTutorial, abandonar } from './fases.js';
-import { musica, Musica } from './musica.js';
+import { musica, Musica, idDaCarta } from './musica.js';
+import { confirmarNome, garantirRegistro, esperandoNome,
+         registrarPartida } from './registro.js';
+import { buscarMelhores } from './api.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
@@ -37,7 +40,8 @@ import { NIVEIS, nivelAtual, definirNivel, cartaAgora,
          PECAS_SEM, jogaveisAgora } from './config.js';
 import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
          statusXR, falhaCarregamento, progressoCarregamento,
-         telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
+         telaResultado, calibragem3D, esconderResultado3D,
+         pintarRecordes } from './ui.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -146,6 +150,11 @@ renderer.domElement.addEventListener('pointerup', e => {
    da partida continua de onde estava: aí a partida existe, e interrompê-la
    seria o defeito simétrico. */
 renderer.xr.addEventListener('sessionstart', () => {
+  /* Um recorde esperando nome não sobrevive à troca de modo: a tela que o
+     estava mostrando sai de cena aqui. Grava agora, com o que estiver
+     escrito. Sem isto a partida ficaria pendurada até a próxima conclusão,
+     que a descartaria. */
+  sairDoResultado();
   orbit.enabled = false;
   $('tela-inicio').classList.add('hidden');
   $('tela-fim').classList.add('hidden');
@@ -158,6 +167,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   menu3d.revisar();
 });
 renderer.xr.addEventListener('sessionend', () => {
+  sairDoResultado();              // mesma razão do `sessionstart`
   orbit.enabled = true;
   molduraDesktop();
   menu3d.revisar();              // fora do VR nada disto se desenha
@@ -305,10 +315,66 @@ $('btn-livre').onclick = () => iniciar(true);
    não antes de o jogo começar. O caminho `iniciar(false, true)` continua no
    código, exposto em `window.__jogo` para os testes. */
 $('btn-pular').onclick = () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); };
-$('btn-again').onclick = () => iniciar(false);
+/* `sairDoResultado` antes dos dois: se havia um recorde esperando nome, ele é
+   gravado agora, com o último nome conhecido. A partida já aconteceu — RN07
+   manda registrar, e apertar "Jogar novamente" não é desistir dela. */
+$('btn-again').onclick = () => { sairDoResultado(); iniciar(false); };
 /* `esconderResultado3D` junto: o placar 3D não some com a tela de HTML, e
    quem voltasse ao menu depois de uma partida o deixava pendurado no ar. */
-$('btn-menu').onclick  = () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); };
+$('btn-menu').onclick  = () => {
+  sairDoResultado();
+  jogo.ativo = false; esconderResultado3D(); telaInicio();
+};
+
+/* ------------------------------------------- o nome do recorde (RN09) -----
+   O pedido aparece nos dois lugares — `<input>` na tela, teclado 3D no
+   headset — e os dois desembocam na MESMA função do `registro.js`. Como em
+   todo o resto deste arquivo: dois jeitos de apertar, um caminho só. */
+function gravarNome(nome){
+  Promise.resolve(confirmarNome(nome)).then(atualizarRecordes);
+}
+
+/** O que está escrito AGORA, no campo que o jogador está enxergando. Dentro
+ *  do headset o `<input>` é invisível, então o que vale é o visor do teclado
+ *  3D — e no monitor é o contrário. Ambos são lidos porque a sessão de VR
+ *  pode ter começado no meio do pedido. */
+function nomeNaTela(){
+  const naTela = ($('f-nome')?.value || '').trim();
+  const noVR   = menu3d.nomeDigitado();
+  return renderer.xr.isPresenting ? (noVR || naTela) : (naTela || noVR);
+}
+
+/** Fechar a tela de resultado sem apertar GRAVAR. A partida pendente é
+ *  registrada de qualquer forma (RN07) — mas se havia algo digitado, é esse
+ *  nome que vale. Jogar fora um nome que a pessoa acabou de escrever, só
+ *  porque ela apertou "Jogar novamente" em vez de "Gravar", seria a pior
+ *  leitura possível do que ela quis. */
+function sairDoResultado(){
+  const digitado = nomeNaTela();
+  Promise.resolve(digitado ? confirmarNome(digitado) : garantirRegistro())
+    .then(atualizarRecordes);
+}
+
+/** "Agora não", no teclado 3D. Diferente de sair pelos outros botões: aqui o
+ *  jogador disse explicitamente que não quer pôr o nome, então o que estiver
+ *  no visor é descartado e a partida vai com o último nome conhecido. */
+function recusarNome(){
+  Promise.resolve(garantirRegistro()).then(atualizarRecordes);
+}
+$('btn-nome-salvar').onclick = () => gravarNome($('f-nome').value);
+$('f-nome').addEventListener('keydown', (e) => {
+  /* Enter grava. Num campo solto, sem `<form>`, isso não vem de graça — e é
+     o que a mão faz sozinha depois de digitar um nome. */
+  if (e.key === 'Enter'){ e.preventDefault(); gravarNome($('f-nome').value); }
+});
+
+/* A lista de recordes da abertura (RN08). Pedida quando a carta muda e
+   quando uma gravação acontece; silenciosa se a API não responder — a tela
+   inicial não é lugar para anunciar falha de rede. */
+async function atualizarRecordes(){
+  const id = idDaCarta(cartaAgora(NIVEIS[nivelAtual()]));
+  pintarRecordes(await buscarMelhores(id));
+}
 $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); };
 
 /* ------------------------------------------- os mesmos botões, em 3D -----
@@ -325,8 +391,13 @@ menu3d.definirAcoes({
   fecharCal: () => fecharAjustes(),
   pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
   sair:     () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); },
-  denovo:   () => iniciar(false),
-  menu:     () => { jogo.ativo = false; esconderResultado3D(); telaInicio(); },
+  denovo:   () => { sairDoResultado(); iniciar(false); },
+  menu:     () => { sairDoResultado(); jogo.ativo = false;
+                    esconderResultado3D(); telaInicio(); },
+  /* O teclado 3D do recorde. `nomeOk` entrega o que está no visor;
+     `nomeCancelar` não joga a partida fora — grava com o último nome. */
+  nomeOk:       (n) => gravarNome(n),
+  nomeCancelar: ()  => recusarNome(),
 });
 /* A lista de níveis sai de `NIVEIS`, não de uma cópia à mão: mesmo contrato
    do `pintarNivel` e dos ids `btn-nivel-<chave>` no HTML. */
@@ -504,6 +575,11 @@ function lerCarta(){
       synth.definirKit(c.kit || null);
     })
     .catch(() => {});
+  /* Trocar de nível pode trocar de carta, e o recorde é POR carta e POR
+     nível: a lista da abertura tem de acompanhar. Vai junto do `lerCarta`
+     pela mesma razão que ele existe — é o único ponto em que a carta corrente
+     muda. */
+  atualizarRecordes();
 }
 
 pintarNivel();
@@ -542,6 +618,11 @@ window.__jogo = {
      `menu3d.mostrar('menu')` desenha os painéis no monitor, para conferir
      texto e alinhamento; `ajustarVisao` mostra de fora que quem se move é o
      jogador, e não a bateria. */
+  /* RN09 exposto para o teste: o pedido de nome só aparece quando a partida
+     bate o recorde, e chegar lá jogando de verdade levaria a música inteira
+     três vezes. `esperandoNome()` diz se a tela está esperando alguém
+     digitar. */
+  registrarPartida, confirmarNome, garantirRegistro, esperandoNome,
   menu3d, ajustarVisao, ajustarAvanco,
   /* A transição de luz é movida pelo `dt` do laço, e laço de render para
      quando a aba perde o foco. Expor as duas permite conferir o fade

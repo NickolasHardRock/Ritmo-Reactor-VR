@@ -45,6 +45,11 @@
       <button class="txt" id="btn-ajustes">Ajustes</button>
     </div>
 
+    <!-- RN08 — o melhor jogador de CADA dificuldade nesta música. Preenchido
+         pelo main.js quando a API responde; fica escondido quando ela não
+         responde, porque uma lista vazia com título é pior que nada. -->
+    <div class="recordes hidden" id="inicio-recordes"></div>
+
     <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
     <p class="faixa" id="inicio-creditos"></p>
     <div class="credits">
@@ -106,6 +111,22 @@
       <tr><td>Erradas / perdidas</td><td id="f-erro">0</td></tr>
       <tr><td>Persistência (RF11/RF12)</td><td id="f-api">API não configurada</td></tr>
     </table>
+
+    <!-- RN09 — SÓ APARECE NO RECORDE. Quem decide é o registro.js, depois de
+         perguntar à API qual é a marca desta música nesta dificuldade. Toda
+         partida concluída é gravada de qualquer jeito; o que se pede aqui é
+         o nome de quem vai ficar no topo. O gêmeo em 3D está no menu3d.js —
+         dentro do headset um <input> não existe. -->
+    <div id="fim-nome" class="hidden">
+      <div class="tag ouro">novo recorde</div>
+      <p class="sub" id="fim-nome-ant"></p>
+      <div class="row">
+        <input id="f-nome" type="text" maxlength="60" autocomplete="off"
+               spellcheck="false" placeholder="seu nome" aria-label="Nome do jogador">
+        <button id="btn-nome-salvar">Gravar</button>
+      </div>
+    </div>
+
     <div class="row">
       <button id="btn-again">Jogar novamente</button>
       <button class="ghost" id="btn-menu">Menu</button>

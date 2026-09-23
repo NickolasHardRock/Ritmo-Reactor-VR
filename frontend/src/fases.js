@@ -24,7 +24,7 @@ import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo,
          telaJogando, telaResultado, telaInicio, mostrarCreditos,
          esconderResultado3D, avisoCentro, mostrarPular } from './ui.js';
-import { enviarResultado } from './api.js';
+import { registrarPartida, garantirRegistro } from './registro.js';
 import { baterPeca, acalmarBalanco } from './balanco.js';
 import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
          valorDaJogada } from './pontuacao.js';
@@ -475,6 +475,13 @@ function proximaFase(){
  *         sala. Uma partida assim NÃO vai para o ranking: ela pulou dois
  *         terços do jogo e a pontuação não é comparável com as completas. */
 export function iniciar(livre = false, direto = false){
+  /* PRIMEIRA COISA, antes de zerar o estado: se a partida anterior bateu um
+     recorde e ficou esperando alguém digitar o nome, ela é gravada agora, com
+     o último nome conhecido. RN07 diz que partida concluída é registrada, e
+     começar outra não é desistir da anterior. Isto cobre todos os caminhos de
+     entrada — o botão da tela, o botão 3D, e entrar ou sair do VR —, e não só
+     os que passam pelo `main.js`. */
+  garantirRegistro();
   reiniciarEstado(livre, direto);
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
@@ -548,6 +555,9 @@ export function concluir(){
   /* RN07: só depois de concluída. E TODA partida concluída entra — inclusive
      a de quem pulou o tutorial. Até 07/09 o atalho ficava fora, porque era
      chave de teste; desde que o Pular passou a ser parte do fluxo, excluí-lo
-     deixaria o ranking quase vazio. Ver docs/testes.md. */
-  enviarResultado();
+     deixaria o ranking quase vazio. Ver docs/testes.md.
+
+     RN09: quem decide se a tela vai parar para pedir o nome é o
+     `registro.js` — aqui a partida só é entregue a ele. */
+  registrarPartida();
 }
