@@ -16,7 +16,6 @@ import { painelHUD, painelObj, painelCentro, flash, flashEstado,
 import { multiplicador, progressoDoDegrau, estrelas,
          estrelasEmTexto, veredito } from './pontuacao.js';
 import { musica } from './musica.js';
-import { NIVEIS } from './config.js';
 /* As três telas de HTML têm agora uma contraparte em 3D, para quem está de
    headset. Elas são trocadas SEMPRE JUNTAS, daqui — foi a lição do teste de
    08/09, em que o jogador de VR caía numa partida sem ter visto menu nenhum e
@@ -25,6 +24,9 @@ import * as menu3d from './menu3d.js';
 
 export const $ = id => document.getElementById(id);
 const mostrar = (id, v) => $(id).classList.toggle('hidden', !v);
+/** O campo do nome só existe fora da partida: durante ela cobriria o HUD, e
+ *  digitar no meio da música competiria com as teclas dos tambores. */
+const mostrarNome = (v) => { const e = $('nome-wrap'); if (e) e.classList.toggle('hidden', !v); };
 
 /* ------------------------------------------------------------ avisos ----- */
 let _tMsg;
@@ -66,8 +68,11 @@ export function atualizarHUD(){
      é a informação de momento que o jogador precisa: quantos acertos faltam
      para dobrar. */
   $('mult-i').style.width   = (progressoDoDegrau(jogo.combo) * 100) + '%';
+  /* No modo livre o HUD diz O QUE ESTÁ TOCANDO, quando há faixa. É a única
+     informação de estado que sobra ali: não há fase, não há nota e a
+     precisão não significa nada quando ninguém está julgando. */
   $('h-fase').textContent   = jogo.livre
-    ? 'Modo livre'
+    ? (jogo.trilha ? `Modo livre — ♪ ${jogo.trilha}` : 'Modo livre')
     : `Fase ${jogo.fase + 1}/3 — ${FASES[jogo.fase].nome}`;
 
   painelHUD.userData.pintar(
@@ -87,15 +92,49 @@ export function objetivo(txt, cor = '#e8eef8'){
 export function esconderResultado3D(){
   painelCentro.visible = false;
   /* Os botões do resultado moram fora do painel e não somem com ele. E o
-     teclado do nome também é "tela de fim": sair para outra partida com ele
-     aberto deixaria as letras pairando sobre a bateria. */
+     teclado do nome (RN09) também é "tela de fim": sair para outra partida
+     com ele aberto deixaria as letras pairando sobre a bateria. */
   const t = menu3d.telaAtual();
   if (t === 'fim' || t === 'nome') menu3d.mostrar(null);
-  /* O bloco de HTML do nome vive DENTRO de `#tela-fim`, então ele some junto
-     com a tela — mas a classe fica. Limpar aqui evita que ele reapareça na
-     próxima vez que a tela de resultado abrir. Quem ainda deve uma gravação
-     é problema do `registro.js`; aqui só se apaga o que está desenhado. */
-  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
+}
+
+/* ===================== O NOME DE QUEM FEZ O RECORDE ======================
+   RN09. Só aparece quando a partida bateu a melhor marca daquela música
+   naquele nível — a decisão é do `registro.js`, aqui só se desenha.
+
+   NÃO HÁ VERSÃO EM HTML, e isso é de propósito. Desde 16/09 o painel 3D é a
+   tela padrão também no monitor (`menu3d.painelAtivoForaDoVR`), clicado com
+   o mouse; um `<input>` por cima dele seria o segundo card cobrindo o
+   primeiro, que é justamente o que aquela mudança desfez. O teclado 3D serve
+   os dois: mouse no PC, ponteiro no headset — e, no PC, o teclado de verdade
+   também escreve nele (ver menu3d.js).
+
+   O `?menu2d=1` não passa por aqui: naquele modo o campo `#fim-nome` do card
+   antigo continua fazendo o papel, como sempre fez.                        */
+
+/** @param {{pontos:number, nivel:string, anterior:object|null,
+ *           sugestao:string}} info
+ *  @returns {boolean} false quando não havia mais tela de resultado para
+ *           receber o pedido — quem chamou grava sem perguntar. */
+export function pedirNome(info){
+  /* A CONSULTA AO RECORDE É ASSÍNCRONA e a resposta pode chegar depois de o
+     jogador já ter saído dali: começado outra partida, voltado ao menu,
+     entrado no VR. Abrir o teclado nessa hora poria 40 teclas por cima da
+     bateria no meio da música seguinte. */
+  if (menu3d.telaAtual() !== 'fim') return false;
+  /* O placar 3D sai de cena enquanto se digita: o painel do resultado ocupa
+     de y=1,20 a 2,24, que é exatamente onde o teclado cabe. O texto continua
+     pintado e volta intacto quando o pedido fecha. */
+  painelCentro.visible = false;
+  menu3d.pedirNome3D(info);
+  return true;
+}
+
+export function fecharPedidoDeNome(){
+  if (menu3d.telaAtual() === 'nome'){
+    painelCentro.visible = true;      // o placar continua pintado
+    menu3d.mostrar('fim');
+  }
 }
 
 /** Desenha a calibragem no painel central, para quem está no headset.
@@ -193,16 +232,48 @@ export function mostrarSair(v){
 }
 
 export function telaJogando(){
+  mostrarNome(false);
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
+  mostrar('tela-livre', false);
   mostrar('hud', true);
   mostrar('teclas', true);
   mostrarSair(true);
   menu3d.mostrar('jogo');
 }
-export function telaInicio(){
+
+/** A LISTA DO MODO LIVRE. Mais um menu, e não uma tela de partida: dá para
+ *  chegar aqui do menu principal (escolhendo o modo livre) e também do FIM de
+ *  uma faixa, com a partida livre ainda em curso — quem acabou de tocar uma
+ *  costuma querer outra.
+ *
+ *  Por isso o SAIR de partida sai daqui: a lista tem a saída dela, que serve
+ *  aos dois casos (ver `voltarDaLista` no main.js). Dois botões de sair na
+ *  mesma tela, um deles fora do alcance do controle, seria pior que um. */
+export function telaLivre(){
+  mostrarNome(true);
+  mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
-  mostrar('tela-inicio', true);
+  /* Com o painel 3D no comando (padrão fora do VR desde 16/09 — ver
+     `menu3d.painelAtivoForaDoVR`), o card de HTML fica escondido: os dois
+     cobrem a tela inteira, e mostrar os dois só esconderia um atrás do
+     outro. `?menu2d=1` na URL volta a mostrar este card. */
+  mostrar('tela-livre', !menu3d.painelAtivoForaDoVR());
+  mostrar('hud', false);
+  mostrar('teclas', false);
+  mostrarPular(false);
+  mostrarSair(false);
+  avisoCentro(null);
+  menu3d.mostrar('livre');
+}
+
+export function telaInicio(){
+  mostrarNome(true);
+  mostrar('tela-fim', false);
+  mostrar('tela-livre', false);
+  /* Mesma regra de `telaLivre`: o card de HTML só aparece quando o painel
+     3D NÃO está no comando (`?menu2d=1`). */
+  mostrar('tela-inicio', !menu3d.painelAtivoForaDoVR());
   mostrar('hud', false);
   mostrar('teclas', false);
   /* Voltar ao menu tem de limpar o que era da partida: sem isto o "Pular" e a
@@ -214,7 +285,12 @@ export function telaInicio(){
 }
 export function telaCarregada(){
   mostrar('load', false);
-  mostrar('tela-inicio', true);
+  /* Passa por `telaInicio()` e não liga o card de HTML à mão: com o painel 3D
+     no comando (o padrão fora do VR desde 16/09) o card fica escondido e o
+     menu 3D abre — antes daqui o jogador de PC abria o jogo no card antigo, com
+     JOGAR iniciando direto na música padrão, e nunca via a escolha de música
+     nem o top 3. Com `?menu2d=1` o resultado é o mesmo de sempre: o card. */
+  telaInicio();
 }
 
 /** RF10 — pontuação, resultado, tempo e opção de jogar de novo. */
@@ -230,13 +306,17 @@ export function mostrarCreditos(){
   }
 }
 
-export function telaResultado(){
-  /* O pedido de nome da partida ANTERIOR, se ainda estiver na tela. Ele é
-     fechado por todos os caminhos de saída, mas esta tela é desenhada uma vez
-     por partida e é o lugar certo para garantir que começa limpa — um "novo
-     recorde" herdado da partida passada seria mentira na cara do jogador. */
-  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
+/** Verdadeiro quando NEM o VR nem o painel 3D (o padrão fora dele, desde
+ *  16/09) estão cuidando da tela — só nesse caso o card de HTML existe, e só
+ *  nesse caso há campo de nome para o jogador editar. `fases.js` usa isto
+ *  para decidir SE `concluir()` já envia a partida sozinho ou se deixa a
+ *  decisão para o clique em "Salvar nome" (ver `api.js` -> `enviarResultadoUmaVez`). */
+export function card2DAtivo(){
+  return !renderer.xr.isPresenting && !menu3d.painelAtivoForaDoVR();
+}
 
+export function telaResultado(){
+  mostrarNome(true);
   const prec = precisao();
   const n    = estrelas(prec);
   const v    = veredito(n);
@@ -260,6 +340,18 @@ export function telaResultado(){
 
   $('fim-sub').textContent = `Precisão de ${prec}%. ${v.sub}`;
 
+  /* Pré-preenche com o último nome salvo. Lido direto do `localStorage` em
+     vez de importar `nomeJogador` de `api.js` de propósito: `api.js` já
+     importa `statusApi` DESTE arquivo, e fechar o ciclo ui↔api por um
+     detalhe de exibição não vale o risco (ver a mesma cautela em main.js,
+     no comentário sobre `menu3d` não importar `fases.js`). */
+  const nomeCampo = $('fim-nome');
+  if (nomeCampo){
+    try { nomeCampo.value = localStorage.getItem('nome') || 'Jogador'; }
+    catch { nomeCampo.value = 'Jogador'; }
+  }
+  const botaoNome = $('btn-salvar-nome');
+  if (botaoNome){ botaoNome.disabled = false; botaoNome.textContent = 'Salvar nome'; }
   objetivo(`${estrelasEmTexto(n)}  ${prec}%`,
            n >= 4 ? '#3ddc97' : n >= 2 ? '#00d9ff' : '#ffb84d');
 
@@ -297,10 +389,14 @@ export function telaResultado(){
   mostrarSair(false);
   menu3d.mostrar('fim');
 
-  if (!renderer.xr.isPresenting){
+  /* A versão HTML só aparece quando nem o VR nem o painel 3D (o padrão fora
+     dele, desde 16/09) estão cuidando do resultado — senão fica um card
+     cobrindo o outro. `hud`/`teclas` somem de qualquer forma: a partida
+     acabou nos dois casos. */
+  mostrar('hud', false);
+  mostrar('teclas', false);
+  if (card2DAtivo()){
     mostrar('tela-fim', true);
-    mostrar('hud', false);
-    mostrar('teclas', false);
   }
 }
 
@@ -308,107 +404,6 @@ export function telaResultado(){
 export function statusApi(texto, cor){
   $('f-api').textContent = texto;
   $('f-api').style.color = cor;
-}
-
-/* ===================== O NOME DE QUEM FEZ O RECORDE ======================
-   RN09. Só aparece quando a partida bateu a melhor marca da música naquela
-   dificuldade — a decisão é do `registro.js`, aqui só se desenha.
-
-   NOS DOIS LUGARES, pela mesma razão de sempre: o `<input>` não existe
-   dentro do headset. Lá o pedido é um teclado 3D (menu3d.js), apontado com
-   o controle. Sem ele, quem jogasse de óculos faria o recorde e veria o
-   jogo gravar com o nome de outra pessoa — a última que digitou no monitor.
-
-   O PLACAR 3D SAI DE CENA enquanto se digita. O painel do resultado ocupa
-   de y=1,20 a 2,24 e é exatamente onde o teclado cabe; deixar os dois
-   ligados deixaria as teclas atravessadas pelas estrelas. O texto do
-   resultado continua pintado e volta intacto quando o pedido fecha.       */
-
-/** @param {{pontos:number, nivel:string, anterior:object|null,
- *           sugestao:string}} info
- *  @returns {boolean} false quando não havia mais tela de resultado para
- *           receber o pedido — quem chamou grava sem perguntar. */
-export function pedirNome(info){
-  /* A CONSULTA AO RECORDE É ASSÍNCRONA e a resposta pode chegar depois de o
-     jogador já ter saído dali: começado outra partida, voltado ao menu,
-     entrado no VR. Abrir o pedido nessa hora poria 42 teclas 3D por cima da
-     bateria no meio da música seguinte. A tela de resultado é a única em que
-     este pedido faz sentido, então ela é a condição. */
-  if (menu3d.telaAtual() !== 'fim') return false;
-
-  const bloco = $('fim-nome');
-  const ant   = info.anterior
-    ? `Recorde anterior: ${info.anterior.nome} — ${info.anterior.pontos} pts`
-    : 'Primeiro recorde desta dificuldade';
-  const el = $('fim-nome-ant'); if (el) el.textContent = ant;
-
-  const inp = $('f-nome');
-  if (inp){
-    inp.value = info.sugestao || '';
-    /* Foco só fora do VR: dentro do headset o `<input>` nem existe, e pedir
-       foco a um elemento invisível é o tipo de chamada que alguns
-       navegadores respondem rolando a página. */
-    if (!renderer.xr.isPresenting) setTimeout(() => inp.focus(), 60);
-  }
-  if (bloco) bloco.classList.remove('hidden');
-
-  painelCentro.visible = false;
-  menu3d.pedirNome3D({ ...info, anteriorTexto: ant });
-  return true;
-}
-
-export function fecharPedidoDeNome(){
-  const bloco = $('fim-nome'); if (bloco) bloco.classList.add('hidden');
-  if (menu3d.telaAtual() === 'nome'){
-    painelCentro.visible = true;      // o placar continua pintado
-    menu3d.mostrar('fim');
-  }
-}
-
-/* ========================= RANKING NA ABERTURA ===========================
-   RN08. Uma linha por dificuldade: quem manda em cada uma. Não é a lista
-   longa de propósito — o que interessa antes de jogar é a marca a bater no
-   nível que se vai escolher, e três linhas cabem na tela inicial sem
-   empurrar o botão JOGAR para fora dela.                                   */
-
-/** @param {Array|null} itens `null` = API fora do ar (não escreve nada) */
-export function pintarRecordes(itens){
-  const el = $('inicio-recordes');
-  const ordem = Object.keys(NIVEIS);
-  const linhas = (itens || [])
-    .filter(i => i && i.nome)
-    .sort((a, b) => ordem.indexOf(a.nivel) - ordem.indexOf(b.nivel));
-
-  /* API fora do ar: some nos DOIS lugares. Sair cedo aqui deixava a placa 3D
-     do menu com os recordes da consulta anterior para sempre — e recorde
-     velho pendurado é pior que nenhum. */
-  if (!itens){
-    if (el){ el.classList.add('hidden'); el.innerHTML = ''; }
-    menu3d.pintarRecordes3D([]);
-    return;
-  }
-
-  if (el){
-    if (!linhas.length){
-      el.classList.remove('hidden');
-      el.innerHTML = '<span class="vazio">nenhum recorde ainda — o primeiro é seu</span>';
-    } else {
-      el.classList.remove('hidden');
-      el.innerHTML = '<span class="rot">recordes</span>' + linhas.map(i =>
-        `<div class="linha"><b>${NIVEIS[i.nivel]?.nome || i.nivel}</b>` +
-        `<span>${escapar(i.nome)}</span><i>${i.pontos}</i></div>`).join('');
-    }
-  }
-  menu3d.pintarRecordes3D(linhas.map(i =>
-    `${NIVEIS[i.nivel]?.nome || i.nivel}: ${i.nome} — ${i.pontos}`));
-}
-
-/** O nome vem do banco, e o banco recebe o que o jogador digitou. Não é
- *  desconfiança de quem joga: é que `innerHTML` com texto de terceiro é a
- *  porta de XSS mais batida que existe, e o custo de fechá-la é esta função. */
-function escapar(s){
-  return String(s).replace(/[&<>"']/g, c => (
-    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
 /** Detecção de suporte a VR (RF14/RF15): o botão só aparece se houver

@@ -1,0 +1,329 @@
+diff --git a/.gitignore b/.gitignore
+index 6b27757..407bec1 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -39,6 +39,13 @@ frontend/public/sounds/som.mp3
+ # A carta dela tambem fica fora: descreve o arranjo nota por nota.
+ frontend/public/cartas/money*.json
+ 
++# Rock You Like A Hurricane (Scorpions): faixas do modo livre SEM direito de
++# distribuicao (regra de trabalho do CLAUDE.md, mesmo caso do som.mp3 acima).
++# JA ESTAO no historico do Git — ver nota de 16/09 em CLAUDE.md — mas pelo
++# menos nao entram DE NOVO num commit futuro por engano.
++frontend/public/sounds/livre/rock-you-like-a-hurricane.mp3
++frontend/public/sounds/livre/rock-you-like-a-hurricane-vocal.mp3
++
+ # Diesel13 'Colour Me Red' ENTRA no repositorio, por decisao do Diego.
+ # O Readme do pacote diz "educational purposes only" e veta uso comercial
+ # sem permissao -- e este trabalho e academico e nao comercial. O que sobe
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 678c939..c67d3e6 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -187,4 +187,13 @@ então as sete malhas não custam sete chamadas fixas.
+   inicial. `frontend/public/sounds/som.mp3` e as cartas derivadas dele não
+   têm — ficam só na máquina de quem trabalha com eles. O `.gitignore` já
+   cobre os dois (`sounds/som.mp3` e `cartas/money*.json`); não desfaça isso.
++- **16/09 — as faixas do Scorpions já estavam commitadas.**
++  `frontend/public/sounds/livre/rock-you-like-a-hurricane.mp3` e a
++  `-vocal.mp3` (mixagem sem bateria, usada em `trilhas.json` e agora também
++  na carta `rock-you-like-a-hurricane.json`) entraram no repositório antes
++  de existir este documento — e não deveriam, pela regra do item acima: é
++  áudio comercial sem licença, mesmo caso do `som.mp3`. Adicionei as duas ao
++  `.gitignore` para não piorar, mas elas continuam no HISTÓRICO até alguém
++  (o Diego) decidir reescrever ou aceitar o risco. Ver `git log --all --
++  frontend/public/sounds/livre/`.
+ - Antes de dizer que algo está certo, rode. `node --check` só vê sintaxe.
+diff --git a/frontend/src/config.js b/frontend/src/config.js
+index 34ceb59..8eabf9d 100644
+--- a/frontend/src/config.js
++++ b/frontend/src/config.js
+@@ -152,9 +152,26 @@ function grausDaURL(chave, padrao){
+ }
+ 
+ export const BAQUETA = {
+-  /* 38 cm é baqueta 5A de verdade (a medida real é 40,6 cm; os 2 cm a menos
+-     descontam a parte que fica dentro da mão). */
+-  comprimento: 0.38,
++  /* 46 cm. NÃO é mais uma 5A de verdade — era 0,38 (uma 5A de 40,6 cm menos
++     os 2 cm que ficam dentro da mão), e cresceu 8 cm em 15/09 para pagar o
++     novo POSTO: 6 cm de recuo (z 0,50 → 0,56) MAIS 8 cm de elevação
++     (y 0 → 0,08), que também afastam o ombro das peças. Ver o comentário do
++     POSTO em cena.js para a conta; o líquido é o pior caso (o ride) ficando
++     0,6 cm mais longe do que hoje, ou seja, neutro.
++
++     ELEVAR CUSTA ALCANCE QUASE TANTO QUANTO RECUAR. Se um dia alguém mexer só
++     no `y` achando que altura é de graça, é aqui que a conta estoura.
++
++     O TAMANHO REAL PASSOU DE QUALQUER BAQUETA COMERCIAL (uma 2B dá 40,6 cm;
++     marching vai a 43), e isso é escolha consciente: baqueta comprida demais
++     fica estranha na mão, mas fica MENOS estranha do que esticar o ombro para
++     chegar no prato. Se um dia o POSTO voltar para 0,50 / y 0, este número
++     volta para 0,38 junto — os três só fazem sentido em conjunto.
++
++     MUDAR AQUI JÁ MUDA A DETECÇÃO, sem mais nada: `deteccao.js` lê a posição
++     de `b.ponta`, que mora em `z = −comprimento` (kit.js), e o modelo .glb é
++     escalado pelo mesmo valor. Não existe segundo lugar para ajustar. */
++  comprimento: 0.46,
+   /* Pendura no punho. `?punho=0` volta para o raio de mira. */
+   usarPunho: new URLSearchParams(location.search).get('punho') !== '0',
+   /* Graus. Positivo = ponta para BAIXO. */
+@@ -165,6 +182,16 @@ export const BAQUETA = {
+      que já aponta mais para baixo que a mão. Chute honesto: só serve de
+      ponto de partida, e só é usado no caminho de exceção. */
+   compensacaoDoRaio: 15,
++
++  /* O MODELO 3D. `?baqueta=0` na URL volta para o cilindro + esfera
++     geométricos de antes — saída de emergência se o .glb não carregar bem
++     em algum aparelho.
++     `urlModelo` já vem NORMALIZADO: 1 metro de escala = `comprimento`
++     inteiro, cabo (mais grosso, com o pomo) na origem e ponta (afilada) em
++     z = −1. É por isso que basta `scale.setScalar(comprimento)` em kit.js —
++     nenhum ajuste de posição ou rotação extra.                            */
++  usarModelo: new URLSearchParams(location.search).get('baqueta') !== '0',
++  urlModelo: 'modelos/baqueta.glb',
+ };
+ 
+ /* --------------------------------------------------------- A CARTA -------
+@@ -193,7 +220,8 @@ export const CARTA_PEDIDA = (() => {
+ 
+ const caminhoCarta = (nome) => `cartas/${nome}.json`;
+ 
+-/** A carta que vale agora. Precedencia: `?carta=` > carta do nivel > padrao.
++/** A carta que vale agora. Precedencia: `?carta=` > carta do nivel > musica
++ *  escolhida no carrossel > padrao.
+  *
+  *  POR QUE O NIVEL PODE ESCOLHER A CARTA. Ate aqui o nivel so mexia em QUAIS
+  *  pecas o jogador toca e em quao larga e a janela — e isso nao basta para um
+@@ -203,10 +231,24 @@ const caminhoCarta = (nome) => `cartas/${nome}.json`;
+  *  `colour-me-red-cheio`: mesma musica, mesmo recorte, mesmo kit, mas com as
+  *  sete pecas na parte do jogador.
+  *
+- *  @param {{carta?:string}} [nivel] o nivel corrente (NIVEIS[nivelAtual()]) */
+-export function cartaAgora(nivel){
++ *  ESSE OVERRIDE SO VALE PARA A MUSICA QUE ELE FOI PENSADO — e essa e a
++ *  ressalva que faltava antes de existir uma segunda musica jogavel. Sem a
++ *  guarda abaixo, escolher "Rock You Like A Hurricane" no carrossel e depois
++ *  o nivel Profissa carregaria a `colour-me-red-cheio` por baixo dos panos —
++ *  a musica que a tela mostra deixaria de ser a que toca, silenciosamente.
++ *  `nivel.carta` so vence quando a musica escolhida e a mesma para quem
++ *  aquele override foi escrito (a padrao, hoje); qualquer outra musica cai
++ *  para a carta dela mesma, e o Profissa vira "Normal com janela mais
++ *  apertada" ate existir uma `-cheio` para ela tambem.
++ *
++ *  @param {{carta?:string}} [nivel] o nivel corrente (NIVEIS[nivelAtual()])
++ *  @param {string} [cartaMusica] o campo `carta` da musica escolhida no
++ *         carrossel (menu3d.js), quando houver uma */
++export function cartaAgora(nivel, cartaMusica){
+   if (CARTA_PEDIDA) return caminhoCarta(CARTA_PEDIDA);
+-  return caminhoCarta((nivel && nivel.carta) || CARTA_PADRAO);
++  const overrideValeParaEstaMusica = !cartaMusica || cartaMusica === CARTA_PADRAO;
++  if (nivel && nivel.carta && overrideValeParaEstaMusica) return caminhoCarta(nivel.carta);
++  return caminhoCarta(cartaMusica || CARTA_PADRAO);
+ }
+ 
+ 
+@@ -453,6 +495,50 @@ export const AMBIENTE = {
+   corDoCeu: 0x2a3446,
+ };
+ 
++/* ------------------------------------------------------------ O CÉU ------
++   Uma esfera GIGANTE e emissiva ao redor de toda a cena, com uma textura de
++   céu estrelado. "Emissiva" é a palavra que importa: o material não reage a
++   luz nenhuma, e por isso aparece com o MESMO brilho no tutorial (claro) e
++   no show (escuro) — sem isso, a transição de luz escureceria as estrelas
++   junto com o resto.
++
++   O RAIO fica dentro do `far` da câmera (200 m, ver cena.js) para não ser
++   cortado; 150 m sobra folga confortável. Ela também sai da névoa
++   (`material.fog = false`, aplicado em cena.js): a névoa vai de 16 a 40 m,
++   e sem essa exceção o céu inteiro assaria na cor da névoa antes de
++   qualquer estrela aparecer.
++
++   ESTE NÚMERO SÓ PASSOU A SER METROS AGORA. Até então `carregarCeu()` media
++   o modelo com `Box3.getBoundingSphere()`, que devolve a diagonal da caixa e
++   não o raio da esfera — um fator √3 a mais (ver o comentário lá). Na prática
++   `raio: 45` produzia uma bolha de 26 m. O 150 daqui é 150 m de verdade; não
++   compare com o 45 antigo como se fossem a mesma unidade.
++
++   POR QUE AUMENTAR, SE ESFERA NÃO TEM TAMANHO APARENTE. Uma esfera centrada
++   no olho ocupa o MESMO ângulo em qualquer raio — o raio sozinho não muda um
++   pixel. O que muda é o DESCENTRAMENTO: o céu nasce na origem e o jogador
++   fica em `CENARIO.postoJogador` (2,8 / 0,6) mais o offset da câmera, uns
++   3,5 m fora do centro. Nos 26 m reais isso dava 13,5% do raio, e 13% de
++   assimetria o cérebro lê como "a bolha está logo ali": as estrelas de um
++   lado ficam visivelmente maiores que as do outro e qualquer passo faz o céu
++   deslizar. Em 150 m o mesmo deslocamento cai para 2,3%, abaixo do limiar, e
++   o céu passa a ler como distância.
++
++   SUBIR MAIS NÃO PAGA. O ganho é assintótico — 150 → 300 leva a assimetria
++   de 2,3% para 1,2%, que ninguém vê — e o preço é o `far` da câmera, que
++   mexe na precisão de profundidade da cena inteira.
++
++   NÃO ENTRA NO REFLEXO DO AMBIENTE por acidente nenhum: é só mais um
++   `scene.children`, e `gerarAmbienteDaCena()` já esconde tudo que não é o
++   cenário ou uma luz durante a captura (ver o comentário lá).
++
++   `?ceu=0` na URL volta ao fundo sólido de sempre, sem a esfera.          */
++export const CEU = {
++  ligado: new URLSearchParams(location.search).get('ceu') !== '0',
++  url:  'modelos/ceu.glb',
++  raio: 150,
++};
++
+ /* ---------------------------------------------------- A LUZ DE PALCO -----
+    A `luzChave` era uma `DirectionalLight`: raios paralelos, sem posição real
+    e sem queda com a distância — ilumina o mundo inteiro por igual. Serve para
+diff --git a/frontend/src/fases.js b/frontend/src/fases.js
+index c783734..dbce6a9 100644
+--- a/frontend/src/fases.js
++++ b/frontend/src/fases.js
+@@ -40,6 +40,14 @@ import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
+    batida perfeita inflaria a precisão de quem só chegou até a fase 2.
+ 
+    A regra em si está em `pontuacao.js` (RN04); aqui só se aplica.          */
++/* A carta da MUSICA escolhida no carrossel (menu3d.js → musicas.js), separada
++   do NIVEL (que mora em NIVEIS, config.js). `iniciar()` grava aqui;
++   `ritmoIniciar()` le. Fica em modulo, e nao em `estado.js`, porque so estas
++   duas funcoes precisam dela — e porque precisa SOBREVIVER a `reiniciarEstado`
++   (jogar de novo, RF09 → "denovo", nao pode esquecer qual musica estava
++   tocando so por zerar o placar). */
++let _cartaMusicaEscolhida = null;
++
+ function marcar(qualidade){
+   if (qualidade === ERRADO){
+     jogo.combo = 0;
+@@ -249,10 +257,12 @@ export async function ritmoIniciar(){
+ 
+   let recorte;
+   try {
+-    /* A carta sai do NÍVEL, não de uma constante: o Profissa toca a
+-       `colour-me-red-cheio`, que é a mesma faixa com as sete peças na parte
+-       do jogador. O `?carta=` continua vencendo os dois (ver `cartaAgora`). */
+-    const carta = await musica.carregarCarta(cartaAgora(nivel));
++    /* A carta sai do NÍVEL ou da MÚSICA escolhida no carrossel, não de uma
++       constante: o Profissa toca a `colour-me-red-cheio` quando a música é a
++       padrão, e cai para a carta da própria música quando é outra (ver a
++       guarda em `cartaAgora`, config.js). O `?carta=` continua vencendo os
++       dois. */
++    const carta = await musica.carregarCarta(cartaAgora(nivel, _cartaMusicaEscolhida));
+     recorte = notasDoRecorte(carta);
+     /* SÓ O NOME DA FAIXA. O painel dizia também quais peças tocar ("— toque
+        só a CAIXA") ou o nome do nível, e isso ocupava a maior parte de uma
+@@ -566,8 +576,16 @@ function proximaFase(){
+  *         terços do jogo e a pontuação não é comparável com as completas.
+  *  @param trilha faixa sem bateria para acompanhar, do modo livre. Só faz
+  *         sentido com `livre`; sem ela o modo livre é o de sempre, a bateria
+- *         solta e nada tocando. Ver `livreIniciar`. */
+-export function iniciar(livre = false, direto = false, trilha = null){
++ *         solta e nada tocando. Ver `livreIniciar`.
++ *  @param cartaMusica o campo `carta` da música escolhida no carrossel do
++ *         Jogar (ver `musicas.js`/`cartaAgora`). `undefined` — e não passar
++ *         o argumento — MANTÉM a música da partida anterior: é o que faz
++ *         "jogar de novo" (RF09 → `denovo`) continuar na mesma música em vez
++ *         de voltar à padrão. `null` explícito é que reseta para a padrão —
++ *         é o que `iniciarComNivel` manda quando ninguém escolheu música
++ *         nenhuma no carrossel. */
++export function iniciar(livre = false, direto = false, trilha = null, cartaMusica){
++  if (cartaMusica !== undefined) _cartaMusicaEscolhida = cartaMusica;
+   reiniciarEstado(livre, direto);
+   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
+   destacar(null);
+diff --git a/frontend/src/main.js b/frontend/src/main.js
+index 4cae284..a61d130 100644
+--- a/frontend/src/main.js
++++ b/frontend/src/main.js
+@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
+ import { jogo, cal, eco, ritmo } from './estado.js';
+ import { scene, camera, renderer, relogio, player,
+          molduraDesktop, molduraVR, registrarOrbit, ajustarVisao, ajustarAvanco,
+-         carregarCenario, gerarAmbienteDaCena, animarLuzes, definirLuz,
++         carregarCenario, carregarCeu, gerarAmbienteDaCena, animarLuzes, definirLuz,
+          painelHUD, painelObj, flash, flashEstado } from './cena.js';
+ import * as menu3d from './menu3d.js';
+ import { carregarBichos } from './bichos.js';
+@@ -39,6 +39,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
+          statusXR, falhaCarregamento, progressoCarregamento,
+          telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
+ import { carregarTrilhas } from './trilhas.js';
++import { carregarMusicas } from './musicas.js';
+ 
+ /* ------------------------------------------------------ carregamento -----
+    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
+@@ -48,6 +49,7 @@ import { carregarTrilhas } from './trilhas.js';
+    cena.js → gerarAmbienteDaCena(). O kit não precisa ter chegado: ele é
+    justamente o que a captura esconde.                                     */
+ carregarCenario(() => gerarAmbienteDaCena());
++carregarCeu();
+ carregarBichos(kit);
+ carregarBateria(
+   (ok) => {
+@@ -220,9 +222,11 @@ renderer.setAnimationLoop(() => {
+ 
+       /* ALAVANCA ESQUERDA ↑↓ APROXIMA E AFASTA — a outra metade da mesma
+          ideia. A direita ajusta a altura desde sempre; faltava a distância,
+-         que é a outra medida de corpo que muda de pessoa para pessoa. O
+-         posto padrão encostou no bumbo em 09/09, então na prática este
+-         ajuste serve para AFASTAR: à frente sobram 3 cm. */
++         que é a outra medida de corpo que muda de pessoa para pessoa.
++         Depois do recuo do POSTO para 0,56 (15/09) o curso deixou de ser
++         quase só para trás: à frente sobram 6 cm, que levam de volta ao
++         posto antigo de 0,50, e atrás sobram 24. Ver `AVANCO_MAX` em
++         cena.js — os dois saem de limites absolutos de z, não de offsets. */
+       if (src.handedness === 'left'){
+         const y = g.axes?.[3] || 0;
+         if (Math.abs(y) > .7 && avancoPronto){
+@@ -324,14 +328,26 @@ $('btn-livre-voltar').onclick = () => voltarDaLista();
+    MESMA função do botão equivalente na tela — o jogo não tem dois caminhos,
+    tem duas maneiras de apertar o mesmo. */
+ menu3d.definirAcoes({
+-  jogar:    () => iniciar(false),
+   livre:    () => abrirLivre(),
+   /* A lista do modo livre, dentro do headset. As três ações são as mesmas
+      que os botões de HTML disparam — o jogo não tem dois caminhos. */
+   livreSemFaixa: () => iniciar(true),
+   trilha:      (id) => { const t = porTrilha(id); if (t) iniciar(true, false, t); },
+   voltarLivre:   () => voltarDaLista(),
+-  nivel:    (chave) => { definirNivel(chave); pintarNivel(); lerCarta(); },
++  /* Escolher a dificuldade DENTRO do carrossel de músicas (menu3d.js) já
++     inicia a partida — é o mesmo fluxo de tocar uma música no modo livre:
++     escolher e começar, sem um terceiro toque. `musicaId` é o `id` da
++     entrada escolhida em `musicas.json` (ou `undefined`/inexistente quando
++     ninguém abriu o carrossel — ver `_musicaEscolhida` em menu3d.js); aqui
++     ele vira a `carta` de verdade, que é o que `cartaAgora` (config.js) e
++     `iniciar` (fases.js) sabem usar. `porMusica` devolve `null` para um id
++     desconhecido ou ausente, e `null` é justamente o valor que reseta para a
++     carta padrão — não precisa de um `if` a mais aqui. */
++  iniciarComNivel: (chave, musicaId) => {
++    definirNivel(chave); pintarNivel();
++    const m = porMusica(musicaId);
++    iniciar(false, false, null, m && m.carta);
++  },
+   calibrar:  () => comecarCalibragem(),
+   fecharCal: () => fecharAjustes(),
+   pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
+@@ -424,6 +440,24 @@ carregarTrilhas().then(l => {
+   menu3d.montarTrilhas(l);
+ });
+ 
++/* =================== O CARROSSEL DE MÚSICAS DO JOGAR ======================
++   Mesmo padrão das trilhas, um parágrafo acima: manifesto carregado uma vez
++   na abertura (ver musicas.js), e o carrossel do menu 3D (menu3d.js) montado
++   a partir dele — nunca de uma lista escrita à mão aqui.
++
++   A LISTA FICA GUARDADA AQUI, do mesmo jeito que `trilhas` acima — e por um
++   motivo concreto, não só simetria: escolher uma música no carrossel manda
++   só o `id` (ver `menu3d.js` → `montarNiveis`), e é aqui, em `iniciarComNivel`,
++   que o id vira a `carta` de verdade a carregar (ver `cartaAgora`, em
++   config.js). Até 15/09 esse `id` chegava e era descartado — só existia uma
++   música jogável de verdade, e o comentário em `musicas.js` já avisava que
++   o dia de existir a segunda pediria este fio. */
++let musicas = [];
++const porMusica = (id) => musicas.find(m => m.id === id) || null;
++
++menu3d.montarMusicas([]);
++carregarMusicas().then(l => { musicas = l; menu3d.montarMusicas(l); });
++
+ 
+ /* ------------------------------------------------- nível e calibragem ----- */
+ function pintarNivel(){

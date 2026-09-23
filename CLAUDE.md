@@ -24,7 +24,7 @@ npm run dev        # front (Vite) em :5173
 npm run dev:api    # API em :3000  — precisa de backend/.env com DATABASE_URL
 npm run build
 npm test           # arnês Playwright: sobe build + API e dirige um Chromium
-npm run test:api   # RN08/RN09 por HTTP, em memória — segundos, sem navegador
+npm run test:api   # RN09 (o recorde) por HTTP, em memória — segundos, sem navegador
 ```
 
 `npm test` é o portão. Ele confere detecção varrida, regra de pontuação
@@ -49,11 +49,6 @@ código 1 se falhar. **Rode antes de qualquer push.**
   `backend/db/schema.sql` (começa com `DROP TABLE`, roda à mão) e o
   `iniciar()` de `db/index.js` (`CREATE TABLE IF NOT EXISTS`, roda na subida
   da API). Já divergiram. Mexeu num, confira o outro.
-- **Banco que já existe não ganha coluna nova sozinho.** `CREATE TABLE IF NOT
-  EXISTS` não toca numa tabela que já está lá. Quando `partida` ganhou
-  `musica` e `nivel` (RN09), o banco antigo ficaria sem as duas e **todo
-  INSERT falharia** — por isso o `iniciar()` traz `ALTER TABLE ... ADD COLUMN
-  IF NOT EXISTS`. Coluna nova daqui para a frente precisa do mesmo par.
 - **`DATABASE_URL` tem de ser a do pooler de transação do Supabase** (porta
   6543). A conexão direta é IPv6 e o Vercel não sai por IPv6.
 - **`.gitattributes` sem `* text=auto eol=lf`:** 41 arquivos aparecem
@@ -100,10 +95,9 @@ frontend/src/
   config.js      ⇦ tudo que se ajusta, num lugar só
   deteccao.js    ⇦ o núcleo técnico: colisão varrida no segmento entre quadros
   musica.js      ⇦ o relógio do áudio e a compensação de atraso
-  trilhas.js        lê o manifesto do modo livre (faixas SEM bateria)
   pontuacao.js      regra de pontuação — módulo PURO, conferível com node
-  registro.js       o que acontece entre o fim da partida e a linha no banco
-                    (RN09: pede o nome quando é recorde; ver docs/banco.md)
+  registro.js       entre o fim da partida e a linha no banco: RN09, o pedido
+                    de nome quando a partida bate o recorde (docs/banco.md)
   calibragem.js     mede o atraso de saída do equipamento do jogador
   desempenho.js     contador de tempo de quadro (ver abaixo)
   cena.js           renderer, câmera, luzes, cenário, placas 3D, altura do jogador
@@ -191,9 +185,9 @@ então as sete malhas não custam sete chamadas fixas.
 ## Regras de trabalho neste repositório
 
 - Nada de commit ou push sem o Diego pedir.
-- **Só entra no repositório o áudio que a gente tem direito de distribuir.**
-  A `colour-me-red` tem: uso educacional licenciado, e creditado na tela
-  inicial. `frontend/public/sounds/som.mp3` e as cartas derivadas dele não
-  têm — ficam só na máquina de quem trabalha com eles. O `.gitignore` já
-  cobre os dois (`sounds/som.mp3` e `cartas/money*.json`); não desfaça isso.
+- **As músicas do jogo entram no repositório** (decisão do Diego, 23/09): o
+  trabalho é acadêmico, não comercial e sem divulgação. Toda faixa listada em
+  `musicas.json`/`trilhas.json` precisa estar versionada, senão o deploy do
+  Vercel a mostra no menu e não tem o arquivo. O crédito continua aparecendo
+  na tela.
 - Antes de dizer que algo está certo, rode. `node --check` só vê sintaxe.

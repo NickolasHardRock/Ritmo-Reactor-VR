@@ -4,16 +4,11 @@
    O jogo funciona sem API: se ela estiver fora do ar, a partida termina
    normalmente e a tela de resultado só informa que não deu para salvar.
    Nada do que o jogador fez se perde por causa de uma falha de rede.
-
-   AQUI SÓ MORA O TRANSPORTE. Quando pedir o nome e quando gravar é decisão
-   de `registro.js` — este arquivo não sabe o que é um recorde, só sabe
-   perguntar e enviar.
    ========================================================================== */
 
-import { API_BASE, nivelAtual } from './config.js';
+import { API_BASE } from './config.js';
 import { jogo, precisao } from './estado.js';
 import { estrelas } from './pontuacao.js';
-import { musica } from './musica.js';
 import { statusApi } from './ui.js';
 
 /** Nome do jogador. Guardado localmente só por conveniência — o registro
@@ -22,42 +17,44 @@ export function nomeJogador(){
   try { return localStorage.getItem('nome') || 'Jogador'; }
   catch { return 'Jogador'; }
 }
+/** Tamanho máximo do nome. A API aceita 60, mas o nome tem de CABER numa linha
+ *  do top 3 em 3D, lido a 2 m de distância — e nome longo é o que estoura. */
+export const NOME_MAX = 16;
+
 export function definirNome(n){
-  try { localStorage.setItem('nome', n); } catch { /* modo privado, tudo bem */ }
+  const limpo = String(n ?? '').trim().slice(0, NOME_MAX);
+  try { localStorage.setItem('nome', limpo); } catch { /* modo privado, tudo bem */ }
 }
 
-/** A chave da música que acabou de ser jogada. Cai em 'desconhecida' quando a
- *  partida rodou sem carta (modo livre, carta ausente) — a coluna tem o mesmo
- *  padrão, então nada quebra. */
-export function musicaAtual(){
-  return (musica.carta && musica.carta.id) || 'desconhecida';
+/** O nome que o JOGADOR escolheu, ou '' se ele nunca escolheu nenhum —
+ *  diferente de `nomeJogador()`, que devolve "Jogador" nesse caso. Serve para
+ *  pré-preencher o campo sem gravar "Jogador" como se fosse um nome digitado. */
+export function nomeEscolhido(){
+  try { return localStorage.getItem('nome') || ''; }
+  catch { return ''; }
 }
 
 /** O corpo do POST /partidas. Mantido como função para poder ser testado
- *  sem rede.
- *
- *  LEIA SÍNCRONO, ENVIE DEPOIS: quem chama guarda o retorno ANTES de
- *  qualquer `await`. O jogador pode apertar "Jogar novamente" enquanto a
- *  consulta ao recorde está no ar, e aí `jogo` já foi zerado — o corpo
- *  montado na hora certa é o que impede uma partida de ser gravada com os
- *  números da seguinte. */
+ *  sem rede. */
 export function corpoDaPartida(){
   return {
     nome:     nomeJogador(),
-    musica:   musicaAtual(),
-    nivel:    nivelAtual(),
     pontos:   jogo.pontos,
     tempo:    +jogo.duracao.toFixed(2),
     precisao: precisao(),
     erros:    jogo.erros,
     comboMax: jogo.comboMax,
     estrelas: estrelas(precisao()),
+    /* Em qual top 3 esta partida cai. Vazios quando não houve música
+       escolhida — a API aceita e guarda como "sem música". */
+    musica:   jogo.musica || '',
+    nivel:    jogo.nivel  || '',
   };
 }
 
-/** RN07 — chamado só depois da partida concluída.
- *  @param {object} [corpo] o que enviar; por padrão, a partida atual. */
-export async function enviarResultado(corpo = corpoDaPartida()){
+/** RN07 — chamado só depois da partida concluída. */
+export async function enviarResultado(){
+  const corpo = corpoDaPartida();
   try {
     const r = await fetch(`${API_BASE}/partidas`, {
       method: 'POST',
@@ -66,55 +63,93 @@ export async function enviarResultado(corpo = corpoDaPartida()){
     });
     if (r.ok){
       const dado = await r.json().catch(() => ({}));
-      statusApi(dado.recorde
-        ? `salva — NOVO RECORDE (id ${dado.id ?? '—'})`
-        : `salva (id ${dado.id ?? '—'})`,
-        dado.recorde ? 'var(--gold)' : 'var(--ok)');
-      return dado;
+      statusApi(`salva (id ${dado.id ?? '—'})`, 'var(--ok)');
+    } else {
+      statusApi(`API respondeu HTTP ${r.status}`, 'var(--bad)');
     }
-    statusApi(`API respondeu HTTP ${r.status}`, 'var(--bad)');
-    return null;
   } catch {
     statusApi('API fora do ar — partida não registrada', 'var(--warn)');
     console.info('[RF12] corpo que seria enviado:', corpo);
-    return null;
   }
 }
 
-/** A marca a bater nesta música e dificuldade (RN09).
+/* ---------------------------------------------------------- envio único --
+   Sem card de HTML (VR, ou o painel 3D — o padrão fora dele) `concluir()`
+   chama `enviarResultado()` na hora, porque não há nome nenhum para digitar.
+   Com o card, quem decide O MOMENTO é `main.js`: o clique em "Salvar nome",
+   ou em "Jogar novamente"/"Menu" se o jogador não mexer no campo — o que
+   vier primeiro. As três chamadas caem aqui, e só a primeira vale: RN07 diz
+   "a melhor partida É a partida", não "cada clique gera uma". */
+let _enviado = false;
+
+/** Chamado no início de CADA partida concluída (`fases.js` -> `concluir()`),
+ *  para o guarda acima não continuar travado da partida anterior. */
+export function novaPartida(){ _enviado = false; }
+
+/** `nome`, se vier, substitui o nome salvo ANTES de montar o corpo do POST —
+ *  é o que faz "Salvar nome" valer para a partida que acabou de terminar, e
+ *  não só para a próxima. */
+export async function enviarResultadoUmaVez(nome){
+  if (_enviado) return;
+  _enviado = true;
+  if (nome) definirNome(nome);
+  await enviarResultado();
+}
+
+/** O 1º colocado de uma música num nível, para a tela de escolha (menu3d.js).
+ *
+ *  Devolve UMA lista com 0 ou 1 item (nunca mais — pedido de 21/09 trocou o
+ *  top 3 por só o recorde) ou `null` quando não deu para saber — API fora do
+ *  ar, resposta ruim ou demora. A distinção importa para a tela: lista VAZIA
+ *  é "ninguém jogou ainda, seja o primeiro"; `null` é "não consegui
+ *  perguntar", e mostrar "seja o primeiro" nesse caso seria mentir ao
+ *  jogador. O nome ficou `buscarTop3` para não mexer em quem já importa esta
+ *  função (menu3d.js, ferramentas de teste); quem lê é que decide usar só o
+ *  índice 0.
+ *
+ *  Tem limite de espera: a API no Vercel pode demorar alguns segundos numa
+ *  partida a frio, e o menu não pode ficar com "carregando…" para sempre. */
+export async function buscarTop3(musica, nivel, esperaMs = 6000){
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), esperaMs);
+  try {
+    const q = new URLSearchParams({ limite: '1', musica: musica || '', nivel: nivel || '' });
+    const r = await fetch(`${API_BASE}/ranking?${q}`, { signal: ctl.signal });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j.itens) ? j.itens.slice(0, 1) : null;
+  } catch { return null; }
+  finally { clearTimeout(timer); }
+}
+
+/** A MARCA A BATER nesta música e nível, com o piso da RN09 junto.
  *
  *  Devolve `null` quando a API não respondeu — e isso é diferente de
- *  `{recorde:null}`, que quer dizer "a API respondeu: ainda não há recorde
- *  aqui". Quem chama precisa dos dois casos: sem API não há como saber se a
- *  partida é recorde, e pedir o nome nessa hora seria pedir à toa. */
-export async function buscarRecorde(musicaId, nivel){
+ *  `{recorde:null}`, que quer dizer "a API respondeu: ninguém jogou aqui
+ *  ainda". Quem chama precisa dos dois casos: sem API não há como saber se a
+ *  partida é recorde, e parar a tela para pedir um nome que não vai ser
+ *  gravado é pior do que não parar.
+ *
+ *  Mesmo limite de espera do `buscarTop3`, e pela mesma razão: a API no
+ *  Vercel demora numa partida a frio, e a tela de resultado não pode ficar
+ *  esperando para sempre. Estourou o prazo, grava sem perguntar. */
+export async function buscarRecorde(musica, nivel, esperaMs = 6000){
+  if (!musica || !nivel) return null;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), esperaMs);
   try {
-    const r = await fetch(
-      `${API_BASE}/ranking/recorde?musica=${encodeURIComponent(musicaId)}` +
-      `&nivel=${encodeURIComponent(nivel)}`);
+    const q = new URLSearchParams({ musica, nivel });
+    const r = await fetch(`${API_BASE}/ranking/recorde?${q}`, { signal: ctl.signal });
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
+  finally { clearTimeout(timer); }
 }
 
-/** O melhor jogador de CADA dificuldade, numa música (RN08). Tela inicial. */
-export async function buscarMelhores(musicaId){
+/** GET /ranking — usado na tela inicial quando a API está no ar. */
+export async function buscarRanking(limite = 10){
   try {
-    const r = await fetch(
-      `${API_BASE}/ranking/melhores?musica=${encodeURIComponent(musicaId)}`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    return Array.isArray(d.itens) ? d.itens : [];
-  } catch { return null; }
-}
-
-/** GET /ranking — a lista longa, quando alguém quiser mostrá-la. */
-export async function buscarRanking(limite = 10, filtro = {}){
-  try {
-    const q = new URLSearchParams({ limite: String(limite) });
-    if (filtro.musica) q.set('musica', filtro.musica);
-    if (filtro.nivel)  q.set('nivel',  filtro.nivel);
-    const r = await fetch(`${API_BASE}/ranking?${q}`);
+    const r = await fetch(`${API_BASE}/ranking?limite=${limite}`);
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }

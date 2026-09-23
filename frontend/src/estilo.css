@@ -111,8 +111,43 @@ button.txt{background:transparent;border:0;color:var(--muted);padding:8px 2px;fo
   text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 button.txt:hover{color:var(--ink);filter:none}
 .card.menu .badge{margin-top:20px}
+
+/* -------------------------- NOME DO JOGADOR NA TELA DE FIM (18/09) --------
+   Linha simples: rótulo, campo, botão. `flex:1` no campo para ele esticar e
+   sobrar o mínimo de espaço vazio, do jeito que `.row` já faz para os outros
+   controles da tela de resultado. */
+#fim-nome-linha{margin-top:18px}
+#fim-nome-linha label{flex:none}
+#fim-nome{flex:1;min-width:140px;background:#0c1220;border:1px solid var(--line);
+  color:var(--ink);border-radius:9px;padding:9px 12px;font:inherit;font-size:14px}
+#fim-nome:focus{outline:2px solid var(--cyan);outline-offset:1px}
+#btn-salvar-nome{padding:9px 16px;font-size:13px}
 .faixa{font-size:11.5px;color:var(--muted);opacity:.8;margin:11px 0 0}
 .card.menu .credits{width:100%}
+
+/* ------------------------------------- A LISTA DO MODO LIVRE (09/09) -----
+   Uma coluna de botões largos, texto à ESQUERDA e não centrado: são nomes de
+   música de comprimentos diferentes, e centrados a coluna fica em zigue-zague
+   e a leitura custa. O crédito vai dentro do próprio botão, em corpo menor —
+   é a atribuição da faixa, e ela tem de estar onde a escolha é feita.
+
+   O primeiro item ("Só bateria") ganha a cor de ação porque é o modo livre
+   como ele sempre foi, e o único que não depende de baixar nada. */
+.lista{display:flex;flex-direction:column;gap:9px;width:100%;margin-top:22px}
+.lista button{width:100%;text-align:left;background:rgba(17,24,38,.9);
+  border:1px solid var(--line);color:var(--ink);padding:13px 16px;font-size:15px}
+.lista button:hover{filter:none;border-color:var(--cyan);color:var(--cyan)}
+.lista button.principal{background:var(--cyan);color:#04141c;border-color:transparent}
+.lista button.principal:hover{filter:brightness(1.12);color:#04141c}
+.lista button small{display:block;margin-top:3px;font-size:11.5px;font-weight:400;
+  color:var(--muted);line-height:1.45}
+.lista button:hover small{color:var(--muted)}
+/* O `--muted` é cinza-azulado para fundo escuro, e o item principal tem fundo
+   CIANO: a legenda saía cinza-claro sobre ciano-claro e não se lia. Foi visto
+   numa captura, não no código — contraste é o defeito que passa na leitura. */
+.lista button.principal small,
+.lista button.principal:hover small{color:rgba(4,20,28,.72)}
+.lista .vazio{color:var(--muted);font-size:13px;line-height:1.6;text-align:left}
 
 /* ------------------------------------------------------- PULAR -----------
    Centrado embaixo, e grande: é a saída do tutorial e quem quer usá-la não
@@ -154,37 +189,30 @@ button.txt:hover{color:var(--ink);filter:none}
 #centro-2{font:700 clamp(52px,12vw,84px)/1 system-ui;color:var(--cyan);
   font-variant-numeric:tabular-nums;text-shadow:0 0 40px rgba(0,217,255,.45)}
 #centro-2:empty{display:none}
+/* .8s = PASSO_CONTAGEM (fases.js): o flash de um número termina de assentar
+   bem no instante em que o próximo dispara, sem sobra nem espera. Estoura
+   grande e claro (o "golpe" do holofote de cena.js, aqui em CSS) e assenta
+   no tamanho final com um leve solavanco — não é só um fade, é um soco. */
 @media (prefers-reduced-motion:no-preference){
-  #centro-2{animation:pulso .8s ease-out}
-  @keyframes pulso{from{transform:scale(1.35);opacity:.2}to{transform:scale(1);opacity:1}}
+  #centro-2{animation:pulso .8s cubic-bezier(.2,1.6,.3,1)}
+  @keyframes pulso{
+    0%  {transform:scale(1.9);opacity:0;filter:brightness(2.6)}
+    55% {transform:scale(.9); opacity:1;filter:brightness(1.3)}
+    100%{transform:scale(1);  opacity:1;filter:brightness(1)}
+  }
 }
 
-/* ------------------------------------------- O NOME DO RECORDE (RN09) ----
-   Bloco que só existe quando a partida bateu a melhor marca da música
-   naquela dificuldade. Fica ENTRE a tabela e os botões de propósito: depois
-   do resultado, que é o que explica por que ele apareceu, e antes de "Jogar
-   novamente", que é o botão que fecha a tela. Posto abaixo dos botões,
-   metade das pessoas sairia sem vê-lo. */
-#fim-nome{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
-#fim-nome .tag.ouro{color:var(--gold)}
-#fim-nome .sub{margin-bottom:10px}
-#fim-nome .row{margin-top:0}
-#fim-nome input{flex:1 1 200px;min-width:0;font:inherit;font-size:15px;
-  background:#070b12;color:var(--ink);border:1px solid var(--line);
-  border-radius:10px;padding:13px 14px;outline:none}
-#fim-nome input:focus{border-color:var(--gold)}
-#fim-nome input::placeholder{color:var(--muted)}
-#btn-nome-salvar{background:var(--gold);color:#1a1405}
-
-/* ------------------------------------------ RECORDES NA ABERTURA (RN08) --
-   Três linhas, uma por dificuldade. Compacto porque disputa espaço com o
-   botão JOGAR, que é o motivo da tela existir. */
-.recordes{width:100%;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);
-  font-size:12.5px;color:var(--muted);text-align:left}
-.recordes .rot{display:block;color:var(--gold);font:600 11px/1 system-ui;
-  letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
-.recordes .linha{display:flex;gap:8px;align-items:baseline;padding:3px 0}
-.recordes .linha b{color:var(--ink);font-weight:600;min-width:64px}
-.recordes .linha span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.recordes .linha i{font-style:normal;color:var(--cyan);font-variant-numeric:tabular-nums}
-.recordes .vazio{opacity:.75}
+/* ------------------------------------------------------ NOME DO JOGADOR ---
+   Fixo no alto, centrado. Acima das camadas (z-index 10 dos `.layer`) porque
+   tem de continuar clicável com um card por baixo. A 16px o iOS/Quest não dá
+   zoom ao focar o campo — abaixo disso a página inteira sobe de escala. */
+#nome-wrap{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:12;
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  background:rgba(17,24,38,.92);border:1px solid var(--line);border-radius:12px;
+  backdrop-filter:blur(6px)}
+#nome-wrap label{color:var(--muted);font:600 11.5px/1 system-ui;letter-spacing:.14em;
+  text-transform:uppercase}
+#nome-jogador{width:170px;background:#0a0e16;color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;font:600 16px system-ui}
+#nome-jogador::placeholder{color:#5b6b83;font-weight:500}
+#nome-jogador:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,217,255,.18)}

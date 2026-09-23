@@ -13,17 +13,6 @@
 
 const URL = process.env.DATABASE_URL?.trim();
 
-/* O MESMO CRITÉRIO DE DESEMPATE EM TODA PARTE: mais pontos primeiro e, em
-   caso de empate, o menor tempo. Escrito uma vez porque agora há três
-   consultas que dependem dele (ranking, recorde, melhores por nível) e três
-   cópias divergiriam — uma delas passaria a apontar outro campeão. O SQL do
-   adaptador Postgres repete a mesma ordem em `ORDER BY pontos DESC, tempo ASC`. */
-const melhorPrimeiro = (a, b) => b.pontos - a.pontos || a.tempo - b.tempo;
-
-/** Filtro opcional por música e dificuldade. Campo ausente = não filtra. */
-const combina = (p, f = {}) =>
-  (!f.musica || p.musica === f.musica) && (!f.nivel || p.nivel === f.nivel);
-
 /* ------------------------------------------------------- EM MEMÓRIA ------ */
 function adaptadorMemoria(){
   const jogadores = new Map();      // nome -> id
@@ -42,63 +31,46 @@ function adaptadorMemoria(){
     },
 
     async salvarPartida(p){
-      const registro = { id: ++seqPartida, ...p, criado: new Date().toISOString() };
+      const registro = { id: ++seqPartida, ...p,
+                         musica: p.musica ?? '', nivel: p.nivel ?? '',
+                         criado: new Date().toISOString() };
       partidas.push(registro);
       return registro;
     },
 
+    /* `filtro` = { musica?, nivel? }. Campo ausente (undefined) NÃO filtra:
+       sem filtro nenhum é o ranking geral de sempre. Com filtro, a regra da
+       "melhor partida de cada jogador" vale DENTRO do recorte — quem joga a
+       mesma música em três dificuldades aparece nas três tabelas, cada uma
+       com a sua melhor. */
     async ranking(limite, filtro = {}){
-      // melhor partida de cada jogador, ordenada por pontos
       const melhor = new Map();
       for (const p of partidas){
-        if (!combina(p, filtro)) continue;
+        if (!casa(p, filtro)) continue;
         const atual = melhor.get(p.jogador_id);
         if (!atual || p.pontos > atual.pontos) melhor.set(p.jogador_id, p);
       }
       const nomePorId = new Map([...jogadores].map(([nome, id]) => [id, nome]));
       return [...melhor.values()]
-        .sort(melhorPrimeiro)
+        .sort((a, b) => b.pontos - a.pontos || a.tempo - b.tempo)
         .slice(0, limite)
         .map((p, i) => ({
           posicao: i + 1, nome: nomePorId.get(p.jogador_id),
-          musica: p.musica, nivel: p.nivel,
           pontos: p.pontos, tempo: p.tempo, precisao: p.precisao,
           combo_max: p.combo_max, estrelas: p.estrelas, criado: p.criado,
         }));
     },
 
-    /** RN09 — a melhor pontuação já registrada nesta música e dificuldade.
-     *  `null` quando ainda não há nenhuma: quem consulta precisa distinguir
-     *  "o recorde é zero" de "não existe recorde", senão a primeira partida
-     *  de todas nunca seria anunciada como recorde. */
-    async recorde(musica, nivel){
-      const nomePorId = new Map([...jogadores].map(([nome, id]) => [id, nome]));
-      const linhas = partidas.filter(p => combina(p, { musica, nivel }))
-                             .sort(melhorPrimeiro);
-      const p = linhas[0];
-      return p ? { nome: nomePorId.get(p.jogador_id), pontos: p.pontos,
-                   tempo: p.tempo, criado: p.criado } : null;
-    },
-
-    /** RN08 — uma linha por dificuldade: quem é o melhor em cada uma. */
-    async melhoresPorNivel(musica){
-      const nomePorId = new Map([...jogadores].map(([nome, id]) => [id, nome]));
-      const porNivel = new Map();
-      for (const p of partidas){
-        if (!combina(p, { musica })) continue;
-        const atual = porNivel.get(p.nivel);
-        if (!atual || melhorPrimeiro(p, atual) < 0) porNivel.set(p.nivel, p);
-      }
-      return [...porNivel.values()].map(p => ({
-        nivel: p.nivel, nome: nomePorId.get(p.jogador_id), musica: p.musica,
-        pontos: p.pontos, tempo: p.tempo, precisao: p.precisao,
-        estrelas: p.estrelas, criado: p.criado,
-      }));
-    },
-
     async partida(id){ return partidas.find(p => p.id === Number(id)) || null; },
-    async total(){ return partidas.length; },
+    async total(filtro = {}){ return partidas.filter(p => casa(p, filtro)).length; },
   };
+}
+
+/** A partida `p` entra no recorte `filtro`? Campo `undefined` não filtra. */
+function casa(p, { musica, nivel } = {}){
+  if (musica !== undefined && (p.musica ?? '') !== musica) return false;
+  if (nivel  !== undefined && (p.nivel  ?? '') !== nivel)  return false;
+  return true;
 }
 
 /* -------------------------------------------------------- POSTGRESQL ----- */
@@ -174,25 +146,29 @@ async function adaptadorPostgres(){
         CREATE TABLE IF NOT EXISTS partida (
           id         SERIAL PRIMARY KEY,
           jogador_id INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
-          musica     VARCHAR(60) NOT NULL DEFAULT 'desconhecida',
-          nivel      VARCHAR(20) NOT NULL DEFAULT 'facil',
           pontos     INTEGER NOT NULL CHECK (pontos >= 0),
           tempo      NUMERIC(7,2) NOT NULL CHECK (tempo >= 0),
           precisao   SMALLINT NOT NULL CHECK (precisao BETWEEN 0 AND 100),
           erros      SMALLINT NOT NULL DEFAULT 0 CHECK (erros >= 0),
           combo_max  SMALLINT NOT NULL DEFAULT 0 CHECK (combo_max >= 0),
           estrelas   SMALLINT NOT NULL CHECK (estrelas BETWEEN 0 AND 5),
+          musica     VARCHAR(60) NOT NULL DEFAULT '',
+          nivel      VARCHAR(20) NOT NULL DEFAULT '',
           criado     TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-        /* Banco que já existia antes das colunas de música e dificuldade: o
-           CREATE TABLE IF NOT EXISTS acima não o toca, então ele ficaria sem
-           as duas e todo INSERT falharia. Estes ALTER são idempotentes e
-           valem tanto para o banco novo quanto para o antigo. */
-        ALTER TABLE partida ADD COLUMN IF NOT EXISTS musica VARCHAR(60) NOT NULL DEFAULT 'desconhecida';
-        ALTER TABLE partida ADD COLUMN IF NOT EXISTS nivel  VARCHAR(20) NOT NULL DEFAULT 'facil';
+
+        /* MIGRAÇÃO. O CREATE TABLE IF NOT EXISTS acima NÃO mexe numa tabela que
+           já existe — e o banco de produção já existe, criado antes de haver
+           ranking por música. Sem estes dois ALTER a API sobe "normalmente" e
+           só quebra no primeiro POST ("column musica does not exist"). As
+           partidas antigas ficam com musica='' e nivel='' e simplesmente não
+           aparecem em nenhum ranking de música: não foram jogadas em nenhuma. */
+        ALTER TABLE partida ADD COLUMN IF NOT EXISTS musica VARCHAR(60) NOT NULL DEFAULT '';
+        ALTER TABLE partida ADD COLUMN IF NOT EXISTS nivel  VARCHAR(20) NOT NULL DEFAULT '';
+
         CREATE INDEX IF NOT EXISTS idx_partida_pontos  ON partida (pontos DESC);
         CREATE INDEX IF NOT EXISTS idx_partida_jogador ON partida (jogador_id);
-        CREATE INDEX IF NOT EXISTS idx_partida_recorde ON partida (musica, nivel, pontos DESC);
+        CREATE INDEX IF NOT EXISTS idx_partida_musica  ON partida (musica, nivel, pontos DESC);
       `);
     },
 
@@ -206,51 +182,32 @@ async function adaptadorPostgres(){
 
     async salvarPartida(p){
       const r = await pool.query(
-        `INSERT INTO partida (jogador_id, musica, nivel, pontos, tempo, precisao, erros, combo_max, estrelas)
+        `INSERT INTO partida (jogador_id, pontos, tempo, precisao, erros, combo_max, estrelas,
+                              musica, nivel)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-        [p.jogador_id, p.musica, p.nivel, p.pontos, p.tempo, p.precisao,
-         p.erros, p.combo_max, p.estrelas]);
+        [p.jogador_id, p.pontos, p.tempo, p.precisao, p.erros, p.combo_max, p.estrelas,
+         p.musica ?? '', p.nivel ?? '']);
       return r.rows[0];
     },
 
-    /* O FILTRO VAI COMO PARÂMETRO, NUNCA CONCATENADO NA STRING. `musica` e
-       `nivel` chegam da rede; montar o SQL com eles seria injeção pronta. O
-       `$1::text IS NULL OR` deixa o mesmo texto de consulta servir com e sem
-       filtro — o plano é o mesmo e não há duas versões para divergir. */
-    async ranking(limite, filtro = {}){
+    /* Filtro OPCIONAL, por parâmetro e nunca por concatenação: `null` desliga
+       a condição (`$2::text IS NULL OR ...`), então a MESMA consulta serve ao
+       ranking geral e ao de uma música/nível. O filtro entra DENTRO do
+       DISTINCT ON, antes de escolher "a melhor de cada jogador" — filtrar
+       depois devolveria, para quem tem a melhor partida em outra música,
+       nenhuma linha em vez da melhor DESTA. */
+    async ranking(limite, { musica, nivel } = {}){
       const r = await pool.query(
         `SELECT ROW_NUMBER() OVER (ORDER BY m.pontos DESC, m.tempo ASC) AS posicao,
-                j.nome, m.musica, m.nivel, m.pontos, m.tempo, m.precisao,
-                m.combo_max, m.estrelas, m.criado
+                j.nome, m.pontos, m.tempo, m.precisao, m.combo_max, m.estrelas, m.criado
            FROM (SELECT DISTINCT ON (jogador_id) *
                    FROM partida
-                  WHERE ($1::text IS NULL OR musica = $1)
-                    AND ($2::text IS NULL OR nivel  = $2)
+                  WHERE ($2::text IS NULL OR musica = $2)
+                    AND ($3::text IS NULL OR nivel  = $3)
                   ORDER BY jogador_id, pontos DESC, tempo ASC) m
            JOIN jogador j ON j.id = m.jogador_id
           ORDER BY m.pontos DESC, m.tempo ASC
-          LIMIT $3`, [filtro.musica ?? null, filtro.nivel ?? null, limite]);
-      return r.rows.map(normalizar);
-    },
-
-    async recorde(musica, nivel){
-      const r = await pool.query(
-        `SELECT j.nome, p.pontos, p.tempo, p.criado
-           FROM partida p JOIN jogador j ON j.id = p.jogador_id
-          WHERE p.musica = $1 AND p.nivel = $2
-          ORDER BY p.pontos DESC, p.tempo ASC
-          LIMIT 1`, [musica, nivel]);
-      return r.rows[0] ? normalizar(r.rows[0]) : null;
-    },
-
-    async melhoresPorNivel(musica){
-      const r = await pool.query(
-        `SELECT DISTINCT ON (p.nivel)
-                p.nivel, j.nome, p.musica, p.pontos, p.tempo, p.precisao,
-                p.estrelas, p.criado
-           FROM partida p JOIN jogador j ON j.id = p.jogador_id
-          WHERE ($1::text IS NULL OR p.musica = $1)
-          ORDER BY p.nivel, p.pontos DESC, p.tempo ASC`, [musica ?? null]);
+          LIMIT $1`, [limite, musica ?? null, nivel ?? null]);
       return r.rows.map(normalizar);
     },
 
@@ -258,8 +215,11 @@ async function adaptadorPostgres(){
       const r = await pool.query('SELECT * FROM partida WHERE id = $1', [id]);
       return r.rows[0] ? normalizar(r.rows[0]) : null;
     },
-    async total(){
-      const r = await pool.query('SELECT COUNT(*)::int AS n FROM partida');
+    async total({ musica, nivel } = {}){
+      const r = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM partida
+          WHERE ($1::text IS NULL OR musica = $1)
+            AND ($2::text IS NULL OR nivel  = $2)`, [musica ?? null, nivel ?? null]);
       return r.rows[0].n;
     },
   };

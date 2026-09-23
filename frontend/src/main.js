@@ -16,7 +16,7 @@ import { PECAS } from './config.js';
 import { jogo, cal, eco, ritmo } from './estado.js';
 import { scene, camera, renderer, relogio, player,
          molduraDesktop, molduraVR, registrarOrbit, ajustarVisao, ajustarAvanco,
-         carregarCenario, gerarAmbienteDaCena, animarLuzes, definirLuz,
+         carregarCenario, carregarCeu, gerarAmbienteDaCena, animarLuzes, definirLuz,
          painelHUD, painelObj, flash, flashEstado } from './cena.js';
 import * as menu3d from './menu3d.js';
 import { carregarBichos } from './bichos.js';
@@ -27,21 +27,21 @@ import { kit, zonas, baquetas, carregarBateria, animarZonas,
          mostrarRotulos, destacar } from './kit.js';
 import { detectarBatidas, processarPonta, simularBatida, testeIngenuo } from './deteccao.js';
 import { bater, iniciar, concluir, ritmoAtualizar, ritmoIniciar,
-         pularTutorial, abandonar } from './fases.js';
-import { musica, Musica, idDaCarta } from './musica.js';
-import { confirmarNome, garantirRegistro, esperandoNome,
-         registrarPartida } from './registro.js';
-import { buscarMelhores } from './api.js';
+         pularTutorial, abandonar, livreIniciar } from './fases.js';
+import { musica, Musica } from './musica.js';
 import { synth } from './synth.js';
 import * as pontuacao from './pontuacao.js';
 import { iniciarCalibragem, pararCalibragem, registrarBatida,
          concluirCalibragem, calibragem } from './calibragem.js';
 import { NIVEIS, nivelAtual, definirNivel, cartaAgora,
          PECAS_SEM, jogaveisAgora } from './config.js';
-import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
+import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
          statusXR, falhaCarregamento, progressoCarregamento,
-         telaResultado, calibragem3D, esconderResultado3D,
-         pintarRecordes } from './ui.js';
+         telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
+import { carregarTrilhas } from './trilhas.js';
+import { carregarMusicas } from './musicas.js';
+import { enviarResultadoUmaVez, buscarTop3, nomeJogador, definirNome, nomeEscolhido, NOME_MAX } from './api.js';
+import { confirmarNome, garantirRegistro, esperandoNome } from './registro.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -51,6 +51,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio,
    cena.js → gerarAmbienteDaCena(). O kit não precisa ter chegado: ele é
    justamente o que a captura esconde.                                     */
 carregarCenario(() => gerarAmbienteDaCena());
+carregarCeu();
 carregarBichos(kit);
 carregarBateria(
   (ok) => {
@@ -96,6 +97,12 @@ function distanciaMudou(d){
 }
 
 addEventListener('keydown', e => {
+  /* NÃO ROUBAR A TECLA DE QUEM ESTÁ DIGITANDO O NOME. A, S, D, F, J, K e L
+     são as peças da bateria e este handler chama `preventDefault()` nelas:
+     sem esta guarda o campo de nome engoliria essas letras (não dá para
+     escrever "Diego" ou "Paulo") e ainda tocaria um tambor a cada uma. O
+     `desempenho.js` já fazia o mesmo com P e R, e por este mesmo motivo. */
+  if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
   if (registrarBatida()) return;   // calibragem em curso
   if (e.repeat) return;
   if (e.code === 'BracketLeft'){  ajustarVisao(-.03, alturaMudou); return; }
@@ -151,10 +158,9 @@ renderer.domElement.addEventListener('pointerup', e => {
    seria o defeito simétrico. */
 renderer.xr.addEventListener('sessionstart', () => {
   /* Um recorde esperando nome não sobrevive à troca de modo: a tela que o
-     estava mostrando sai de cena aqui. Grava agora, com o que estiver
-     escrito. Sem isto a partida ficaria pendurada até a próxima conclusão,
-     que a descartaria. */
-  sairDoResultado();
+     estava mostrando sai de cena aqui. Grava agora, com o nome já salvo —
+     sem isto a partida ficaria pendurada até a próxima conclusão. */
+  if (esperandoNome()) garantirRegistro();
   orbit.enabled = false;
   $('tela-inicio').classList.add('hidden');
   $('tela-fim').classList.add('hidden');
@@ -167,7 +173,7 @@ renderer.xr.addEventListener('sessionstart', () => {
   menu3d.revisar();
 });
 renderer.xr.addEventListener('sessionend', () => {
-  sairDoResultado();              // mesma razão do `sessionstart`
+  if (esperandoNome()) garantirRegistro();   // mesma razão do `sessionstart`
   orbit.enabled = true;
   molduraDesktop();
   menu3d.revisar();              // fora do VR nada disto se desenha
@@ -201,6 +207,8 @@ renderer.setAnimationLoop(() => {
   animarBalanco(dt);
   animarLuzes(dt);                // transição tutorial → show, quando há uma
 
+  menu3d.animarMenu(t);           // pulso do JOGAR; sai na hora se a tela não está aberta
+
   camera.getWorldPosition(_v);
   painelHUD.lookAt(_v);
   painelObj.lookAt(_v);
@@ -229,9 +237,11 @@ renderer.setAnimationLoop(() => {
 
       /* ALAVANCA ESQUERDA ↑↓ APROXIMA E AFASTA — a outra metade da mesma
          ideia. A direita ajusta a altura desde sempre; faltava a distância,
-         que é a outra medida de corpo que muda de pessoa para pessoa. O
-         posto padrão encostou no bumbo em 09/09, então na prática este
-         ajuste serve para AFASTAR: à frente sobram 3 cm. */
+         que é a outra medida de corpo que muda de pessoa para pessoa.
+         Depois do recuo do POSTO para 0,56 (15/09) o curso deixou de ser
+         quase só para trás: à frente sobram 6 cm, que levam de volta ao
+         posto antigo de 0,50, e atrás sobram 24. Ver `AVANCO_MAX` em
+         cena.js — os dois saem de limites absolutos de z, não de offsets. */
       if (src.handedness === 'left'){
         const y = g.axes?.[3] || 0;
         if (Math.abs(y) > .7 && avancoPronto){
@@ -302,6 +312,12 @@ renderer.setAnimationLoop(() => {
   } else {
     flash.visible = false;
     orbit.update();
+    /* O espelho de `menu3d.atualizarPonteiros()` para quem está fora do VR:
+       realce ao passar o mouse, cursor de "pode clicar" e o arrasto do
+       carrossel. Só faz algo quando `menu3d.forcarForaDoVR(true)` está
+       ligado — sem isso os painéis nem existem no navegador, e a função
+       sai de graça no primeiro `if (!alvos.length)`. */
+    menu3d.atualizarPonteiroMouse();
   }
 
   renderer.render(scene, camera);
@@ -309,73 +325,43 @@ renderer.setAnimationLoop(() => {
 
 /* ------------------------------------------------------------ botões ----- */
 $('btn-jogar').onclick = () => iniciar(false);
-$('btn-livre').onclick = () => iniciar(true);
+/* MODO LIVRE ABRE A LISTA, não a partida. Ele caía direto na bateria solta;
+   agora a escolha "só bateria ou uma faixa para acompanhar" acontece antes,
+   e "só bateria" é o primeiro item da lista — o caminho antigo, com um clique
+   a mais e nenhuma surpresa. */
+$('btn-livre').onclick = () => abrirLivre();
 /* "Só a música" saiu do menu em 07/09. O mesmo salto virou o botão PULAR, que
    aparece durante o tutorial — no momento em que a vontade de pular existe, e
    não antes de o jogo começar. O caminho `iniciar(false, true)` continua no
    código, exposto em `window.__jogo` para os testes. */
 $('btn-pular').onclick = () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); };
-/* `sairDoResultado` antes dos dois: se havia um recorde esperando nome, ele é
-   gravado agora, com o último nome conhecido. A partida já aconteceu — RN07
-   manda registrar, e apertar "Jogar novamente" não é desistir dela. */
-$('btn-again').onclick = () => { sairDoResultado(); iniciar(false); };
+/* Nome do jogador (recordes por música) e o envio da partida (RN07). Sem o
+   card de HTML, `fases.js` -> `concluir()` já enviou sozinho — o guarda em
+   `enviarResultadoUmaVez` faz as chamadas daqui não valerem nada nesse caso.
+   Com o card, é aqui que o momento se decide: "Salvar nome" manda o nome que
+   está no campo; "Jogar novamente"/"Menu" mandam o mesmo campo, para quem
+   fecha a tela sem clicar em Salvar não ficar de fora do ranking. */
+const nomeDoCampo = () => (($('fim-nome') || {}).value || '').trim().slice(0, NOME_MAX) || undefined;
+$('btn-salvar-nome').onclick = () => {
+  const nome = nomeDoCampo() || 'Jogador';
+  $('fim-nome').value = nome;
+  $('btn-salvar-nome').disabled = true;
+  $('btn-salvar-nome').textContent = 'Salvo ✓';
+  enviarResultadoUmaVez(nome);
+  /* O campo fixo do alto (#nome-jogador) e o rodapé 3D leem o mesmo
+     localStorage 'nome': alinha os dois com o que acabou de ser salvo. */
+  const topo = $('nome-jogador'); if (topo) topo.value = nomeEscolhido();
+  menu3d.pintarJogador(nomeJogador());
+};
+$('btn-again').onclick = () => { enviarResultadoUmaVez(nomeDoCampo()); iniciar(false); };
 /* `esconderResultado3D` junto: o placar 3D não some com a tela de HTML, e
    quem voltasse ao menu depois de uma partida o deixava pendurado no ar. */
 $('btn-menu').onclick  = () => {
-  sairDoResultado();
+  enviarResultadoUmaVez(nomeDoCampo());
   jogo.ativo = false; esconderResultado3D(); telaInicio();
 };
-
-/* ------------------------------------------- o nome do recorde (RN09) -----
-   O pedido aparece nos dois lugares — `<input>` na tela, teclado 3D no
-   headset — e os dois desembocam na MESMA função do `registro.js`. Como em
-   todo o resto deste arquivo: dois jeitos de apertar, um caminho só. */
-function gravarNome(nome){
-  Promise.resolve(confirmarNome(nome)).then(atualizarRecordes);
-}
-
-/** O que está escrito AGORA, no campo que o jogador está enxergando. Dentro
- *  do headset o `<input>` é invisível, então o que vale é o visor do teclado
- *  3D — e no monitor é o contrário. Ambos são lidos porque a sessão de VR
- *  pode ter começado no meio do pedido. */
-function nomeNaTela(){
-  const naTela = ($('f-nome')?.value || '').trim();
-  const noVR   = menu3d.nomeDigitado();
-  return renderer.xr.isPresenting ? (noVR || naTela) : (naTela || noVR);
-}
-
-/** Fechar a tela de resultado sem apertar GRAVAR. A partida pendente é
- *  registrada de qualquer forma (RN07) — mas se havia algo digitado, é esse
- *  nome que vale. Jogar fora um nome que a pessoa acabou de escrever, só
- *  porque ela apertou "Jogar novamente" em vez de "Gravar", seria a pior
- *  leitura possível do que ela quis. */
-function sairDoResultado(){
-  const digitado = nomeNaTela();
-  Promise.resolve(digitado ? confirmarNome(digitado) : garantirRegistro())
-    .then(atualizarRecordes);
-}
-
-/** "Agora não", no teclado 3D. Diferente de sair pelos outros botões: aqui o
- *  jogador disse explicitamente que não quer pôr o nome, então o que estiver
- *  no visor é descartado e a partida vai com o último nome conhecido. */
-function recusarNome(){
-  Promise.resolve(garantirRegistro()).then(atualizarRecordes);
-}
-$('btn-nome-salvar').onclick = () => gravarNome($('f-nome').value);
-$('f-nome').addEventListener('keydown', (e) => {
-  /* Enter grava. Num campo solto, sem `<form>`, isso não vem de graça — e é
-     o que a mão faz sozinha depois de digitar um nome. */
-  if (e.key === 'Enter'){ e.preventDefault(); gravarNome($('f-nome').value); }
-});
-
-/* A lista de recordes da abertura (RN08). Pedida quando a carta muda e
-   quando uma gravação acontece; silenciosa se a API não responder — a tela
-   inicial não é lugar para anunciar falha de rede. */
-async function atualizarRecordes(){
-  const id = idDaCarta(cartaAgora(NIVEIS[nivelAtual()]));
-  pintarRecordes(await buscarMelhores(id));
-}
 $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad', 1.6); };
+$('btn-livre-voltar').onclick = () => voltarDaLista();
 
 /* ------------------------------------------- os mesmos botões, em 3D -----
    O menu3d não importa nada de `fases.js`: fecharia o ciclo
@@ -384,9 +370,36 @@ $('btn-sair').onclick  = () => { if (abandonar()) msg('Partida abandonada', 'bad
    MESMA função do botão equivalente na tela — o jogo não tem dois caminhos,
    tem duas maneiras de apertar o mesmo. */
 menu3d.definirAcoes({
-  jogar:    () => iniciar(false),
-  livre:    () => iniciar(true),
-  nivel:    (chave) => { definirNivel(chave); pintarNivel(); lerCarta(); },
+  livre:    () => abrirLivre(),
+  /* A lista do modo livre, dentro do headset. As três ações são as mesmas
+     que os botões de HTML disparam — o jogo não tem dois caminhos. */
+  livreSemFaixa: () => iniciar(true),
+  trilha:      (id) => { const t = porTrilha(id); if (t) iniciar(true, false, t); },
+  voltarLivre:   () => voltarDaLista(),
+  /* Escolher a dificuldade DENTRO do carrossel de músicas (menu3d.js) já
+     inicia a partida — é o mesmo fluxo de tocar uma música no modo livre:
+     escolher e começar, sem um terceiro toque. `musicaId` é o `id` da
+     entrada escolhida em `musicas.json` (ou `undefined`/inexistente quando
+     ninguém abriu o carrossel — ver `_musicaEscolhida` em menu3d.js); aqui
+     ele vira a `carta` de verdade, que é o que `cartaAgora` (config.js) e
+     `iniciar` (fases.js) sabem usar. `porMusica` devolve `null` para um id
+     desconhecido ou ausente, e `null` é justamente o valor que reseta para a
+     carta padrão — não precisa de um `if` a mais aqui. */
+  iniciarComNivel: (chave, musicaId) => {
+    definirNivel(chave); pintarNivel();
+    const m = porMusica(musicaId);
+    /* O 5º argumento é o `id` do cartão: é ele, e não a carta, que diz em
+       QUAL top 3 a partida vai cair (ver `jogo.musica`, estado.js). Sem
+       música achada, `null` limpa — a partida vale só no ranking geral. */
+    iniciar(false, false, null, m && m.carta, m ? m.id : null);
+  },
+  /* A dificuldade na tela da música só MARCA — quem inicia é o JOGAR. Grava
+     a escolha e repinta; o `pintarMenu` que `pintarNivel` chama é quem troca
+     o top 3 e o botão marcado, então a tela nunca discorda do `nivelAtual()`. */
+  escolherNivel: (chave) => { definirNivel(chave); pintarNivel(); },
+  /* O top 3 da tela da música. Devolve a Promise: o menu3d (que não pode
+     importar api.js sem fechar o ciclo api → ui → menu3d) espera por ela. */
+  buscarTop3: (musicaId, nivel) => buscarTop3(musicaId, nivel),
   calibrar:  () => comecarCalibragem(),
   fecharCal: () => fecharAjustes(),
   pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
@@ -394,14 +407,150 @@ menu3d.definirAcoes({
   denovo:   () => { sairDoResultado(); iniciar(false); },
   menu:     () => { sairDoResultado(); jogo.ativo = false;
                     esconderResultado3D(); telaInicio(); },
-  /* O teclado 3D do recorde. `nomeOk` entrega o que está no visor;
-     `nomeCancelar` não joga a partida fora — grava com o último nome. */
+  /* O teclado 3D do recorde (RN09). `nomeOk` entrega o que está no visor;
+     "Agora não" não joga a partida fora — grava com o nome já salvo. */
   nomeOk:       (n) => gravarNome(n),
-  nomeCancelar: ()  => recusarNome(),
+  nomeCancelar: ()  => sairDoResultado(),
 });
+
+/* ------------------------------------------- o nome do recorde (RN09) -----
+   Os dois caminhos desembocam na mesma função do `registro.js`, e os dois
+   repintam o recorde do menu depois — senão a tela da música continuaria
+   mostrando a marca antiga, que o jogador acabou de bater. */
+function gravarNome(nome){
+  Promise.resolve(confirmarNome(nome)).then(() => menu3d.pintarJogador(nomeJogador()));
+}
+/** Fechar a tela de resultado sem confirmar. A partida pendente é registrada
+ *  de qualquer forma (RN07) — com o nome que já estava salvo. */
+function sairDoResultado(){
+  if (esperandoNome()) garantirRegistro();
+}
 /* A lista de níveis sai de `NIVEIS`, não de uma cópia à mão: mesmo contrato
    do `pintarNivel` e dos ids `btn-nivel-<chave>` no HTML. */
 menu3d.montarNiveis(Object.keys(NIVEIS).map(c => ({ chave:c, nome:NIVEIS[c].nome })));
+
+/* ============================ O NOME DO JOGADOR ===========================
+   É o que aparece no top 3. `definirNome` existia desde o início e NADA o
+   chamava: toda partida era gravada como "Jogador", e um top 3 de nomes
+   iguais não diz nada. Agora há um campo (`#nome-jogador`, index.html) e ele
+   grava a cada tecla — sem botão de "salvar" para esquecer de apertar.
+
+   EM VR NÃO HÁ TECLADO. Quem joga de headset digita o nome na página, no
+   navegador do Quest, ANTES de tocar em ENTER VR; lá dentro o rodapé da tela
+   da música mostra "jogando como …" para conferir. Um teclado 3D dentro do
+   headset seria o passo seguinte, e é bem maior que este. */
+const campoNome = $('nome-jogador');
+if (campoNome){
+  campoNome.maxLength = NOME_MAX;
+  campoNome.value = nomeEscolhido();
+  campoNome.addEventListener('input', () => {
+    definirNome(campoNome.value);
+    menu3d.pintarJogador(nomeJogador());
+  });
+  /* Enter tira o foco: sem isto o teclado (virtual, no Quest) fica aberto por
+     cima do jogo e a próxima tecla de tambor seria digitada no campo. */
+  campoNome.addEventListener('keydown', e => { if (e.key === 'Enter') campoNome.blur(); });
+}
+menu3d.pintarJogador(nomeJogador());
+
+
+/* =================== A LISTA DO MODO LIVRE ================================
+   Faixas SEM BATERIA, para quem sabe tocar acompanhar. O manifesto é
+   `public/trilhas.json` (ver trilhas.js); os botões saem dele, nos dois
+   lugares — na tela e em 3D — e nunca de uma cópia escrita à mão. Foi a lição
+   dos níveis: a lista fixa é o que fica para trás quando alguém acrescenta
+   uma faixa, e acrescentar faixa é justamente o que se vai fazer aqui.
+
+   O manifesto é carregado uma vez, na abertura, e é 400 bytes de JSON — nada
+   do áudio vem agora. Cada faixa só é baixada quando alguém a escolhe (ver
+   `livreIniciar`, em fases.js).                                            */
+let trilhas = [];
+const porTrilha = (id) => trilhas.find(t => t.id === id) || null;
+
+function abrirLivre(){ telaLivre(); }
+
+/** A SAÍDA DA LISTA, e ela tem de servir aos dois jeitos de chegar nela.
+ *
+ *  Vindo do menu, não há partida: é só voltar. Vindo do FIM de uma faixa, a
+ *  partida livre continua ativa — e sair da lista sem abandoná-la deixaria o
+ *  jogo tocando por baixo da tela inicial, com o HUD escondido e sem nenhum
+ *  botão que o encerre. As duas pontas caem no menu; a diferença é o que
+ *  precisa ser desligado no caminho. */
+function voltarDaLista(){
+  if (jogo.ativo) abandonar();
+  else telaInicio();
+}
+
+function montarListaLivre(){
+  const el = $('livre-lista');
+  if (!el) return;
+  el.textContent = '';
+
+  /* "SÓ BATERIA" NO TOPO, e com a cor de ação: é o modo livre como ele era
+     antes de existir faixa nenhuma, o único item que não depende de baixar
+     nada, e o que alguém que só quer bater no tambor está procurando. */
+  const b0 = document.createElement('button');
+  b0.className = 'principal';
+  b0.dataset.trilha = '';
+  b0.appendChild(document.createTextNode('Só bateria'));
+  const s0 = document.createElement('small');
+  s0.textContent = 'sem faixa — entra direto, como o modo livre de sempre';
+  b0.appendChild(s0);
+  b0.onclick = () => iniciar(true);
+  el.appendChild(b0);
+
+  for (const t of trilhas){
+    const b = document.createElement('button');
+    b.dataset.trilha = t.id;
+    /* `textContent` e não `innerHTML`: o manifesto é nosso, mas título e
+       crédito são texto de arquivo, e texto de arquivo não vira marcação. */
+    b.appendChild(document.createTextNode(t.titulo));
+    if (t.creditos){
+      const s = document.createElement('small');
+      s.textContent = t.creditos;
+      b.appendChild(s);
+    }
+    b.onclick = () => iniciar(true, false, t);
+    el.appendChild(b);
+  }
+
+  if (!trilhas.length){
+    const p = document.createElement('p');
+    p.className = 'vazio';
+    p.textContent = 'Nenhuma faixa cadastrada ainda. Coloque o MP3 em '
+      + 'public/sounds/livre/ e acrescente a entrada em public/trilhas.json.';
+    el.appendChild(p);
+  }
+}
+
+/* Desenhada JÁ, com a lista vazia, e redesenhada quando o manifesto chega:
+   assim a tela nunca existe sem o "Só bateria" — que é o item que funciona
+   mesmo se o manifesto não carregar. */
+montarListaLivre();
+menu3d.montarTrilhas([]);
+carregarTrilhas().then(l => {
+  trilhas = l;
+  montarListaLivre();
+  menu3d.montarTrilhas(l);
+});
+
+/* =================== O CARROSSEL DE MÚSICAS DO JOGAR ======================
+   Mesmo padrão das trilhas, um parágrafo acima: manifesto carregado uma vez
+   na abertura (ver musicas.js), e o carrossel do menu 3D (menu3d.js) montado
+   a partir dele — nunca de uma lista escrita à mão aqui.
+
+   A LISTA FICA GUARDADA AQUI, do mesmo jeito que `trilhas` acima — e por um
+   motivo concreto, não só simetria: escolher uma música no carrossel manda
+   só o `id` (ver `menu3d.js` → `montarNiveis`), e é aqui, em `iniciarComNivel`,
+   que o id vira a `carta` de verdade a carregar (ver `cartaAgora`, em
+   config.js). Até 15/09 esse `id` chegava e era descartado — só existia uma
+   música jogável de verdade, e o comentário em `musicas.js` já avisava que
+   o dia de existir a segunda pediria este fio. */
+let musicas = [];
+const porMusica = (id) => musicas.find(m => m.id === id) || null;
+
+menu3d.montarMusicas([]);
+carregarMusicas().then(l => { musicas = l; menu3d.montarMusicas(l); });
 
 
 /* ------------------------------------------------- nível e calibragem ----- */
@@ -428,8 +577,9 @@ function pintarNivel(){
                 : 'atraso ainda não calibrado');
   if (m) m.textContent = texto;
   /* O mesmo estado no menu 3D. Curto ali: a placa é lida a 2,6 m. */
-  menu3d.pintarMenu(k, `${NIVEIS[k]?.nome || ''} · `
-    + (c !== null ? `atraso ${Math.round(c*1000)} ms` : 'atraso não calibrado'));
+  /* Só o atraso: o nível já está no botão marcado, e repeti-lo aqui ainda
+     o chamaria de "Normal" enquanto o botão diz "Médio". */
+  menu3d.pintarMenu(k, c !== null ? `atraso ${Math.round(c*1000)} ms` : 'atraso não calibrado');
 }
 /* AJUSTE FINO. Calibração medida é a base; o resto é gosto e reflexo de cada
    um, e ninguém acerta isso por cálculo — acerta jogando. Dez em dez
@@ -489,6 +639,12 @@ function comecarCalibragem(){
      menu 3D. Sem trocar de tela, a contagem apareceria escondida pelos
      próprios botões. Ver o grupo 'cal' em menu3d.js. */
   if (menu3d.telaAtual() === 'menu') menu3d.mostrar('cal');
+  /* Fora do VR, o botão "Calibrar atraso" do painel 3D (padrão do PC desde
+     16/09) cai direto aqui — sem passar pelo antigo botão "Ajustes" de
+     HTML, que ficou escondido junto com a tela inicial. Sem isto o painel
+     de instruções e o ajuste fino de ±10 ms (que só existem em HTML) nunca
+     apareceriam pelo navegador. */
+  if (!renderer.xr.isPresenting) document.getElementById('tela-cal').classList.remove('hidden');
   $('cal-resultado').textContent = '';
   $('cal-progresso').textContent = '—';
   $('cal-comecar').disabled = true;
@@ -575,11 +731,6 @@ function lerCarta(){
       synth.definirKit(c.kit || null);
     })
     .catch(() => {});
-  /* Trocar de nível pode trocar de carta, e o recorde é POR carta e POR
-     nível: a lista da abertura tem de acompanhar. Vai junto do `lerCarta`
-     pela mesma razão que ele existe — é o único ponto em que a carta corrente
-     muda. */
-  atualizarRecordes();
 }
 
 pintarNivel();
@@ -613,16 +764,15 @@ window.__jogo = {
   gerarAmbienteDaCena,
   NIVEIS, nivelAtual, PECAS_SEM, jogaveisAgora,
   pularTutorial, abandonar,
+  /* A lista do modo livre. `trilhas` é um getter porque o manifesto chega
+     depois: exposta por valor, a ponte guardaria o array vazio da abertura. */
+  get trilhas(){ return trilhas; },
+  abrirLivre, voltarDaLista, montarListaLivre, livreIniciar,
   /* A interface 3D e o ajuste de altura ficam expostos porque nenhum dos dois
      dá para exercitar sem headset. `menu3d.forcarForaDoVR(true)` seguido de
      `menu3d.mostrar('menu')` desenha os painéis no monitor, para conferir
      texto e alinhamento; `ajustarVisao` mostra de fora que quem se move é o
      jogador, e não a bateria. */
-  /* RN09 exposto para o teste: o pedido de nome só aparece quando a partida
-     bate o recorde, e chegar lá jogando de verdade levaria a música inteira
-     três vezes. `esperandoNome()` diz se a tela está esperando alguém
-     digitar. */
-  registrarPartida, confirmarNome, garantirRegistro, esperandoNome,
   menu3d, ajustarVisao, ajustarAvanco,
   /* A transição de luz é movida pelo `dt` do laço, e laço de render para
      quando a aba perde o foco. Expor as duas permite conferir o fade

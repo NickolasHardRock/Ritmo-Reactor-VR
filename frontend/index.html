@@ -45,15 +45,35 @@
       <button class="txt" id="btn-ajustes">Ajustes</button>
     </div>
 
-    <!-- RN08 — o melhor jogador de CADA dificuldade nesta música. Preenchido
-         pelo main.js quando a API responde; fica escondido quando ela não
-         responde, porque uma lista vazia com título é pior que nada. -->
-    <div class="recordes hidden" id="inicio-recordes"></div>
-
     <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
     <p class="faixa" id="inicio-creditos"></p>
     <div class="credits">
       <strong>Equipe:</strong> Diego · Nickolas · Bruno · Danilo<br>ADS — Senac Joinville · Profª Claudia Werlich
+    </div>
+  </div>
+</div>
+
+<!-- ---------------- MODO LIVRE: A LISTA DE FAIXAS ----------------
+     O modo livre era um botão que caía direto na bateria solta. Agora é uma
+     escolha: "Só bateria" (o que ele sempre foi) ou uma faixa SEM BATERIA
+     para acompanhar — para quem sabe tocar e não precisa de caveira caindo
+     em cima do tambor para saber onde vai a caixa.
+
+     A lista é montada pelo main.js a partir de `public/trilhas.json`; aqui
+     fica só o lugar dela. Cada botão sai com `data-trilha="<id>"`, que é o
+     contrato usado pelos testes e o mesmo id do manifesto.
+
+     A saída daqui é o "‹ Voltar": quando se chega nesta tela pelo FIM de uma
+     faixa, a partida livre ainda está em curso, e é ele que a abandona.
+     Ver ui.js -> telaLivre e claude/modo-livre-com-faixa.md.              -->
+<div class="layer hidden" id="tela-livre">
+  <div class="card menu">
+    <h1>MODO LIVRE</h1>
+    <p class="sub">Escolha uma faixa e toque por cima. Aqui não há nota caindo,
+      nem julgamento, nem placar — a bateria é sua.</p>
+    <div id="livre-lista" class="lista"></div>
+    <div class="links">
+      <button class="txt" id="btn-livre-voltar">‹ Voltar</button>
     </div>
   </div>
 </div>
@@ -99,6 +119,21 @@
     <h1 id="fim-titulo">Fim da partida</h1>
     <p class="sub" id="fim-sub"></p>
     <p class="sub" id="fim-creditos" style="opacity:.75"></p>
+
+    <!-- Nome do jogador para o pódio de cada música (GET /api/ranking/musicas).
+         RN07 exige registrar toda partida concluída, mas o ENVIO só acontece
+         aqui: "Salvar nome" grava o campo abaixo e manda a partida; "Jogar
+         novamente"/"Menu" mandam do mesmo jeito, com o nome que estiver no
+         campo, para quem não clica em Salvar não ficar de fora do ranking.
+         Sem este card (VR, ou o painel 3D que é o padrão fora dele) não há
+         nada para digitar, e a partida já foi enviada sozinha em
+         `fases.js` -> `concluir()` (ver `card2DAtivo()` em ui.js). -->
+    <div class="row" id="fim-nome-linha">
+      <label for="fim-nome" class="sub" style="margin:0">Seu nome</label>
+      <input type="text" id="fim-nome" maxlength="16" placeholder="Jogador" autocomplete="off">
+      <button class="ghost" id="btn-salvar-nome">Salvar nome</button>
+    </div>
+
     <div class="stats">
       <div><span>Pontuação</span><div class="big" id="f-pontos">0</div></div>
       <div><span>Precisão</span><div class="big" id="f-prec">0%</div></div>
@@ -109,29 +144,24 @@
       <tr><td>Perfeitas</td><td id="f-perf">0</td></tr>
       <tr><td>Boas</td><td id="f-bom">0</td></tr>
       <tr><td>Erradas / perdidas</td><td id="f-erro">0</td></tr>
-      <tr><td>Persistência (RF11/RF12)</td><td id="f-api">API não configurada</td></tr>
+      <tr><td>Persistência (RF11/RF12)</td><td id="f-api">aguardando nome/clique</td></tr>
     </table>
-
-    <!-- RN09 — SÓ APARECE NO RECORDE. Quem decide é o registro.js, depois de
-         perguntar à API qual é a marca desta música nesta dificuldade. Toda
-         partida concluída é gravada de qualquer jeito; o que se pede aqui é
-         o nome de quem vai ficar no topo. O gêmeo em 3D está no menu3d.js —
-         dentro do headset um <input> não existe. -->
-    <div id="fim-nome" class="hidden">
-      <div class="tag ouro">novo recorde</div>
-      <p class="sub" id="fim-nome-ant"></p>
-      <div class="row">
-        <input id="f-nome" type="text" maxlength="60" autocomplete="off"
-               spellcheck="false" placeholder="seu nome" aria-label="Nome do jogador">
-        <button id="btn-nome-salvar">Gravar</button>
-      </div>
-    </div>
-
     <div class="row">
       <button id="btn-again">Jogar novamente</button>
       <button class="ghost" id="btn-menu">Menu</button>
     </div>
   </div>
+</div>
+
+<!-- O NOME QUE APARECE NO TOP 3. Fixo no alto, fora de qualquer tela, porque tem de
+     estar ao alcance em todos os menus — o do HTML e o de 3D — e some durante a
+     partida (ui.js -> telaJogando). Em VR não há teclado: quem joga de headset
+     digita aqui, na página, ANTES de tocar em ENTER VR. Grava a cada tecla
+     (main.js), então não existe botão de salvar para esquecer. -->
+<div id="nome-wrap" class="hidden">
+  <label for="nome-jogador">Seu nome</label>
+  <input id="nome-jogador" type="text" placeholder="Jogador" maxlength="16"
+         autocomplete="off" autocapitalize="words" spellcheck="false">
 </div>
 
 <div id="hud" class="hidden">

@@ -127,7 +127,7 @@ isso são três, e não uma.
 | RN04 | A pontuação final segue as regras da equipe | `pontuacao.js` — módulo puro, conferível com `node` |
 | RN05 | Feedback visual em interação válida | `fases.js` → `bater` |
 | RN06 | Aviso quando a interação não é permitida | `julgamento('ERRADO')`, `msg(...,'bad')` |
-| RN07 | Resultado registrado só após a conclusão | `fases.js` → `concluir` chama `enviarResultado` |
+| RN07 | Resultado registrado só após a conclusão | `fases.js` → `concluir` chama `enviarResultadoUmaVez` direto (VR/painel 3D) ou espera o card de HTML (`main.js` → `btn-salvar-nome`/`btn-again`/`btn-menu`) |
 | RN08 | Critério do ranking | melhor partida por jogador — `rotas/ranking.js` |
 | RN09 | Modo VR só com suporte técnico | `main.js` → `isSessionSupported` |
 | RN10 | Alternativa sem VR | modo teclado e mouse |
