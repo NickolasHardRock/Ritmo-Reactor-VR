@@ -203,7 +203,7 @@ export const BAQUETA = {
    musica de banda de verdade, kit gravado na mesma sala, dinamica tirada da
    propria gravacao. Ela traz caixa e chimbal para o jogador; bumbo e crash
    vao na trilha automatica. */
-export const CARTA_PADRAO = 'colour-me-red';
+const CARTA_PADRAO = 'colour-me-red';
 
 /* `?carta=nome` troca a carta sem mexer em codigo nem commitar a escolha.
    Serve para comparar cartas e para testar faixa que nao vai para o
@@ -240,6 +240,9 @@ const caminhoCarta = (nome) => `cartas/${nome}.json`;
 const CARTAS_CHEIAS = {
   'colour-me-red': 'colour-me-red-cheio',
   'rock-you-like-a-hurricane': 'rock-you-like-a-hurricane-cheio',
+  'smells-like-teen-spirit': 'smells-like-teen-spirit-cheio',
+  'rock-and-roll-all-nite': 'rock-and-roll-all-nite-cheio',
+  'cant-stop': 'cant-stop-cheio',
 };
 
 /** A carta que vale agora. Precedencia: `?carta=` > cheia do nivel (Profissa)

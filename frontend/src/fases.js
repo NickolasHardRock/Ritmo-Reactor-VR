@@ -19,7 +19,7 @@ import { carregarBichos, desenharBichos, limparBichos,
          ANTECEDENCIA_BICHO } from './bichos.js';
 import { jogo, cal, eco, ritmo, FASES, reiniciarEstado } from './estado.js';
 import { synth } from './synth.js';
-import { pistaG, relogio, definirLuz } from './cena.js';
+import { pistaG, relogio, definirLuz, pulsarPalco } from './cena.js';
 import { zonas, mostrarRotulos, destacar } from './kit.js';
 import { msg, julgamento, atualizarHUD, objetivo,
          telaJogando, telaResultado, telaInicio, telaLivre, mostrarCreditos,
@@ -47,6 +47,11 @@ import { PERFEITO, BOM, ERRADO, BONUS_RODADA,
    (jogar de novo, RF09 → "denovo", nao pode esquecer qual musica estava
    tocando so por zerar o placar). */
 let _cartaMusicaEscolhida = null;
+/* O `id` (musicas.json) da música escolhida, irmão de `_cartaMusicaEscolhida`.
+   A carta diz O QUE tocar; o id diz EM QUAL RANKING a partida vai cair — e os
+   dois nem sempre têm o mesmo nome. Sobrevive a "jogar de novo" pelo mesmo
+   motivo da carta: `iniciar()` sem o argumento mantém o que já estava. */
+let _musicaIdEscolhida = null;
 
 function marcar(qualidade){
   if (qualidade === ERRADO){
@@ -424,6 +429,16 @@ export function ritmoAtualizar(){
 const ESPERA_PREPARE = 1200;   // ms de "PREPARE-SE" enquanto a luz cai
 const PASSO_CONTAGEM = 800;    // ms por número da contagem
 
+/* A contagem fica mais QUENTE e mais FORTE a cada número — do azul frio do
+   "3" ao vermelho do "1" — e o holofote acompanha com um flash que cresce
+   junto (ver `pulsarPalco`, cena.js). É a mesma escalada de tensão de um
+   show de verdade: a luz e a cor sobem juntas até a música cair. O "0" nem
+   aparece na tela (a contagem já limpa o aviso nele — ver `contagem`), mas
+   ainda leva o maior flash dos quatro, porque é ele que marca a entrada. */
+const COR_CONTAGEM  = { 3: '#00d9ff', 2: '#ffd34d', 1: '#ff4d6d' };
+const PULSO_CONTAGEM = { 3: 30, 2: 55, 1: 85 };
+const PULSO_ENTRADA  = 130;    // flash do instante em que a música cai
+
 /** A abertura do show: holofote, luz caindo, "PREPARE-SE" e a contagem.
  *
  *  RECEBE O QUE VEM DEPOIS em vez de chamar `ritmoIniciar()` direto, porque
@@ -441,6 +456,7 @@ export function abrirShow(aoTerminar = ritmoIniciar){
   synth.ligar();
   synth.tocar('holofote');
   definirLuz('show');
+  pulsarPalco(20);          // o próprio golpe do holofote já é um flash pequeno
   avisoCentro(['PREPARE-SE'], '#e8eef8');
   setTimeout(() => contagem(3, aoTerminar), ESPERA_PREPARE);
 }
@@ -450,13 +466,15 @@ function contagem(n, aoTerminar){
      `ativo`), e sem esta guarda a música começaria sozinha por cima da tela
      inicial alguns segundos depois. */
   if (!jogo.ativo){ avisoCentro(null); return; }
-  if (n <= 0){ avisoCentro(null); aoTerminar(); return; }
-  avisoCentro([String(n), 'PREPARE-SE'], '#00d9ff');
+  if (n <= 0){ avisoCentro(null); pulsarPalco(PULSO_ENTRADA); aoTerminar(); return; }
+  avisoCentro([String(n), 'PREPARE-SE'], COR_CONTAGEM[n] || '#00d9ff');
   /* Chimbal, não um bipe: é a contagem que baterista dá, e é a mesma entrada
      que a calibragem já usa. */
   synth.tocar('chimbal', .35);
+  pulsarPalco(PULSO_CONTAGEM[n] || 30);
   setTimeout(() => contagem(n - 1, aoTerminar), PASSO_CONTAGEM);
 }
+
 
 /* ====================== MODO LIVRE COM FAIXA =============================
    Para quem SABE tocar. A faixa vem sem bateria, o jogador põe a bateria, e
@@ -542,6 +560,14 @@ function fimDaTrilha(geracao){
  *  passando pela mesma abertura de quem terminou o tutorial — pular não é
  *  entrar pela porta de trás, é abreviar o caminho.
  *
+ *  DESDE 21/09 ESTA FUNÇÃO NÃO FAZ MAIS NADA NA PRÁTICA: `iniciar()` já
+ *  começa a partida na fase 2, então a guarda `jogo.fase >= 2` logo abaixo
+ *  sempre é verdadeira e o `return false` sai na primeira linha. Fica no
+ *  código em vez de apagada porque o botão HTML, o botão 3D e o A do
+ *  controle ainda chamam ela — apagá-la quebraria os três por igual — e
+ *  porque religar o tutorial no futuro é só voltar a chamar
+ *  `calibracaoIniciar()` em `iniciar()`.
+ *
  *  DESDE 07/09 A PARTIDA CONTINUA VALENDO PARA O RANKING. Antes o atalho
  *  ficava fora, porque era chave de teste; agora que pular é parte do fluxo,
  *  deixar fora significaria que quase ninguém ranqueia. */
@@ -570,11 +596,19 @@ function proximaFase(){
 }
 
 /** RF02 — inicia uma nova partida.
+ *
+ *  DESDE 21/09 NÃO HÁ MAIS TUTORIAL NA ENTRADA: toda partida (fora do modo
+ *  livre) cai direto na abertura do show — `abrirShow()`, que já apaga a luz,
+ *  mostra "PREPARE-SE" e faz a contagem — e daí para a fase de ritmo. Antes
+ *  havia Calibração e Eco antes disso, com um botão Pular para quem quisesse
+ *  abreviar; agora não existe o que pular, e o botão (HTML, 3D e o A do
+ *  controle direito em VR) fica mudo sozinho, porque nada mais chama
+ *  `mostrarPular(true)` e a fase já nasce em 2 (ver `pularTutorial`).
+ *
  *  @param livre  modo treino: toca à vontade, sem pontuar
- *  @param direto pula calibração e eco e cai na fase de ritmo. Serve para
- *         testar a música sem jogar 40 segundos antes, e para demonstrar em
- *         sala. Uma partida assim NÃO vai para o ranking: ela pulou dois
- *         terços do jogo e a pontuação não é comparável com as completas.
+ *  @param direto sem efeito — toda partida já começa direto na fase de
+ *         ritmo. Mantido no parâmetro só para não quebrar quem ainda chama
+ *         `iniciar()` passando este argumento.
  *  @param trilha faixa sem bateria para acompanhar, do modo livre. Só faz
  *         sentido com `livre`; sem ela o modo livre é o de sempre, a bateria
  *         solta e nada tocando. Ver `livreIniciar`.
@@ -585,15 +619,16 @@ function proximaFase(){
  *         de voltar à padrão. `null` explícito é que reseta para a padrão —
  *         é o que `iniciarComNivel` manda quando ninguém escolheu música
  *         nenhuma no carrossel.
- *  @param musica `{ id, titulo }` da mesma música, para o banco saber em
- *         qual pódio a partida entra. Anda JUNTO com `cartaMusica`: `undefined`
- *         mantém, `null` reseta para a padrão. */
-export function iniciar(livre = false, direto = false, trilha = null, cartaMusica, musica){
-  if (cartaMusica !== undefined){
-    _cartaMusicaEscolhida = cartaMusica;
-    jogo.musica = musica || null;
-  }
+ *  @param musicaId o `id` dessa mesma música em `musicas.json` — a chave do
+ *         ranking (`jogo.musica`). Mesma regra: `undefined` mantém, `null`
+ *         limpa. */
+export function iniciar(livre = false, direto = false, trilha = null, cartaMusica, musicaId){
+  if (cartaMusica !== undefined) _cartaMusicaEscolhida = cartaMusica;
+  if (musicaId !== undefined) _musicaIdEscolhida = musicaId;
   reiniciarEstado(livre, direto);
+  /* Modo livre não pontua e não vai para ranking nenhum. */
+  jogo.musica = livre ? '' : (_musicaIdEscolhida || '');
+  jogo.nivel  = livre ? '' : nivelAtual();
   ritmo.notas.forEach(n => n.mesh && (n.mesh.visible = false));
   destacar(null);
   mostrarRotulos(true);
@@ -618,16 +653,10 @@ export function iniciar(livre = false, direto = false, trilha = null, cartaMusic
     objetivo('Modo livre — toque à vontade', '#8c9bb5');
     return;
   }
-  if (direto){
-    jogo.fase = 2;
-    mostrarRotulos(false);          // quem vem direto não está aprendendo o kit
-    atualizarHUD();
-    abrirShow();
-    return;
-  }
-  mostrarPular(true);
-  objetivo('Fase 1 — Calibração', '#00d9ff');
-  calibracaoIniciar();
+  jogo.fase = 2;
+  mostrarRotulos(false);          // não há mais tutorial: começa sabendo o kit
+  atualizarHUD();
+  abrirShow();
 }
 
 /** SAIR NO MEIO. Abandona a partida e volta ao menu, nos dois modos.

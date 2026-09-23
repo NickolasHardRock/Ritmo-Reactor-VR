@@ -306,6 +306,98 @@ console.log('\nCT-10  console limpo');
 conf(erros.length === 0, 'nenhum erro de JavaScript', erros.join(' | '));
 
 /* ---------------------------------------------------------------------------
+   CT-13 — a TELA DA MÚSICA: dificuldade no topo, RECORDE (só o 1º) no meio,
+   Jogar embaixo (pedido de 21/09: era top 3 e um botão maior/dourado).
+
+   Vai do carrossel até a partida gravada, pelo mesmo caminho do jogador — só
+   que o "clique" é `menu3d.testeClicar`, porque botão 3D só responde a
+   ponteiro. Fica ANTES do CT-11 porque o CT-11 fecha esta aba.
+   Sem headset e sem servidor à parte: a API é a do próprio arnês.
+   --------------------------------------------------------------------------- */
+console.log('\nCT-13  tela da música: dificuldade, recorde (1º lugar) e Jogar');
+{
+  const M = 'window.__jogo.menu3d.';
+  const estado = () => pagina.evaluate(`${M}testeEstado()`);
+  const clicar = (id) => pagina.evaluate(`${M}testeClicar(${JSON.stringify(id)})`);
+  const api = (q) => fetch(`http://localhost:${PORTA}/api/ranking${q}`).then(r => r.json());
+
+  /* o nome: as letras dos tambores têm de ENTRAR no campo, não tocar peça */
+  /* Esvazia antes: o CT-07c salvou "Teste-Playwright" pelo card de fim, e o
+     campo do alto acompanha o nome salvo — sem isto o texto novo seria
+     acrescentado ao antigo e cortado em NOME_MAX. */
+  await pagina.fill('#nome-jogador', '');
+  await pagina.click('#nome-jogador');
+  await pagina.keyboard.type('Fjkl Sad');
+  conf(await pagina.inputValue('#nome-jogador') === 'Fjkl Sad',
+       'o campo de nome aceita as letras dos tambores (A S D F J K L)',
+       `ficou "${await pagina.inputValue('#nome-jogador')}"`);
+  await pagina.evaluate(`${M}forcarForaDoVR(true)`);   // em modo ?menu2d=1 o 3D vem desligado
+
+  await pagina.evaluate(`${M}mostrar('jogarLista')`);
+  let e = await estado();
+  conf(e.subtela === 'lista' && !e.jogarVisivel,
+       'no carrossel ainda não há JOGAR nem dificuldade', e.botoes.join(' | '));
+  conf(await clicar('jogar') === false, 'JOGAR escondido não responde a clique');
+
+  /* a primeira música do manifesto — o teste vale para a que estiver lá */
+  const cartao = e.botoes[0];
+  await clicar(cartao);
+  e = await estado();
+  const idMusica = e.musica;
+  const lista = await fetch(`http://localhost:${PORTA}/musicas.json`).then(r => r.json());
+  const manifesto = Array.isArray(lista) ? lista : lista.musicas;
+  conf(e.subtela === 'musica' && idMusica === String(manifesto[0].id).replace(/[^\w-]/g, ''),
+       'tocar no cartão abre a tela da música com o id do manifesto', `"${cartao}" → ${idMusica}`);
+  conf(['nivel-facil', 'nivel-normal', 'nivel-profissa', 'jogar'].every(b => e.botoes.includes(b)),
+       'dificuldade (3 botões) e JOGAR estão na tela', e.botoes.join(' | '));
+  conf(e.niveisMarcados.length === 1, 'uma dificuldade marcada por vez', e.niveisMarcados.join(','));
+
+  /* semeia jogadores desta música no Médio: 4, para provar que só o 1º aparece */
+  for (const [nome, pontos] of [['Ana', 900], ['Bia', 500], ['Caio', 700], ['Duda', 300]])
+    await fetch(`http://localhost:${PORTA}/api/partidas`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, pontos, tempo: 80, precisao: 90, erros: 1, comboMax: 9,
+                             estrelas: 4, musica: idMusica, nivel: 'normal' }) });
+
+  await clicar('nivel-normal');
+  await pagina.waitForFunction(`${M}testeEstado().rankingTipo === 'ok'`);
+  e = await estado();
+  conf(e.nivel === 'normal' && e.niveisMarcados.join() === 'normal',
+       'tocar em Médio marca o Médio');
+  conf(await pagina.evaluate('window.__jogo.jogo.ativo') === false,
+       'e NÃO inicia a partida (quem inicia é o JOGAR)');
+  conf(e.ranking.length === 1 && e.ranking[0].nome === 'Ana' && e.ranking[0].pontos === 900,
+       'o recorde mostra só o 1º lugar (não Caio, Bia ou Duda)', e.ranking.map(r => `${r.nome} ${r.pontos}`).join(', '));
+
+  await clicar('nivel-facil');
+  await pagina.waitForFunction(`${M}testeEstado().rankingTipo === 'ok'`);
+  e = await estado();
+  conf(e.nivel === 'facil' && e.ranking.length === 0,
+       'trocar para Fácil troca o recorde (aqui ninguém jogou: "seja o primeiro")');
+
+  /* volta ao Médio e joga */
+  await clicar('nivel-normal');
+  await clicar('jogar');
+  await pagina.waitForFunction('window.__jogo.jogo.ativo === true');
+  const j = await pagina.evaluate('({ m: window.__jogo.jogo.musica, n: window.__jogo.jogo.nivel })');
+  conf(j.m === idMusica && j.n === 'normal',
+       'JOGAR inicia a partida já com música e dificuldade', `${j.m} / ${j.n}`);
+
+  await pagina.evaluate(`(() => { const J = window.__jogo;
+    Object.assign(J.jogo, { pontos: 5000, perfeitas: 20, boas: 6, erros: 3, comboMax: 14 });
+    J.concluir(); })()`);
+  await pagina.waitForFunction(`fetch('/api/ranking?limite=3&musica=${idMusica}&nivel=normal')
+    .then(r => r.json()).then(j => j.itens[0] && j.itens[0].pontos === 5000)`);
+  const top = (await api(`?limite=3&musica=${idMusica}&nivel=normal`)).itens;
+  conf(top[0].pontos === 5000 && top[0].nome === 'Fjkl Sad',
+       'a partida vira o recorde dessa música/nível, com o nome digitado',
+       top.map(t => `${t.nome} ${t.pontos}`).join(', '));
+  conf(!(await api(`?limite=3&musica=${idMusica}&nivel=facil`)).itens.some(t => t.pontos === 5000),
+       'e não vira recorde do Fácil da mesma música');
+  conf(erros.length === 0, 'nenhum erro de JavaScript na tela da música', erros.join(' | '));
+}
+
+/* ---------------------------------------------------------------------------
    CT-11 — as chaves de diagnóstico abrem sem quebrar.
 
    Estas duas só serão usadas DENTRO do headset, num dia marcado, com o

@@ -49,8 +49,11 @@ o envio espera o jogador confirmar o nome — ver `enviarResultadoUmaVez` em
 | `erros` | número | não | 0 a 100.000 (padrão 0) |
 | `comboMax` | número | não | 0 a 100.000 (padrão 0) |
 | `estrelas` | número | sim | 0 a 5 — derivadas da precisão (ver `frontend/src/pontuacao.js`) |
-| `musica` | string | não | 1 a 60 caracteres: letras, números, `-` ou `_`. O `id` da música em `frontend/public/musicas.json`. Sem ela a partida vale só para o ranking geral |
-| `musicaTitulo` | string | não | até 120 caracteres. Só é usado na **primeira** vez que a música aparece; depois o título cadastrado não muda |
+| `musica` | string | não | `id` da música em `public/musicas.json`: letras, números, `-` e `_`, até 60. Decide em qual top 3 a partida cai |
+| `nivel` | string | não | chave da dificuldade (`facil`, `normal`, `profissa`): letras minúsculas, até 20 |
+
+`musica` e `nivel` ausentes são aceitos (cliente antigo): a partida conta no
+ranking geral e em nenhum de música. Formato inválido dá **400**.
 
 Repare que o corpo usa `comboMax` (camelCase) mas as respostas devolvem
 `combo_max`: o corpo segue a convenção do JavaScript e a resposta reflete a
@@ -65,8 +68,8 @@ curl -X POST http://localhost:3000/api/partidas \
 
 **201 — criada.** A resposta é um resumo, não a linha inteira:
 ```json
-{ "id": 1, "nome": "Diego", "musica": "colour-me-red", "pontos": 740,
-  "tempo": 96.2, "estrelas": 4, "criado": "2026-09-01T23:16:02.194Z" }
+{ "id": 1, "nome": "Diego", "pontos": 740, "tempo": 96.2,
+  "estrelas": 4, "criado": "2026-09-01T23:16:02.194Z" }
 ```
 
 **400 — dados inválidos.** Todos os problemas de uma vez, não o primeiro:
@@ -117,6 +120,14 @@ correlacionada.
 | Nome | Padrão | Máximo |
 |---|---|---|
 | `limite` | 10 | 100 |
+| `musica` | — (sem filtro) | mesmo formato do `POST` |
+| `nivel` | — (sem filtro) | mesmo formato do `POST` |
+
+**Top 3 de uma música:** `?limite=3&musica=<id>&nivel=<chave>`. O filtro vale
+*antes* de escolher a melhor partida de cada jogador, e cada nível tem a sua
+tabela (pontos de níveis diferentes não se comparam). Sem ninguém, `itens` vem
+`[]`. `musica`/`nivel` mal formados dão **400**; vazios (`?musica=`) são
+tratados como ausentes.
 
 `limite` inválido (texto, zero, negativo) **não dá 400**: volta para 10.
 Acima de 100 é cortado em 100 — ninguém baixa a tabela inteira numa requisição.
@@ -140,48 +151,6 @@ curl "http://localhost:3000/api/ranking?limite=5"
 
 `total` é o número de **partidas registradas**, não o de linhas devolvidas —
 por isso ele pode ser maior que o tamanho de `itens`.
-
----
-
-## `GET /api/ranking/musicas`
-
-O painel de recordes da tela principal: os melhores jogadores de **cada
-música**. Mesmo critério do ranking geral (RN08) aplicado dentro de cada
-música — a **melhor partida de cada jogador**, por pontos e depois menor
-tempo. Quem jogou vinte vezes a mesma música ocupa **uma** vaga.
-
-**Parâmetros**
-
-| Nome | Padrão | Máximo |
-|---|---|---|
-| `limite` | 3 | 10 |
-
-`limite` inválido volta para 3, como no ranking geral.
-
-```bash
-curl "http://localhost:3000/api/ranking/musicas?limite=3"
-```
-
-**200**
-```json
-{
-  "criterio": "melhor partida de cada jogador em cada música, por pontos e depois menor tempo",
-  "limite": 3,
-  "musicas": [
-    { "musica": "colour-me-red", "titulo": "Colour Me Red",
-      "itens": [
-        { "posicao": 1, "nome": "Bruno", "pontos": 810, "tempo": 94.75,
-          "precisao": 92, "combo_max": 21, "estrelas": 4,
-          "criado": "2026-09-01T23:16:02.194Z" }
-      ] }
-  ]
-}
-```
-
-Só aparecem músicas com **pelo menos uma partida**; quem quer listar também as
-vazias cruza com `musicas.json`, que é o dono da lista (é o que `recordes.js`,
-no front, faz). Partidas sem `musica` — as de antes desta rota existir e as de
-uma carta avulsa pedida por `?carta=` — não entram em pódio nenhum.
 
 ---
 

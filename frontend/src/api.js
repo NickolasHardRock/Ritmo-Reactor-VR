@@ -6,7 +6,7 @@
    Nada do que o jogador fez se perde por causa de uma falha de rede.
    ========================================================================== */
 
-import { API_BASE, CARTA_PADRAO, CARTA_PEDIDA } from './config.js';
+import { API_BASE } from './config.js';
 import { jogo, precisao } from './estado.js';
 import { estrelas } from './pontuacao.js';
 import { statusApi } from './ui.js';
@@ -17,31 +17,38 @@ export function nomeJogador(){
   try { return localStorage.getItem('nome') || 'Jogador'; }
   catch { return 'Jogador'; }
 }
+/** Tamanho máximo do nome. A API aceita 60, mas o nome tem de CABER numa linha
+ *  do top 3 em 3D, lido a 2 m de distância — e nome longo é o que estoura. */
+export const NOME_MAX = 16;
+
 export function definirNome(n){
-  try { localStorage.setItem('nome', n); } catch { /* modo privado, tudo bem */ }
+  const limpo = String(n ?? '').trim().slice(0, NOME_MAX);
+  try { localStorage.setItem('nome', limpo); } catch { /* modo privado, tudo bem */ }
 }
 
-/** A música desta partida, para o pódio de cada música. `null` quando a carta
- *  veio de `?carta=` na URL: ela não é uma música do manifesto e não pode
- *  ganhar uma linha no banco só porque alguém digitou um nome. */
-export function musicaDaPartida(){
-  if (CARTA_PEDIDA) return null;
-  return jogo.musica || { id: CARTA_PADRAO, titulo: null };
+/** O nome que o JOGADOR escolheu, ou '' se ele nunca escolheu nenhum —
+ *  diferente de `nomeJogador()`, que devolve "Jogador" nesse caso. Serve para
+ *  pré-preencher o campo sem gravar "Jogador" como se fosse um nome digitado. */
+export function nomeEscolhido(){
+  try { return localStorage.getItem('nome') || ''; }
+  catch { return ''; }
 }
 
 /** O corpo do POST /partidas. Mantido como função para poder ser testado
  *  sem rede. */
 export function corpoDaPartida(){
-  const m = musicaDaPartida();
   return {
     nome:     nomeJogador(),
-    ...(m ? { musica: m.id, ...(m.titulo ? { musicaTitulo: m.titulo } : {}) } : {}),
     pontos:   jogo.pontos,
     tempo:    +jogo.duracao.toFixed(2),
     precisao: precisao(),
     erros:    jogo.erros,
     comboMax: jogo.comboMax,
     estrelas: estrelas(precisao()),
+    /* Em qual top 3 esta partida cai. Vazios quando não houve música
+       escolhida — a API aceita e guarda como "sem música". */
+    musica:   jogo.musica || '',
+    nivel:    jogo.nivel  || '',
   };
 }
 
@@ -89,24 +96,37 @@ export async function enviarResultadoUmaVez(nome){
   await enviarResultado();
 }
 
+/** O 1º colocado de uma música num nível, para a tela de escolha (menu3d.js).
+ *
+ *  Devolve UMA lista com 0 ou 1 item (nunca mais — pedido de 21/09 trocou o
+ *  top 3 por só o recorde) ou `null` quando não deu para saber — API fora do
+ *  ar, resposta ruim ou demora. A distinção importa para a tela: lista VAZIA
+ *  é "ninguém jogou ainda, seja o primeiro"; `null` é "não consegui
+ *  perguntar", e mostrar "seja o primeiro" nesse caso seria mentir ao
+ *  jogador. O nome ficou `buscarTop3` para não mexer em quem já importa esta
+ *  função (menu3d.js, ferramentas de teste); quem lê é que decide usar só o
+ *  índice 0.
+ *
+ *  Tem limite de espera: a API no Vercel pode demorar alguns segundos numa
+ *  partida a frio, e o menu não pode ficar com "carregando…" para sempre. */
+export async function buscarTop3(musica, nivel, esperaMs = 6000){
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), esperaMs);
+  try {
+    const q = new URLSearchParams({ limite: '1', musica: musica || '', nivel: nivel || '' });
+    const r = await fetch(`${API_BASE}/ranking?${q}`, { signal: ctl.signal });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j.itens) ? j.itens.slice(0, 1) : null;
+  } catch { return null; }
+  finally { clearTimeout(timer); }
+}
+
 /** GET /ranking — usado na tela inicial quando a API está no ar. */
 export async function buscarRanking(limite = 10){
   try {
     const r = await fetch(`${API_BASE}/ranking?limite=${limite}`);
     if (!r.ok) return null;
     return await r.json();
-  } catch { return null; }
-}
-
-/** GET /ranking/musicas — os `limite` melhores de CADA música, para o painel
- *  de recordes da tela principal. Devolve a lista `[{ musica, titulo, itens }]`
- *  ou `null` se a API não respondeu (o painel então diz que está offline em
- *  vez de fingir que ninguém jogou). */
-export async function buscarRankingPorMusica(limite = 3){
-  try {
-    const r = await fetch(`${API_BASE}/ranking/musicas?limite=${limite}`);
-    if (!r.ok) return null;
-    const j = await r.json();
-    return Array.isArray(j.musicas) ? j.musicas : null;
   } catch { return null; }
 }

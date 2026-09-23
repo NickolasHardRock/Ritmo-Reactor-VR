@@ -15,13 +15,15 @@ export const jogo = {
      Serve só para o HUD dizer o que está tocando — a faixa em si é do
      `musica`, e nada aqui é julgado nem enviado para a API. */
   trilha: null,
-  /* A música jogável escolhida no carrossel, `{ id, titulo }` do manifesto
-     (musicas.json), ou null quando ninguém escolheu — e aí vale a padrão. É o
-     que o POST manda para o banco poder montar o pódio de cada música. Fica
-     FORA de `reiniciarEstado` de propósito: "jogar de novo" continua na mesma
-     música, e quem a grava é `iniciar()` em fases.js. */
-  musica: null,
   atalho: false,     // pulou calibração e eco: não entra no ranking
+  /* Qual música e qual nível esta partida está valendo — é o que decide em
+     QUAL top 3 ela cai (ver `corpoDaPartida`, api.js). Preenchidos por
+     `iniciar()` (fases.js) e NÃO por `reiniciarEstado`: a música escolhida no
+     menu sobrevive a "jogar de novo", e é `iniciar` quem sabe qual é. Vazios =
+     partida sem música escolhida (modo `?menu2d=1` sem passar pelo carrossel):
+     conta no ranking geral e em nenhum de música. */
+  musica: '',
+  nivel: '',
   fase: 0,
   pontos: 0,
   combo: 0,
