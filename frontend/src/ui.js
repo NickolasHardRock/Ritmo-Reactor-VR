@@ -24,6 +24,9 @@ import * as menu3d from './menu3d.js';
 
 export const $ = id => document.getElementById(id);
 const mostrar = (id, v) => $(id).classList.toggle('hidden', !v);
+/** O campo do nome só existe fora da partida: durante ela cobriria o HUD, e
+ *  digitar no meio da música competiria com as teclas dos tambores. */
+const mostrarNome = (v) => { const e = $('nome-wrap'); if (e) e.classList.toggle('hidden', !v); };
 
 /* ------------------------------------------------------------ avisos ----- */
 let _tMsg;
@@ -187,6 +190,7 @@ export function mostrarSair(v){
 }
 
 export function telaJogando(){
+  mostrarNome(false);
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
   mostrar('tela-livre', false);
@@ -205,6 +209,7 @@ export function telaJogando(){
  *  aos dois casos (ver `voltarDaLista` no main.js). Dois botões de sair na
  *  mesma tela, um deles fora do alcance do controle, seria pior que um. */
 export function telaLivre(){
+  mostrarNome(true);
   mostrar('tela-inicio', false);
   mostrar('tela-fim', false);
   /* Com o painel 3D no comando (padrão fora do VR desde 16/09 — ver
@@ -221,6 +226,7 @@ export function telaLivre(){
 }
 
 export function telaInicio(){
+  mostrarNome(true);
   mostrar('tela-fim', false);
   mostrar('tela-livre', false);
   /* Mesma regra de `telaLivre`: o card de HTML só aparece quando o painel
@@ -237,7 +243,12 @@ export function telaInicio(){
 }
 export function telaCarregada(){
   mostrar('load', false);
-  mostrar('tela-inicio', true);
+  /* Passa por `telaInicio()` e não liga o card de HTML à mão: com o painel 3D
+     no comando (o padrão fora do VR desde 16/09) o card fica escondido e o
+     menu 3D abre — antes daqui o jogador de PC abria o jogo no card antigo, com
+     JOGAR iniciando direto na música padrão, e nunca via a escolha de música
+     nem o top 3. Com `?menu2d=1` o resultado é o mesmo de sempre: o card. */
+  telaInicio();
 }
 
 /** RF10 — pontuação, resultado, tempo e opção de jogar de novo. */
@@ -263,6 +274,7 @@ export function card2DAtivo(){
 }
 
 export function telaResultado(){
+  mostrarNome(true);
   const prec = precisao();
   const n    = estrelas(prec);
   const v    = veredito(n);

@@ -39,7 +39,8 @@
 
    ONDE CADA GRUPO APARECE, e nunca dois ao mesmo tempo:
      'menu'       antes da partida — JOGAR, Modo livre, Créditos, Calibrar
-     'jogarLista' o carrossel de músicas do Jogar + a dificuldade em overlay
+     'jogarLista' o carrossel de músicas do Jogar + a tela da música (dificuldade
+                  no topo, top 3 no meio, JOGAR embaixo) no mesmo lugar
      'livre'      o carrossel de faixas do modo livre (sem dificuldade)
      'creditos'   time do projeto + crédito de cada música e faixa
      'jogo'       durante a partida — PULAR (só nas fases 0 e 1) e SAIR
@@ -138,82 +139,6 @@ btCalibrarTop.position.set(0, 1.15, Z); grupoMenu.add(btCalibrarTop);
 const rodapeMenu = texto(['aponte o controle e aperte o gatilho'], 1.5, .11,
                          { tam:.72, cor:'#6f7f96' });
 rodapeMenu.position.set(0, .96, Z); grupoMenu.add(rodapeMenu);
-
-/* ============================================ O PAINEL DE RECORDES =======
-   Os três melhores de CADA música, ao lado do menu. É só leitura — placa, não
-   botão — e mora dentro de `grupoMenu`: aparece com o menu e some com ele, sem
-   uma linha a mais em `aplicar()`.
-
-   OS NÚMEROS NÃO SÃO DAQUI. `definirRecordes` recebe as seções já prontas de
-   recordes.js (que fala com a API e cruza com musicas.json); este arquivo só
-   desenha. Mesma divisão do carrossel: quem sabe de dados não sabe de 3D.
-
-   LARGURA DE PÓDIO FIXA. `placa()` reparte a altura igualmente entre as linhas
-   que recebe, então um painel com menos linhas ganharia letra maior sozinho.
-   Por isso cada página tem SEMPRE o mesmo número de linhas (cabeçalho, dois
-   blocos de música com título e três posições, um espaço, o rodapé), com
-   linhas em branco onde faltar. O corpo do texto não muda de uma página para
-   a outra nem quando o primeiro jogador aparece.
-
-   Duas músicas por página; passando disso as páginas se alternam sozinhas a
-   cada 8 s — o painel não tem botão de propósito, para não competir com o
-   JOGAR pelo gatilho. */
-const MUSICAS_POR_PAGINA = 2;
-const painelRecordes = placa(1.10, 1.25, 720);
-painelRecordes.name = 'recordes3d';
-painelRecordes.position.set(1.50, 1.68, Z);
-painelRecordes.rotation.y = -.26;          // vira de frente para quem olha o menu
-grupoMenu.add(painelRecordes);
-
-let _recSecoes = [], _recOffline = false, _recPagina = 0;
-const COR_POSICAO = ['#ffd34d', '#c9d3e0', '#d9955b'];    // ouro, prata, bronze
-const pontosBR = n => Number(n).toLocaleString('pt-BR');
-
-function pintarRecordes(){
-  const paginas = Math.max(1, Math.ceil(_recSecoes.length / MUSICAS_POR_PAGINA));
-  if (_recPagina >= paginas) _recPagina = 0;
-  const grupo = _recSecoes.slice(_recPagina * MUSICAS_POR_PAGINA,
-                                 (_recPagina + 1) * MUSICAS_POR_PAGINA);
-
-  const linhas = ['RECORDES'], cores = ['#00d9ff'], tams = [.78];
-  const add = (t, c, tam) => { linhas.push(t); cores.push(c); tams.push(tam); };
-
-  for (let b = 0; b < MUSICAS_POR_PAGINA; b++){
-    const sec = grupo[b];
-    if (b > 0) add('', '#e8eef8', .5);
-    if (!sec){ for (let i = 0; i < 4; i++) add('', '#e8eef8', .5); continue; }
-    add(sec.titulo, '#e8eef8', .62);
-    for (let i = 0; i < 3; i++){
-      const it = sec.itens[i];
-      if (it) add(`${it.posicao}º  ${it.nome}  ·  ${pontosBR(it.pontos)}`, COR_POSICAO[i], .52);
-      else if (i === 0) add(_recOffline ? 'ranking offline' : 'ninguém jogou ainda', '#6f7f96', .48);
-      else add('', '#e8eef8', .5);
-    }
-  }
-  if (!grupo.length){
-    // sem manifesto e sem API: não há o que listar, e o painel diz por quê
-    add(_recOffline ? 'ranking offline' : 'nenhuma música cadastrada', '#6f7f96', .5);
-  }
-  add(paginas > 1 ? `‹ ${_recPagina + 1} / ${paginas} ›` : '', '#6f7f96', .48);
-
-  painelRecordes.userData.pintar(linhas, { cores, tams,
-    fundo:'rgba(10,14,22,.86)', borda:'rgba(0,217,255,.35)' });
-}
-
-/** @param {{id:string,titulo:string,itens:{posicao:number,nome:string,pontos:number}[]}[]} secoes
- *  @param {boolean} offline a API não respondeu — troca "ninguém jogou" por "offline" */
-export function definirRecordes(secoes, offline = false){
-  _recSecoes = secoes || [];
-  _recOffline = !!offline;
-  pintarRecordes();
-}
-pintarRecordes();
-
-setInterval(() => {
-  if (_tela !== 'menu' || _recSecoes.length <= MUSICAS_POR_PAGINA) return;
-  _recPagina++;
-  pintarRecordes();
-}, 8000);
 
 /* ==================================================== O CARROSSEL ========
    Um componente só, usado pelo Jogar (com dificuldade) e pelo modo livre
@@ -315,53 +240,263 @@ dicaJogar.position.set(0, 1.22, Z); subLista.add(dicaJogar);
 const btVoltarJogar = botao('‹ Voltar', .78, .19, () => mostrar('menu'), .50);
 btVoltarJogar.position.set(0, 1.06, Z); subLista.add(btVoltarJogar);
 
-/* ---- a dificuldade, em overlay do mesmo carrossel ------------------------- */
+/* ---- a TELA DA MÚSICA: dificuldade, top 3 e JOGAR ------------------------
+   Aberta ao tocar num cartão do carrossel, NO MESMO LUGAR dele (mesma moldura,
+   conteúdo trocado — ver o parágrafo do `grupoJogarLista`). De cima para
+   baixo, na ordem em que o jogador decide:
+
+       ‹ Voltar          NOME DA MÚSICA
+             [ Fácil ] [ Médio ] [ Difícil ]        ← 1. escolhe a dificuldade
+             ┌───────────────────────────┐
+             │   🏆  MELHOR · FÁCIL      │          ← 2. vê quem ele tem de bater
+             │       Ana — 31.200        │
+             └───────────────────────────┘
+                     ▶ Jogar                         ← 3. e só então joga
+                jogando como Diego · atraso 32 ms
+
+   ATÉ 18/09 tocar na dificuldade JÁ INICIAVA a partida: escolher e começar
+   era um gesto só, o que não deixava lugar nenhum para mostrar o recorde
+   antes de o jogador se comprometer. Agora a dificuldade só MARCA (e troca o
+   recorde embaixo), e quem começa a partida é o Jogar.
+
+   SÓ O 1º LUGAR — não um top 3. Um placar de "campeão a bater" pesa menos na
+   tela do que uma tabela, e é a única posição que muda o que o jogador faz
+   (ele quer o 1º lugar; um 2º ou 3º lugar não mudam a meta). O recorde é da
+   música E do nível: pontos de níveis diferentes não se comparam (a carta,
+   as peças e as janelas mudam — ver NIVEIS em config.js). Quem lê o recorde é
+   `buscarTop3` (api.js — o nome ficou do pedido original; devolve só o
+   primeiro colocado agora), entregue pelo main.js como ação — mesma razão de
+   sempre: importar api.js aqui fecharia o ciclo api → ui → menu3d. Nada
+   nesta tela sabe QUAIS músicas existem: o id vem do cartão, então qualquer
+   música acrescentada em `musicas.json` já ganha a tela, o recorde e a
+   gravação de partida sem mexer em código. */
 const subDificuldade = new THREE.Group(); grupoJogarLista.add(subDificuldade);
 
 let _musicaEscolhida = null;
+let _nivelChave = 'facil';        // espelha nivelAtual() (config.js); ver pintarMenu
+let _nomeJogador = 'Jogador';
+let _subtitulo = '';
 
-const tituloDificuldade = texto([''], 1.5, .20, { tam:.68, cor:'#00d9ff' });
-tituloDificuldade.position.set(0, 2.16, Z); subDificuldade.add(tituloDificuldade);
-
-/* Um botão por nível, montados a partir da lista que o main.js entrega. A
-   lista NÃO está escrita aqui de propósito: `NIVEIS` já ganhou uma chave nova
-   uma vez (o Profissa, em 09/09) e a cópia à mão do main.js tinha ficado para
-   trás na ocasião. Ver o "contrato de id" em claude/nivel-profissa.md — este
-   é o mesmo contrato, sem HTML.
-
-   OS RÓTULOS AQUI SÃO OS DO PEDIDO — "fácil, médio, difícil" — e não o
-   `nome` de `NIVEIS` (que continua 'Fácil'/'Normal'/'Profissa' em todo o
-   resto do jogo: HTML, `pintarNivel`, os comentários de config.js). Trocar
-   `nome` ali teria efeito em lugares que este pedido não pediu para mexer;
-   o mapa abaixo é só o texto do botão, aqui dentro. Nível novo que não
-   estiver no mapa cai no `nome` original — nunca fica sem rótulo. */
+/* Rótulos e cores de cada dificuldade. Os RÓTULOS são os do pedido — "fácil,
+   médio, difícil" — e não o `nome` de `NIVEIS` (que continua Fácil / Normal /
+   Profissa no resto do jogo: HTML, comentários de config.js); trocar `nome`
+   lá teria efeito em lugares que este pedido não mexe. Nível novo que não
+   estiver nos mapas cai no `nome` original e no ciano — nunca fica sem
+   rótulo nem sem cor. A cor é a mesma do botão e da borda do top 3: o jogador
+   liga uma coisa à outra sem ler. */
 const ROTULO_DIFICULDADE = { facil:'Fácil', normal:'Médio', profissa:'Difícil' };
+const COR_DIFICULDADE    = { facil:'#3ddc97', normal:'#00d9ff', profissa:'#ff4d6d' };
+const corDoNivel = (chave) => COR_DIFICULDADE[chave] || '#00d9ff';
 const botoesNivel = new Map();
 const grupoNiveis = new THREE.Group(); subDificuldade.add(grupoNiveis);
+
+/** O canvas por trás de uma placa — `placa()` (cena.js) o guarda na textura.
+ *  Serve para desenhar coisas que `pintar` (texto centrado em linhas) não faz:
+ *  o top 3 em colunas, o botão em degradê. */
+const canvasDa = (m) => m.material.map.image;
+const atualizarTextura = (m) => { m.material.map.needsUpdate = true; };
+
+/** Corta o texto com "…" até caber em `maxW` na fonte já configurada em `c`. */
+function caber(c, texto, maxW){
+  let t = String(texto);
+  if (c.measureText(t).width <= maxW) return t;
+  while (t.length > 1 && c.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+
+const tituloDificuldade = texto([''], 1.10, .20, { tam:.68, cor:'#00d9ff' });
+tituloDificuldade.position.set(0, 2.38, Z); subDificuldade.add(tituloDificuldade);
 
 /** @param {{chave:string,nome:string}[]} lista */
 export function montarNiveis(lista){
   for (const b of botoesNivel.values()){ grupoNiveis.remove(b); b.geometry.dispose(); }
   botoesNivel.clear();
-  const larg = .40, vao = .04;
+  const larg = .42, vao = .04;
   const total = lista.length * larg + (lista.length - 1) * vao;
   lista.forEach((n, i) => {
     const rotulo = ROTULO_DIFICULDADE[n.chave] || n.nome;
-    const b = botao(rotulo, larg, .19,
-      () => disparar('iniciarComNivel')(n.chave, _musicaEscolhida && _musicaEscolhida.id), .58);
-    b.position.set(-total/2 + larg/2 + i*(larg+vao), 1.86, Z);
+    const cor = corDoNivel(n.chave);
+    /* Só MARCA a dificuldade — quem inicia a partida é o JOGAR. A ação vai ao
+       main.js (`escolherNivel`), que grava a escolha e devolve pelo
+       `pintarMenu`; assim o botão marcado nunca discorda do `nivelAtual()`. */
+    const b = botao(rotulo, larg, .20, () => disparar('escolherNivel')(n.chave), .58);
+    b.userData.id = `nivel-${n.chave}`;
+    b.userData.repintar = () => {
+      const { foco, ligado } = b.userData;
+      b.userData.pintar(rotulo, {
+        tam: .60,
+        cor: (foco || ligado) ? '#06131b' : '#e8eef8',
+        fundo: ligado ? cor : foco ? 'rgba(232,238,248,.94)' : 'rgba(17,24,38,.92)',
+        borda: ligado ? '#ffffff' : cor,
+      });
+    };
+    b.userData.repintar();
+    b.position.set(-total/2 + larg/2 + i*(larg+vao), 2.11, Z);
     grupoNiveis.add(b);
     botoesNivel.set(n.chave, b);
   });
 }
 
-const btVoltarDificuldade = botao('‹ Voltar', .78, .18,
-  () => { _musicaEscolhida = null; atualizarSubtelaJogar(); }, .48);
-btVoltarDificuldade.position.set(0, 1.30, Z); subDificuldade.add(btVoltarDificuldade);
+/* ---- o RECORDE: só o 1º lugar --------------------------------------------
+   Uma placa pequena, desenhada à mão (o `pintar` das outras placas não
+   centraliza um troféu + nome + pontos numa linha só). Três estados:
+     'carregando'   perguntando à API
+     'ok'           `item` é o 1º colocado, ou `null` se ninguém jogou ainda
+                    ("seja o primeiro!", que também é convite)
+     'erro'         não deu para perguntar (API fora, demora). NÃO mostra
+                    "seja o primeiro": dizer isso a quem só está sem rede
+                    seria mentir sobre o placar. */
+const placaRanking = placa(1.10, .32, 900);
+placaRanking.position.set(0, 1.66, Z); subDificuldade.add(placaRanking);
+
+let _ranking = { tipo:'carregando', item:null };
+let _pedido = 0;                   // número do último pedido à API (ver atualizarRanking)
+
+function pintarRanking(){
+  const cv = canvasDa(placaRanking), c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const cor = corDoNivel(_nivelChave);
+  const rotulo = (ROTULO_DIFICULDADE[_nivelChave] || _nivelChave).toUpperCase();
+  c.clearRect(0, 0, W, H);
+
+  c.fillStyle = 'rgba(10,14,22,.94)';
+  c.beginPath(); c.roundRect(0, 0, W, H, H * .16); c.fill();
+  c.strokeStyle = cor; c.lineWidth = 5; c.stroke();
+  c.textBaseline = 'middle';
+
+  if (_ranking.tipo !== 'ok'){
+    c.textAlign = 'center';
+    c.fillStyle = _ranking.tipo === 'erro' ? '#ffb84d' : '#8c9bb5';
+    c.font = `700 ${Math.round(H * .30)}px system-ui, sans-serif`;
+    c.fillText(_ranking.tipo === 'erro' ? 'recorde indisponível' : 'carregando…', W / 2, H * .5);
+    atualizarTextura(placaRanking);
+    return;
+  }
+
+  const item = _ranking.item;
+  c.textAlign = 'left';
+  c.fillStyle = item ? '#ffd34d' : '#5b6b83';
+  c.font = `900 ${Math.round(H * .40)}px system-ui, sans-serif`;
+  c.fillText('🏆', W * .05, H * .52);
+
+  const xTexto = W * .05 + H * .48;
+  if (item){
+    c.fillStyle = '#8c9bb5';
+    c.font = `700 ${Math.round(H * .155)}px system-ui, sans-serif`;
+    c.fillText(`MELHOR · ${rotulo}`, xTexto, H * .27);
+    c.fillStyle = '#e8eef8';
+    c.font = `800 ${Math.round(H * .28)}px system-ui, sans-serif`;
+    const nome = caber(c, item.nome, W * .55);
+    c.fillText(nome, xTexto, H * .62);
+    c.textAlign = 'right'; c.fillStyle = cor;
+    c.font = `800 ${Math.round(H * .28)}px system-ui, sans-serif`;
+    c.fillText(Number(item.pontos).toLocaleString('pt-BR'), W * .95, H * .62);
+  } else {
+    c.fillStyle = '#ffd34d';
+    c.font = `800 ${Math.round(H * .17)}px system-ui, sans-serif`;
+    c.fillText(caber(c, `seja o primeiro · ${rotulo}`, W * .87 - xTexto), xTexto, H * .52);
+  }
+  atualizarTextura(placaRanking);
+}
+
+/** Pergunta quem é o 1º colocado da música aberta, no nível marcado agora.
+ *
+ *  `_pedido` numera as perguntas: quem toca Fácil → Médio → Difícil depressa
+ *  dispara três, e as respostas podem voltar fora de ordem. Só a do ÚLTIMO
+ *  pedido pode pintar — senão o recorde do Médio apareceria sob o botão
+ *  Difícil, o tipo de erro que ninguém percebe na hora e ninguém acredita
+ *  depois. */
+function atualizarRanking(){
+  if (!_musicaEscolhida) return;
+  const meu = ++_pedido;
+  _ranking = { tipo:'carregando', item:null };
+  pintarRanking();
+  const busca = acoes.buscarTop3;
+  if (!busca){ _ranking = { tipo:'erro', item:null }; pintarRanking(); return; }
+  Promise.resolve(busca(_musicaEscolhida.id, _nivelChave))
+    .then(itens => Array.isArray(itens) ? { tipo:'ok', item: itens[0] || null } : { tipo:'erro', item:null },
+          () => ({ tipo:'erro', item:null }))
+    .then(estado => { if (meu === _pedido){ _ranking = estado; pintarRanking(); } });
+}
+
+/* ---- o botão Jogar --------------------------------------------------------
+   Discreto de propósito: mesma paleta ciano/grafite dos outros botões da
+   tela — não um degradê dourado — e sem halo. Continua um pouco maior e com
+   um leve pulso, o bastante para se achar rápido sem competir com o recorde
+   logo acima. Pinta a própria placa (`pintar` não desenha o triângulo de
+   "play"; o caractere ▶ vira emoji colorido em alguns navegadores). */
+const LARG_JOGAR = .78, ALT_JOGAR = .24;
+const btJogarGrande = botao('Jogar', LARG_JOGAR, ALT_JOGAR, () => {
+  disparar('iniciarComNivel')(_nivelChave, _musicaEscolhida && _musicaEscolhida.id);
+}, .58);
+btJogarGrande.userData.id = 'jogar';
+btJogarGrande.position.set(0, 1.32, Z);
+subDificuldade.add(btJogarGrande);
+
+btJogarGrande.userData.repintar = () => {
+  const { foco } = btJogarGrande.userData;
+  const cv = canvasDa(btJogarGrande), c = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  c.clearRect(0, 0, W, H);
+  c.fillStyle = foco ? 'rgba(0,217,255,.22)' : 'rgba(17,24,38,.92)';
+  c.beginPath(); c.roundRect(0, 0, W, H, H * .5); c.fill();
+  c.strokeStyle = foco ? '#00d9ff' : 'rgba(0,217,255,.55)';
+  c.lineWidth = foco ? 6 : 4;
+  c.beginPath(); c.roundRect(c.lineWidth / 2, c.lineWidth / 2,
+                             W - c.lineWidth, H - c.lineWidth, H * .5); c.stroke();
+
+  const corpo = Math.round(H * .46);
+  c.font = `800 ${corpo}px system-ui, sans-serif`;
+  const larguraTexto = c.measureText('Jogar').width, lado = corpo * .5, folga = corpo * .3;
+  const x0 = (W - (lado + folga + larguraTexto)) / 2;
+  c.fillStyle = '#00d9ff';
+  c.beginPath();                               // o triângulo de "play"
+  c.moveTo(x0, H / 2 - lado * .55); c.lineTo(x0, H / 2 + lado * .55);
+  c.lineTo(x0 + lado, H / 2); c.closePath(); c.fill();
+  c.fillStyle = '#e8eef8';
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.fillText('Jogar', x0 + lado + folga, H / 2 + 2);
+  atualizarTextura(btJogarGrande);
+};
+btJogarGrande.userData.repintar();
+
+/** Pulso discreto do Jogar — bem mais sutil que o da versão anterior, sem
+ *  halo. Chamado uma vez por quadro pelo laço do main.js, com o relógio da
+ *  cena — em VR e fora dele. Sai na primeira linha quando a tela da música
+ *  não está aberta, então o custo fora dela é zero. */
+export function animarMenu(t){
+  if (!grupoJogarLista.visible || !subDificuldade.visible) return;
+  const s = 1 + .012 * (.5 + .5 * Math.sin(t * 2.4));
+  btJogarGrande.scale.set(s, s, 1);
+}
+
+/* ---- rodapé e volta ------------------------------------------------------ */
+const subStatusDificuldade = texto([''], 1.5, .13, { tam:.62, cor:'#a9b6cc' });
+subStatusDificuldade.position.set(0, .88, Z); subDificuldade.add(subStatusDificuldade);
+
+function pintarRodape(){
+  const partes = [`jogando como ${_nomeJogador}`];
+  if (_subtitulo) partes.push(_subtitulo);
+  subStatusDificuldade.userData.pintar([partes.join('  ·  ')],
+    { fundo:false, tam:.62, cor:'#a9b6cc' });
+}
+
+/** O nome do jogador, para o rodapé. Chamado do main.js quando o campo de
+ *  nome (HTML) muda. Existe porque em VR não há teclado: o nome é digitado
+ *  na página antes de entrar, e aqui o jogador confere que é o dele. */
+export function pintarJogador(nome){
+  _nomeJogador = String(nome || 'Jogador');
+  pintarRodape();
+}
+
+const btVoltarDificuldade = botao('‹ Voltar', .34, .18,
+  () => { _musicaEscolhida = null; atualizarSubtelaJogar(); }, .50);
+btVoltarDificuldade.position.set(-.86, 2.38, Z); subDificuldade.add(btVoltarDificuldade);
 
 function abrirDificuldade(musica){
   _musicaEscolhida = musica;
   atualizarSubtelaJogar();
+  atualizarRanking();
 }
 
 function atualizarSubtelaJogar(){
@@ -390,20 +525,26 @@ export function montarMusicas(lista){
   atualizarCreditos();
 }
 
-/** Escreve o nível escolhido e o atraso calibrado, chamado pelo
+/** Marca o nível escolhido e escreve o rodapé (atraso calibrado). Chamado pelo
  *  `pintarNivel()` do main.js sempre que um dos dois muda — inclusive vindo
- *  dos botões de HTML, fora do VR. Marca o botão "ligado" na dificuldade e
- *  escreve o status logo abaixo dos três botões. */
+ *  dos botões de HTML, fora do VR. Se o nível MUDOU com a tela da música
+ *  aberta, a tabela de cima é trocada pela do novo nível. */
 export function pintarMenu(chaveAtual, subtitulo = ''){
+  const mudou = chaveAtual !== _nivelChave;
+  _nivelChave = chaveAtual;
+  _subtitulo = subtitulo;
   for (const [chave, b] of botoesNivel){
     b.userData.ligado = (chave === chaveAtual);
     b.userData.repintar();
   }
-  subStatusDificuldade.userData.pintar([subtitulo], { fundo:false, tam:.55, cor:'#8c9bb5' });
+  pintarRodape();
+  if (mudou && _musicaEscolhida) atualizarRanking();
+  else if (mudou) pintarRanking();
 }
 
-const subStatusDificuldade = texto([''], 1.5, .10, { tam:.55, cor:'#8c9bb5' });
-subStatusDificuldade.position.set(0, 1.58, Z); subDificuldade.add(subStatusDificuldade);
+/* Estado inicial das placas de desenho manual. */
+pintarRanking();
+pintarRodape();
 
 /* ---- 'livre': o carrossel de faixas do modo livre -------------------------
    O MESMO componente do Jogar, sem a etapa de dificuldade: escolher um
@@ -570,10 +711,6 @@ export function mostrar(qual){
   if (qual === 'jogarLista') _musicaEscolhida = null;
   _tela = qual;
   aplicar();
-  /* O menu principal acabou de abrir: o painel de recordes pede os números de
-     novo (uma partida pode ter acabado de mudar o pódio). O que faz isso é o
-     main.js — importar a API daqui fecharia um ciclo, como as outras ações. */
-  if (qual === 'menu') disparar('menuAberto')();
 }
 export function mostrarPular3D(v){ _pular = !!v; aplicar(); }
 export function telaAtual(){ return _tela; }
@@ -876,5 +1013,44 @@ export function revisar(){ aplicar(); }
  *  respondem de verdade. Continua não substituindo o teste no Quest: o
  *  arrasto e o realce por toque só existem lá. */
 export function forcarForaDoVR(v){ _forcar = !!v; aplicar(); }
+
+/* ------------------------------------------------ GANCHOS DE TESTE -------
+   Botão 3D só responde a ponteiro de VR ou a clique de mouse sobre um plano
+   dentro de um canvas — nada que o Playwright alcance com `page.click`. Estes
+   dois expõem o mesmo caminho que o gatilho e o mouse percorrem (`userData.
+   acao` de um alvo visível), sem simular raycast. Não fazem nada que o jogador
+   não faça: `testeClicar` só aciona o que está VISÍVEL agora, e por isso um
+   botão escondido pela tela errada continua não respondendo — que é
+   justamente o que se quer poder conferir. Usados por ferramentas/teste-jogo.mjs
+   (CT-13) e por quem abrir `window.__jogo.menu3d` no console. */
+
+/** Foto do que está na tela da música/menu, em dados simples. */
+export function testeEstado(){
+  return {
+    tela: _tela,
+    subtela: !grupoJogarLista.visible ? null : (subDificuldade.visible ? 'musica' : 'lista'),
+    musica: _musicaEscolhida ? _musicaEscolhida.id : null,
+    nivel: _nivelChave,
+    niveisMarcados: [...botoesNivel].filter(([, b]) => b.userData.ligado).map(([k]) => k),
+    rankingTipo: _ranking.tipo,
+    /* segue como array (0 ou 1 item) para não quebrar quem já lê `.ranking`
+       do jeito antigo — só que agora nunca tem mais que 1. */
+    ranking: _ranking.item ? [{ nome: _ranking.item.nome, pontos: _ranking.item.pontos }] : [],
+    jogarVisivel: alvosVisiveis().includes(btJogarGrande),
+    rodape: _nomeJogador,
+    botoes: alvosVisiveis().map(o => o.userData.id
+      || (Array.isArray(o.userData.rotulo) ? o.userData.rotulo[0] : o.userData.rotulo)),
+  };
+}
+
+/** Aciona o botão VISÍVEL com esse `id` (ou rótulo/título). `true` se achou. */
+export function testeClicar(id){
+  const alvo = alvosVisiveis().find(o => o.userData.id === id
+    || o.userData.rotulo === id
+    || (Array.isArray(o.userData.rotulo) && o.userData.rotulo[0] === id));
+  if (!alvo) return false;
+  alvo.userData.acao?.();
+  return true;
+}
 
 aplicar();

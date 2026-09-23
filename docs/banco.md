@@ -3,15 +3,14 @@
 ## Modelo (DER)
 
 ```
-┌─────────────────────┐            ┌──────────────────────────────┐            ┌─────────────────────┐
-│ jogador             │            │ partida                      │            │ musica              │
-├─────────────────────┤            ├──────────────────────────────┤            ├─────────────────────┤
-│ id        SERIAL PK │ 1        N │ id          SERIAL PK        │ N        1 │ id        SERIAL PK │
-│ nome      VARCHAR60 │◄───────────│ jogador_id  INTEGER FK       │───────────►│ slug      VARCHAR60 │
-│           UNIQUE    │            │ musica_id   INTEGER FK NULL  │            │           UNIQUE    │
-│ criado    TIMESTAMP │            │ pontos      INTEGER          │            │ titulo    VARCHAR120│
-└─────────────────────┘            │ tempo       NUMERIC(7,2)     │            │ criado    TIMESTAMP │
-                                   │ precisao    SMALLINT 0..100  │            └─────────────────────┘
+┌─────────────────────┐            ┌──────────────────────────────┐
+│ jogador             │            │ partida                      │
+├─────────────────────┤            ├──────────────────────────────┤
+│ id        SERIAL PK │ 1        N │ id          SERIAL PK        │
+│ nome      VARCHAR60 │◄───────────│ jogador_id  INTEGER FK       │
+│           UNIQUE    │            │ pontos      INTEGER          │
+│ criado    TIMESTAMP │            │ tempo       NUMERIC(7,2)     │
+└─────────────────────┘            │ precisao    SMALLINT 0..100  │
                                    │ erros       SMALLINT         │
                                    │ combo_max   SMALLINT         │
                                    │ estrelas    SMALLINT 0..5    │
@@ -19,37 +18,10 @@
                                    └──────────────────────────────┘
 ```
 
-**Por que tabelas separadas e não uma só.** Guardar o nome dentro de cada
-partida repetiria a mesma string a cada jogo e tornaria impossível corrigir um
-nome digitado errado sem varrer todas as linhas. Separando, o ranking também
-fica trivial: agrupa por `jogador_id`. O mesmo vale para a música.
-
-### Recordes por música (18/09)
-
-O painel da tela principal mostra os três melhores de **cada** música. Para
-isso entraram a tabela `musica` e a coluna `partida.musica_id`.
-
-- **`musica.slug`** é o `id` de `frontend/public/musicas.json`. A linha nasce
-  na primeira partida registrada naquela música (`acharOuCriarMusica`); o
-  título só vale nessa primeira vez, então um POST forjado não renomeia uma
-  música já cadastrada.
-- **`partida.musica_id` aceita NULL** de propósito: as partidas gravadas antes
-  desta tabela existir e as de uma carta avulsa pedida por `?carta=` continuam
-  valendo no ranking geral, sem entrar em pódio nenhum.
-- **Não existe tabela "pódio".** Os três melhores são *derivados* de
-  `partida`. Guardá-los à parte criaria um segundo lugar para atualizar a cada
-  partida — e que pode discordar do primeiro. O pódio é calculado na hora
-  (`rankingPorMusica`, um `DISTINCT ON (musica_id, jogador_id)` mais
-  `ROW_NUMBER() OVER (PARTITION BY musica_id …)`), e o índice
-  `idx_partida_musica_jogador` é o que ele percorre.
-
-**Banco que já está em uso.** A API aplica a mudança sozinha na próxima
-subida (`iniciar()` usa `CREATE TABLE IF NOT EXISTS` e `ADD COLUMN IF NOT
-EXISTS`). Quem prefere aplicar antes, à mão, roda
-[`../backend/db/migracoes/002-musicas.sql`](../backend/db/migracoes/002-musicas.sql)
-— que só acrescenta, ao contrário do `schema.sql`, que começa com `DROP`.
-Conferir depois: `node ferramentas/testa-recordes.mjs` (com `DATABASE_URL`
-definida roda no Postgres e apaga as linhas de teste no fim).
+**Por que duas tabelas e não uma.** Guardar o nome dentro de cada partida
+repetiria a mesma string a cada jogo e tornaria impossível corrigir um nome
+digitado errado sem varrer todas as linhas. Separando, o ranking também fica
+trivial: agrupa por `jogador_id`.
 
 O script completo, com as restrições e os índices comentados, está em
 [`../backend/db/schema.sql`](../backend/db/schema.sql).
@@ -89,6 +61,15 @@ São dois porque o `schema.sql` é destrutivo e não pode rodar sozinho quando a
 API sobe. Já divergiram uma vez: faltavam no código os `CHECK` de `erros` e
 `combo_max` e o índice `idx_partida_jogador` — que é exatamente o que o
 `DISTINCT ON (jogador_id)` do ranking percorre. **Mexeu num, confira o outro.**
+
+### Colunas `musica` e `nivel` (top 3 por música)
+
+`partida.musica` e `partida.nivel` (`VARCHAR NOT NULL DEFAULT ''`) dizem em qual
+top 3 a partida cai; `''` = sem música escolhida. Como o `CREATE TABLE IF NOT
+EXISTS` não altera tabela existente, o `iniciar()` também roda
+`ALTER TABLE … ADD COLUMN IF NOT EXISTS` — é isso que migra o banco de produção,
+sem apagar nada. Conferido num PostgreSQL 16 com o esquema antigo e uma partida
+já gravada (`npm run test:ranking -- --postgres`, teste 7).
 
 ### O pool, e por que ele derrubava a API
 

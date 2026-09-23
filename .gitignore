@@ -36,8 +36,10 @@ _to_delete/
 # Faixa de audio da fase de ritmo: uso didatico em sala, NAO distribuir.
 # Cada um guarda a copia local; commitar aqui seria publicar.
 frontend/public/sounds/som.mp3
+frontend/public/sounds/livre/smells-like-teen-spirit.mp3
 # A carta dela tambem fica fora: descreve o arranjo nota por nota.
 frontend/public/cartas/money*.json
+frontend/public/cartas/smells-like-teen-spirit*.json
 
 # Diesel13 'Colour Me Red' ENTRA no repositorio, por decisao do Diego.
 # O Readme do pacote diz "educational purposes only" e veta uso comercial
@@ -63,3 +65,7 @@ Claude outputs/
 frontend/public/modelos/bateria_uastc.glb
 frontend/public/modelos/bateria_misto.glb
 frontend/public/modelos/bateria_etc1s.glb
+frontend/public/sounds/livre/rock-and-roll-all-nite.mp3
+frontend/public/cartas/rock-and-roll-all-nite*.json
+frontend/public/sounds/livre/cant-stop.mp3
+frontend/public/cartas/cant-stop*.json
