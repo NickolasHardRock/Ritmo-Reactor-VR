@@ -40,7 +40,7 @@ import { $, msg, atualizarHUD, objetivo, telaCarregada, telaInicio, telaLivre,
          telaResultado, calibragem3D, esconderResultado3D } from './ui.js';
 import { carregarTrilhas } from './trilhas.js';
 import { carregarMusicas } from './musicas.js';
-import { atualizarRecordes } from './recordes.js';
+import { buscarTop3, nomeJogador, definirNome, nomeEscolhido, NOME_MAX } from './api.js';
 
 /* ------------------------------------------------------ carregamento -----
    A CAPTURA DO AMBIENTE PENDURA NO FIM DO CENÁRIO, e não num tempo fixo.
@@ -96,6 +96,12 @@ function distanciaMudou(d){
 }
 
 addEventListener('keydown', e => {
+  /* NÃO ROUBAR A TECLA DE QUEM ESTÁ DIGITANDO O NOME. A, S, D, F, J, K e L
+     são as peças da bateria e este handler chama `preventDefault()` nelas:
+     sem esta guarda o campo de nome engoliria essas letras (não dá para
+     escrever "Diego" ou "Paulo") e ainda tocaria um tambor a cada uma. O
+     `desempenho.js` já fazia o mesmo com P e R, e por este mesmo motivo. */
+  if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
   if (registrarBatida()) return;   // calibragem em curso
   if (e.repeat) return;
   if (e.code === 'BracketLeft'){  ajustarVisao(-.03, alturaMudou); return; }
@@ -195,13 +201,9 @@ renderer.setAnimationLoop(() => {
   animarBalanco(dt);
   animarLuzes(dt);                // transição tutorial → show, quando há uma
 
+  menu3d.animarMenu(t);           // pulso do JOGAR; sai na hora se a tela não está aberta
+
   camera.getWorldPosition(_v);
-  /* Os dois painéis laterais (placar e objetivo) só existem durante a
-     partida. No menu, na lista de faixas, nos créditos e na tela de
-     resultado eles eram texto solto no ar — "0 pts · combo 0" e
-     "Aguardando início" sem nada para pontuar ou aguardar. `jogo.ativo`
-     cai tanto em concluir() quanto em abandonar(), então cobre as duas saídas. */
-  painelHUD.visible = painelObj.visible = jogo.ativo;
   painelHUD.lookAt(_v);
   painelObj.lookAt(_v);
   camera.getWorldQuaternion(_q);
@@ -359,12 +361,18 @@ menu3d.definirAcoes({
   iniciarComNivel: (chave, musicaId) => {
     definirNivel(chave); pintarNivel();
     const m = porMusica(musicaId);
-    iniciar(false, false, null, m && m.carta, m && { id: m.id, titulo: m.titulo });
+    /* O 5º argumento é o `id` do cartão: é ele, e não a carta, que diz em
+       QUAL top 3 a partida vai cair (ver `jogo.musica`, estado.js). Sem
+       música achada, `null` limpa — a partida vale só no ranking geral. */
+    iniciar(false, false, null, m && m.carta, m ? m.id : null);
   },
-  /* O menu principal acabou de abrir (por qualquer caminho: começo, fim de
-     partida, Sair, voltar de um submenu). É aqui que o painel de recordes
-     pede os números de novo — uma partida pode ter acabado de mudar o pódio. */
-  menuAberto: () => atualizarRecordes(),
+  /* A dificuldade na tela da música só MARCA — quem inicia é o JOGAR. Grava
+     a escolha e repinta; o `pintarMenu` que `pintarNivel` chama é quem troca
+     o top 3 e o botão marcado, então a tela nunca discorda do `nivelAtual()`. */
+  escolherNivel: (chave) => { definirNivel(chave); pintarNivel(); },
+  /* O top 3 da tela da música. Devolve a Promise: o menu3d (que não pode
+     importar api.js sem fechar o ciclo api → ui → menu3d) espera por ela. */
+  buscarTop3: (musicaId, nivel) => buscarTop3(musicaId, nivel),
   calibrar:  () => comecarCalibragem(),
   fecharCal: () => fecharAjustes(),
   pular:    () => { if (pularTutorial()) msg('Pulando para a música', 'gold', 1.4); },
@@ -375,6 +383,30 @@ menu3d.definirAcoes({
 /* A lista de níveis sai de `NIVEIS`, não de uma cópia à mão: mesmo contrato
    do `pintarNivel` e dos ids `btn-nivel-<chave>` no HTML. */
 menu3d.montarNiveis(Object.keys(NIVEIS).map(c => ({ chave:c, nome:NIVEIS[c].nome })));
+
+/* ============================ O NOME DO JOGADOR ===========================
+   É o que aparece no top 3. `definirNome` existia desde o início e NADA o
+   chamava: toda partida era gravada como "Jogador", e um top 3 de nomes
+   iguais não diz nada. Agora há um campo (`#nome-jogador`, index.html) e ele
+   grava a cada tecla — sem botão de "salvar" para esquecer de apertar.
+
+   EM VR NÃO HÁ TECLADO. Quem joga de headset digita o nome na página, no
+   navegador do Quest, ANTES de tocar em ENTER VR; lá dentro o rodapé da tela
+   da música mostra "jogando como …" para conferir. Um teclado 3D dentro do
+   headset seria o passo seguinte, e é bem maior que este. */
+const campoNome = $('nome-jogador');
+if (campoNome){
+  campoNome.maxLength = NOME_MAX;
+  campoNome.value = nomeEscolhido();
+  campoNome.addEventListener('input', () => {
+    definirNome(campoNome.value);
+    menu3d.pintarJogador(nomeJogador());
+  });
+  /* Enter tira o foco: sem isto o teclado (virtual, no Quest) fica aberto por
+     cima do jogo e a próxima tecla de tambor seria digitada no campo. */
+  campoNome.addEventListener('keydown', e => { if (e.key === 'Enter') campoNome.blur(); });
+}
+menu3d.pintarJogador(nomeJogador());
 
 
 /* =================== A LISTA DO MODO LIVRE ================================
@@ -473,10 +505,7 @@ let musicas = [];
 const porMusica = (id) => musicas.find(m => m.id === id) || null;
 
 menu3d.montarMusicas([]);
-carregarMusicas().then(l => {
-  musicas = l; menu3d.montarMusicas(l);
-  atualizarRecordes(l);            // a lista chegou: o painel já pode listar as músicas
-});
+carregarMusicas().then(l => { musicas = l; menu3d.montarMusicas(l); });
 
 
 /* ------------------------------------------------- nível e calibragem ----- */
@@ -503,8 +532,9 @@ function pintarNivel(){
                 : 'atraso ainda não calibrado');
   if (m) m.textContent = texto;
   /* O mesmo estado no menu 3D. Curto ali: a placa é lida a 2,6 m. */
-  menu3d.pintarMenu(k, `${NIVEIS[k]?.nome || ''} · `
-    + (c !== null ? `atraso ${Math.round(c*1000)} ms` : 'atraso não calibrado'));
+  /* Só o atraso: o nível já está no botão marcado, e repeti-lo aqui ainda
+     o chamaria de "Normal" enquanto o botão diz "Médio". */
+  menu3d.pintarMenu(k, c !== null ? `atraso ${Math.round(c*1000)} ms` : 'atraso não calibrado');
 }
 /* AJUSTE FINO. Calibração medida é a base; o resto é gosto e reflexo de cada
    um, e ninguém acerta isso por cálculo — acerta jogando. Dez em dez

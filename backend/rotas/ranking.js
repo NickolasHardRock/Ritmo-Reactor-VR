@@ -9,45 +9,39 @@
 
 import { Router } from 'express';
 import { db } from '../db/index.js';
+import { ID_MUSICA, ID_NIVEL } from './partidas.js';
 
 export const rotaRanking = Router();
 
-/** GET /api/ranking?limite=10 */
+/** Lê um filtro opcional da query. Ausente ou vazio → `undefined` (não filtra).
+ *  Presente e mal formado → `null`, para a rota responder 400. */
+function filtroDaQuery(valor, formato){
+  if (valor === undefined || valor === '') return undefined;
+  return (typeof valor === 'string' && formato.test(valor)) ? valor : null;
+}
+
+/** GET /api/ranking?limite=10[&musica=<id>][&nivel=<chave>] */
 rotaRanking.get('/', async (req, res, next) => {
   try {
     let limite = Number(req.query.limite ?? 10);
     if (!Number.isInteger(limite) || limite < 1) limite = 10;
     limite = Math.min(limite, 100);            // teto: ninguém baixa a tabela toda
 
+    const musica = filtroDaQuery(req.query.musica, ID_MUSICA);
+    const nivel  = filtroDaQuery(req.query.nivel,  ID_NIVEL);
+    if (musica === null) return res.status(400).json({ erro: 'musica inválida' });
+    if (nivel  === null) return res.status(400).json({ erro: 'nivel inválido' });
+    const filtro = {};
+    if (musica !== undefined) filtro.musica = musica;
+    if (nivel  !== undefined) filtro.nivel  = nivel;
+
     const base = await db();
     res.json({
       criterio: 'melhor partida por jogador, por pontos e depois menor tempo',
-      total: await base.total(),
-      itens: await base.ranking(limite),
-    });
-  } catch (e) { next(e); }
-});
-
-/**
- * GET /api/ranking/musicas?limite=3
- *
- * Os melhores jogadores de CADA música — o painel da tela principal. Mesmo
- * critério do ranking geral (a melhor partida de cada jogador, por pontos e
- * depois menor tempo), aplicado dentro de cada música. Só aparecem músicas que
- * já têm ao menos uma partida; quem quer listar também as vazias cruza com
- * public/musicas.json, que é o dono da lista.
- */
-rotaRanking.get('/musicas', async (req, res, next) => {
-  try {
-    let limite = Number(req.query.limite ?? 3);
-    if (!Number.isInteger(limite) || limite < 1) limite = 3;
-    limite = Math.min(limite, 10);
-
-    const base = await db();
-    res.json({
-      criterio: 'melhor partida de cada jogador em cada música, por pontos e depois menor tempo',
-      limite,
-      musicas: await base.rankingPorMusica(limite),
+      musica: musica ?? null,
+      nivel:  nivel  ?? null,
+      total: await base.total(filtro),
+      itens: await base.ranking(limite, filtro),
     });
   } catch (e) { next(e); }
 });

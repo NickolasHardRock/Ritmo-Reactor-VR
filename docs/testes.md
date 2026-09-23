@@ -28,6 +28,28 @@ código 1 se algum caso falhar, então serve para CI sem alteração.
 | CT-08 | Desempenho | draw calls por quadro abaixo de 200 |
 | CT-09 | RF11/RF12 | a partida chega à API, ao ranking e a tela confirma |
 | CT-10 | Console | nenhum erro de JavaScript |
+| CT-13 | Tela da música | carrossel → dificuldade só marca → top 3 troca com o nível → JOGAR → partida entra no top 3 com o nome digitado |
+
+### Ranking por música, sem navegador
+
+```bash
+npm run test:ranking                       # em memória, ~2 s, não toca em banco
+$env:BANCO_TESTE_URL="postgresql://..."    # PowerShell — opcional, banco de teste
+node ferramentas/testa-ranking-musica.mjs --postgres
+```
+
+Confere ordem, desempate, "melhor partida por jogador", isolamento entre
+músicas e níveis e **toda música de `musicas.json` × 3 níveis** (uma música
+nova nos cartões já entra no teste). Com `--postgres` também testa a migração
+do esquema antigo, num schema temporário. Ignora a `DATABASE_URL` de propósito.
+
+### Ver o top 3 na tela
+
+```bash
+npm run dev:api        # terminal 1 (banco em memória)
+npm run seed:ranking   # terminal 2: 1ª música com top 3 cheio, 2ª com 1 vaga livre, resto vazio
+npm run dev            # terminal 3 → JOGAR → escolha a música
+```
 
 ### CT-02 — o número que vale um slide na apresentação
 

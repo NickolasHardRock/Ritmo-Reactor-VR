@@ -45,13 +45,6 @@
       <button class="txt" id="btn-ajustes">Ajustes</button>
     </div>
 
-    <!-- Os três melhores de cada música. Preenchido por recordes.js — a lista
-         vem de musicas.json e os nomes da API (GET /api/ranking/musicas). -->
-    <section class="recordes" aria-label="Recordes por música">
-      <div class="tag">Recordes</div>
-      <div id="recordes-lista"></div>
-    </section>
-
     <div class="badge"><span class="dot" id="xr-dot"></span><span id="xr-msg">verificando VR…</span></div>
     <p class="faixa" id="inicio-creditos"></p>
     <div class="credits">
@@ -143,6 +136,17 @@
       <button class="ghost" id="btn-menu">Menu</button>
     </div>
   </div>
+</div>
+
+<!-- O NOME QUE APARECE NO TOP 3. Fixo no alto, fora de qualquer tela, porque tem de
+     estar ao alcance em todos os menus — o do HTML e o de 3D — e some durante a
+     partida (ui.js -> telaJogando). Em VR não há teclado: quem joga de headset
+     digita aqui, na página, ANTES de tocar em ENTER VR. Grava a cada tecla
+     (main.js), então não existe botão de salvar para esquecer. -->
+<div id="nome-wrap" class="hidden">
+  <label for="nome-jogador">Seu nome</label>
+  <input id="nome-jogador" type="text" placeholder="Jogador" maxlength="16"
+         autocomplete="off" autocapitalize="words" spellcheck="false">
 </div>
 
 <div id="hud" class="hidden">

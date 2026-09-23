@@ -304,7 +304,7 @@ function _estado(nome){
 }
 function _aplicar(){
   luzAmbiente.intensity = _atual.hemi;
-  luzChave.intensity    = _atual.palco;
+  luzChave.intensity    = _atual.palco + _pulsoAtual();
   /* `environmentIntensity` da CENA, e não `envMapIntensity` do material: aqui
      se quer mexer no reflexo de tudo de uma vez, cenário incluído. O caminho
      por material existe e é outro — ver kit.js. */
@@ -329,15 +329,55 @@ export function definirLuz(nome, imediato = false){
   }
 }
 
-/** Chamar uma vez por quadro, com o dt do laço. */
+/* =========================== PULSO DO HOLOFOTE ============================
+   Um flash curto por cima do que `definirLuz` já está mostrando — para a
+   contagem "PREPARE-SE" marcar cada batida com um golpe de luz, e não só
+   com o som do chimbal. NÃO é um terceiro estado de luz: é um empurrão
+   temporário na intensidade do spot, que decai sozinho e soma em cima do
+   que `_atual.palco` valer no momento (`_aplicar()` acima já soma os dois).
+
+   Por isso funciona tanto em cima do fade tutorial→show em andamento quanto
+   depois dele já ter terminado — os dois casos precisam continuar chamando
+   `_aplicar()` a cada quadro enquanto o pulso ainda não decaiu por completo,
+   e é isso que `animarLuzes` confere abaixo. */
+let _pulsoT    = 1;      // 0 = acabou de disparar, 1 = já sumiu de vez
+let _pulsoPico = 0;      // quanto somar no instante do disparo
+const PULSO_DECAIMENTO = .35;   // segundos até o pulso sumir de vez
+
+/** Dispara um flash no holofote. Chamado a cada batida da contagem
+ *  (fases.js → `contagem`), com um `pico` que cresce a cada número — o
+ *  show vai ficando mais intenso conforme a música se aproxima.
+ *  @param {number} pico intensidade extra somada ao spot no instante do
+ *         disparo (mesma unidade de `PALCO.intensidade`). */
+export function pulsarPalco(pico){
+  _pulsoPico = pico;
+  _pulsoT = 0;
+}
+/* Decaimento em curva quadrática: cai rápido no início — o "golpe" do
+   flash — e suaviza no fim, em vez de sumir em linha reta e parecer
+   picado. */
+function _pulsoAtual(){
+  return _pulsoT >= 1 ? 0 : _pulsoPico * (1 - _pulsoT) * (1 - _pulsoT);
+}
+
+/** Chamar uma vez por quadro, com o dt do laço. Sai de graça (sem tocar em
+ *  nada) quando não há fade nem pulso em curso — o caso comum, fora da
+ *  abertura do show. */
 export function animarLuzes(dt){
-  if (_t >= 1) return;
-  _t = Math.min(1, _t + dt / LUZ.transicao);
-  const e = _t * _t * (3 - 2 * _t);              // smoothstep
-  for (const k of ['hemi', 'palco', 'amb'])
-    _atual[k] = _de[k] + (_para[k] - _de[k]) * e;
-  _corAtual.lerpColors(_corDe, _corPara, e);
-  _aplicar();
+  let mudou = false;
+  if (_t < 1){
+    _t = Math.min(1, _t + dt / LUZ.transicao);
+    const e = _t * _t * (3 - 2 * _t);              // smoothstep
+    for (const k of ['hemi', 'palco', 'amb'])
+      _atual[k] = _de[k] + (_para[k] - _de[k]) * e;
+    _corAtual.lerpColors(_corDe, _corPara, e);
+    mudou = true;
+  }
+  if (_pulsoT < 1){
+    _pulsoT = Math.min(1, _pulsoT + dt / PULSO_DECAIMENTO);
+    mudou = true;
+  }
+  if (mudou) _aplicar();
 }
 
 definirLuz('tutorial', true);
